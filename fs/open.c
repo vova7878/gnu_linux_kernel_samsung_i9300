@@ -34,6 +34,9 @@
 #include <linux/ima.h>
 #include <linux/dnotify.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/fs.h>
+
 #include "internal.h"
 
 int do_truncate2(struct vfsmount *mnt, struct dentry *dentry, loff_t length,
@@ -1040,6 +1043,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			} else {
 				fsnotify_open(f);
 				fd_install(fd, f);
+				trace_do_sys_open(tmp, flags, mode);
 			}
 		}
 		putname(tmp);

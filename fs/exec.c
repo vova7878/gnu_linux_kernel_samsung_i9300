@@ -59,6 +59,8 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 
+#include <trace/events/fs.h>
+
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/tlb.h>
@@ -149,6 +151,10 @@ if (!god_mode_enabled)
 		goto exit;
 
 	fsnotify_open(file);
+
+	tmp = getname(library);
+	trace_uselib(tmp);
+	putname(library);
 
 	error = -ENOEXEC;
 	if(file->f_op) {
@@ -794,6 +800,8 @@ if (!god_mode_enabled)
 		goto exit;
 
 	fsnotify_open(file);
+
+	trace_open_exec(name);
 
 	err = deny_write_access(file);
 	if (err)
