@@ -1809,6 +1809,18 @@ out:
 	raw_spin_unlock_irq(&ctx->lock);
 }
 
+/*
+ * See perf_event_disable();
+ */
+void perf_event_enable(struct perf_event *event)
+{
+	struct perf_event_context *ctx;
+
+	ctx = perf_event_ctx_lock(event);
+	_perf_event_enable(event);
+	perf_event_ctx_unlock(event, ctx);
+}
+
 static int perf_event_refresh(struct perf_event *event, int refresh)
 {
 	/*
@@ -1822,6 +1834,7 @@ static int perf_event_refresh(struct perf_event *event, int refresh)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(perf_event_refresh);
 
 static void ctx_sched_out(struct perf_event_context *ctx,
 			  struct perf_cpu_context *cpuctx,
