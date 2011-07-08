@@ -352,7 +352,6 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 					max_pass, delta, total_scan);
 
 		while (total_scan > min_cache_size) {
-			long this_scan = SHRINK_BATCH;
 			int nr_before;
 
 			if (total_scan < batch_size)
