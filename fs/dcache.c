@@ -778,8 +778,9 @@ relock:
 }
 
 /**
- * prune_dcache - shrink the dcache
- * @count: number of entries to try to free
+ * prune_dcache_sb - shrink the dcache
+ * @sb: superblock
+ * @nr_to_scan: number of entries to try to free
  *
  * Shrink the dcache. This is done when we need more memory, or simply when we
  * need to unmount something (at which point we need to unuse all dentries).
