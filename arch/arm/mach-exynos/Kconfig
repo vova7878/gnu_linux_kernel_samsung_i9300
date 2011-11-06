@@ -410,6 +410,20 @@ config EXYNOS4_SETUP_MIPI_DSI
 	help
 	  Common setup code for MIPI_DSIM.
 
+comment "Flattened Device Tree based board for Exynos4 based SoC"
+
+config MACH_EXYNOS4_DT
+	bool "Samsung Exynos4 Machine using device tree"
+	select CPU_EXYNOS4210
+	select USE_OF
+	select ARM_AMBA
+	select HAVE_SAMSUNG_KEYPAD if INPUT_KEYBOARD
+	help
+	  Machine support for Samsung Exynos4 machine with device tree enabled.
+	  Select this if a fdt blob is available for the Exynos4 SoC based board.
+	  Note: This is under development and not all peripherals can be supported
+	  with this machine file.
+
 config EXYNOS4_SETUP_MIPI_DSIM
 	bool
 	depends on FB_MIPI_DSIM
