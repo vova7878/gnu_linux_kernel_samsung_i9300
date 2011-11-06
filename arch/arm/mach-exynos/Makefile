@@ -266,6 +266,8 @@ obj-$(CONFIG_MACH_PX)			+= sec-reboot.o
 obj-$(CONFIG_MACH_P10)			+= mach-p10.o p10-gpio.o sec-common.o p10-input.o \
 					   p10-switch.o p10-battery.o midas-sound.o p10-mhl.o
 
+obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
+
 # device support
 
 obj-$(CONFIG_ARCH_EXYNOS)		+= dev-audio.o
