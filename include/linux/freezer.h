@@ -74,7 +74,7 @@ static inline bool cgroup_freezing(struct task_struct *task)
 }
 static inline int cgroup_freezing_or_frozen(struct task_struct *task)
 {
-	return 0;
+	return false;
 }
 
 #endif /* !CONFIG_CGROUP_FREEZER */
