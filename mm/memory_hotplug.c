@@ -975,7 +975,10 @@ repeat:
 	undo_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
 #endif
 	/* removal success */
-	zone->present_pages -= offlined_pages;
+	if (offlined_pages > zone->present_pages)
+		zone->present_pages = 0;
+	else
+		zone->present_pages -= offlined_pages;
 	zone->zone_pgdat->node_present_pages -= offlined_pages;
 	totalram_pages -= offlined_pages;
 
