@@ -1406,11 +1406,7 @@ static int get_any_page(struct page *p, unsigned long pfn, int flags)
 		/* Not a free page */
 		ret = 1;
 	}
-#ifndef CONFIG_DMA_CMA
-	unset_migratetype_isolate(p);
-#else
 	unset_migratetype_isolate(p, MIGRATE_MOVABLE);
-#endif
 	unlock_memory_hotplug();
 	return ret;
 }
