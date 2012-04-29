@@ -8,7 +8,6 @@
  *
  */
 
-#include <linux/export.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/resume-trace.h>
@@ -17,18 +16,19 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
+#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4)
+#define CONFIG_DVFS_LIMIT
+#endif
+
 #if defined(CONFIG_CPU_EXYNOS4210)
 #define CONFIG_GPU_LOCK
 #define CONFIG_ROTATION_BOOSTER_SUPPORT
 #endif
 
-#if defined(CONFIG_CPU_EXYNOS4412) && defined(CONFIG_MALI400) \
-			&& defined(CONFIG_MALI_DVFS)
-#define CONFIG_EXYNOS4_GPU_LOCK
-#endif
-
+#ifdef CONFIG_DVFS_LIMIT
 #include <linux/cpufreq.h>
 #include <mach/cpufreq.h>
+#endif
 
 #ifdef CONFIG_GPU_LOCK
 #include <mach/gpufreq.h>
@@ -379,8 +379,7 @@ EXPORT_SYMBOL(fake_shut_down);
 extern void wakelock_force_suspend(void);
 #endif
 
-static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t n)
+static suspend_state_t decode_state(const char *buf, size_t n)
 {
 #ifdef CONFIG_SUSPEND
 	suspend_state_t state = PM_SUSPEND_STANDBY;
@@ -388,23 +387,19 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 #endif
 	char *p;
 	int len;
-	int error = -EINVAL;
 
 	p = memchr(buf, '\n', n);
 	len = p ? p - buf : n;
 
-	/* First, check if we are requested to hibernate */
-	if (len == 4 && !strncmp(buf, "disk", len)) {
-		error = hibernate();
-  goto Exit;
-	}
+	/* Check hibernation first. */
+	if (len == 4 && !strncmp(buf, "disk", len))
+		return PM_SUSPEND_MAX;
 
 #ifdef CONFIG_SUSPEND
-	for (s = &pm_states[state]; state < PM_SUSPEND_MAX; s++, state++) {
+	for (s = &pm_states[state]; state < PM_SUSPEND_MAX; s++, state++)
 		if (*s && len == strlen(*s) && !strncmp(buf, *s, len))
-			break;
-	}
-
+			return state;
+#endif
 #ifdef CONFIG_FAST_BOOT
 	if (len == 4 && !strncmp(buf, "dmem", len)) {
 		pr_info("%s: fake shut down!!!\n", __func__);
@@ -413,24 +408,34 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 	}
 #endif
 
-	if (state < PM_SUSPEND_MAX && *s) {
-#ifdef CONFIG_EARLYSUSPEND
-		if (state == PM_SUSPEND_ON || valid_state(state)) {
-			error = 0;
-			request_suspend_state(state);
-		}
-#ifdef CONFIG_FAST_BOOT
-		if (fake_shut_down)
-			wakelock_force_suspend();
-#endif
-#else
-		error = enter_state(state);
-		suspend_stats_update(error);
-#endif
-	}
-#endif
+	return PM_SUSPEND_ON;
+}
 
- Exit:
+static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	suspend_state_t state;
+	int error;
+
+	error = pm_autosleep_lock();
+	if (error)
+		return error;
+
+	if (pm_autosleep_state() > PM_SUSPEND_ON) {
+		error = -EBUSY;
+		goto out;
+	}
+
+	state = decode_state(buf, n);
+	if (state < PM_SUSPEND_MAX)
+		error = pm_suspend(state);
+	else if (state == PM_SUSPEND_MAX)
+		error = hibernate();
+	else
+		error = -EINVAL;
+
+ out:
+	pm_autosleep_unlock();
 	return error ? error : n;
 }
 
@@ -471,7 +476,8 @@ static ssize_t wakeup_count_show(struct kobject *kobj,
 {
 	unsigned int val;
 
-	return pm_get_wakeup_count(&val) ? sprintf(buf, "%u\n", val) : -EINTR;
+	return pm_get_wakeup_count(&val, true) ?
+		sprintf(buf, "%u\n", val) : -EINTR;
 }
 
 static ssize_t wakeup_count_store(struct kobject *kobj,
@@ -479,15 +485,106 @@ static ssize_t wakeup_count_store(struct kobject *kobj,
 				const char *buf, size_t n)
 {
 	unsigned int val;
+	int error;
 
+	error = pm_autosleep_lock();
+	if (error)
+		return error;
+
+	if (pm_autosleep_state() > PM_SUSPEND_ON) {
+		error = -EBUSY;
+		goto out;
+	}
+
+	error = -EINVAL;
 	if (sscanf(buf, "%u", &val) == 1) {
 		if (pm_save_wakeup_count(val))
-			return n;
+			error = n;
 	}
-	return -EINVAL;
+
+ out:
+	pm_autosleep_unlock();
+	return error;
 }
 
 power_attr(wakeup_count);
+
+#ifdef CONFIG_PM_AUTOSLEEP
+static ssize_t autosleep_show(struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      char *buf)
+{
+	suspend_state_t state = pm_autosleep_state();
+
+	if (state == PM_SUSPEND_ON)
+		return sprintf(buf, "off\n");
+
+#ifdef CONFIG_SUSPEND
+	if (state < PM_SUSPEND_MAX)
+		return sprintf(buf, "%s\n", valid_state(state) ?
+						pm_states[state] : "error");
+#endif
+#ifdef CONFIG_HIBERNATION
+	return sprintf(buf, "disk\n");
+#else
+	return sprintf(buf, "error");
+#endif
+}
+
+static ssize_t autosleep_store(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       const char *buf, size_t n)
+{
+	suspend_state_t state = decode_state(buf, n);
+	int error;
+
+	if (state == PM_SUSPEND_ON
+	    && !(strncmp(buf, "off", 3) && strncmp(buf, "off\n", 4)))
+		return -EINVAL;
+
+	error = pm_autosleep_set_state(state);
+	return error ? error : n;
+}
+
+power_attr(autosleep);
+#endif /* CONFIG_PM_AUTOSLEEP */
+
+#ifdef CONFIG_PM_WAKELOCKS
+static ssize_t wake_lock_show(struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      char *buf)
+{
+	return pm_show_wakelocks(buf, true);
+}
+
+static ssize_t wake_lock_store(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       const char *buf, size_t n)
+{
+	int error = pm_wake_lock(buf);
+	return error ? error : n;
+}
+
+power_attr(wake_lock);
+
+static ssize_t wake_unlock_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	return pm_show_wakelocks(buf, false);
+}
+
+static ssize_t wake_unlock_store(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 const char *buf, size_t n)
+{
+	int error = pm_wake_unlock(buf);
+	return error ? error : n;
+}
+
+power_attr(wake_unlock);
+
+#endif /* CONFIG_PM_WAKELOCKS */
 #endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_PM_TRACE
@@ -532,13 +629,8 @@ power_attr(pm_trace_dev_match);
 
 #endif /* CONFIG_PM_TRACE */
 
-#ifdef CONFIG_USER_WAKELOCK
-power_attr(wake_lock);
-power_attr(wake_unlock);
-#endif
-
-int cpufreq_max_limit_val = -1;
-int cpufreq_max_limit_coupled = SCALING_MAX_UNDEFINED; /* Yank555.lu - not yet defined at startup */
+#ifdef CONFIG_DVFS_LIMIT
+static int cpufreq_max_limit_val = -1;
 static int cpufreq_min_limit_val = -1;
 DEFINE_MUTEX(cpufreq_limit_mutex);
 
@@ -566,10 +658,8 @@ static ssize_t cpufreq_table_show(struct kobject *kobj,
 		min_freq = policy->min_freq;
 		max_freq = policy->max_freq;
 	#else /* /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min&max_freq */
-/*		min_freq = policy->cpuinfo.min_freq;
-		max_freq = policy->cpuinfo.max_freq;*/
-		min_freq = policy->min; /* Yank555.lu :                                            */
-		max_freq = policy->max; /*   use govenor's min/max scaling to limit the freq table */
+		min_freq = policy->cpuinfo.min_freq;
+		max_freq = policy->cpuinfo.max_freq;
 	#endif
 	}
 
@@ -594,7 +684,7 @@ static ssize_t cpufreq_table_store(struct kobject *kobj,
 }
 
 #define VALID_LEVEL 1
-int get_cpufreq_level(unsigned int freq, unsigned int *level)
+static int get_cpufreq_level(unsigned int freq, unsigned int *level)
 {
 	struct cpufreq_frequency_table *table;
 	unsigned int i = 0;
@@ -632,7 +722,6 @@ static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
 	unsigned int cpufreq_level;
 	int lock_ret;
 	ssize_t ret = -EINVAL;
-	struct cpufreq_policy *policy;
 
 	mutex_lock(&cpufreq_limit_mutex);
 
@@ -644,27 +733,19 @@ static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
 	if (val == -1) { /* Unlock request */
 		if (cpufreq_max_limit_val != -1) {
 			exynos_cpufreq_upper_limit_free(DVFS_LOCK_ID_USER);
-			/* Yank555.lu - unlock now means set lock to scaling max to support powersave mode properly */
-			/* cpufreq_max_limit_val = -1; */
-			policy = cpufreq_cpu_get(0);
-			if (get_cpufreq_level(policy->max, &cpufreq_level) == VALID_LEVEL) {
-				lock_ret = exynos_cpufreq_upper_limit(DVFS_LOCK_ID_USER, cpufreq_level);
-				cpufreq_max_limit_val = policy->max;
-				cpufreq_max_limit_coupled = SCALING_MAX_COUPLED;
-			}
+			cpufreq_max_limit_val = -1;
 		} else /* Already unlocked */
 			printk(KERN_ERR "%s: Unlock request is ignored\n",
 				__func__);
 	} else { /* Lock request */
-		if (get_cpufreq_level((unsigned int)val, &cpufreq_level) == VALID_LEVEL) {
-			if (cpufreq_max_limit_val != -1) {
+		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
+		    == VALID_LEVEL) {
+			if (cpufreq_max_limit_val != -1)
 				/* Unlock the previous lock */
-				exynos_cpufreq_upper_limit_free(DVFS_LOCK_ID_USER);
-				cpufreq_max_limit_coupled = SCALING_MAX_UNCOUPLED; /* if a limit existed, uncouple */
-			} else {
-				cpufreq_max_limit_coupled = SCALING_MAX_COUPLED; /* if no limit existed, we're booting, couple */
-			}
-			lock_ret = exynos_cpufreq_upper_limit(DVFS_LOCK_ID_USER, cpufreq_level);
+				exynos_cpufreq_upper_limit_free(
+					DVFS_LOCK_ID_USER);
+			lock_ret = exynos_cpufreq_upper_limit(
+					DVFS_LOCK_ID_USER, cpufreq_level);
 			/* ret of exynos_cpufreq_upper_limit is meaningless.
 			   0 is fail? success? */
 			cpufreq_max_limit_val = val;
@@ -738,6 +819,7 @@ out:
 power_attr(cpufreq_table);
 power_attr(cpufreq_max_limit);
 power_attr(cpufreq_min_limit);
+#endif /* CONFIG_DVFS_LIMIT */
 
 #ifdef CONFIG_GPU_LOCK
 static int gpu_lock_val;
@@ -919,17 +1001,25 @@ static struct attribute *g[] = {
 	&wakeup_count_attr.attr,
 	&touch_event_attr.attr,
 	&touch_event_timer_attr.attr,
-#ifdef CONFIG_PM_DEBUG
-	&pm_test_attr.attr,
+#ifdef CONFIG_PM_AUTOSLEEP
+	&autosleep_attr.attr,
 #endif
-#ifdef CONFIG_USER_WAKELOCK
+#ifdef CONFIG_PM_WAKELOCKS
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+#ifdef CONFIG_PM_DEBUG
+	&pm_test_attr.attr,
 #endif
+#endif
+#ifdef CONFIG_DVFS_LIMIT
 	&cpufreq_table_attr.attr,
 	&cpufreq_max_limit_attr.attr,
 	&cpufreq_min_limit_attr.attr,
+#endif
+#ifdef CONFIG_GPU_LOCK
+	&gpu_lock_attr.attr,
+#endif
 #ifdef CONFIG_PEGASUS_GPU_LOCK
 	&mali_lock_attr.attr,
 #endif
@@ -973,7 +1063,10 @@ static int __init pm_init(void)
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)
 		return -ENOMEM;
-	return sysfs_create_group(power_kobj, &attr_group);
+	error = sysfs_create_group(power_kobj, &attr_group);
+	if (error)
+		return error;
+	return pm_autosleep_init();
 }
 
 core_initcall(pm_init);
