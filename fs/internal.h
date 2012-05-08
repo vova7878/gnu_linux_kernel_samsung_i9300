@@ -55,7 +55,7 @@ extern void mnt_make_shortterm(struct vfsmount *);
 
 extern void __init mnt_init(void);
 
-DECLARE_BRLOCK(vfsmount_lock);
+extern struct lglock vfsmount_lock;
 
 
 /*
