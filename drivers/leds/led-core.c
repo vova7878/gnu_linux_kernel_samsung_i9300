@@ -24,6 +24,13 @@ EXPORT_SYMBOL_GPL(leds_list_lock);
 LIST_HEAD(leds_list);
 EXPORT_SYMBOL_GPL(leds_list);
 
+static void led_stop_software_blink(struct led_classdev *led_cdev)
+{
+	/* deactivate previous settings */
+	led_cdev->blink_delay_on = 0;
+	led_cdev->blink_delay_off = 0;
+}
+
 static void led_set_software_blink(struct led_classdev *led_cdev,
 				   unsigned long delay_on,
 				   unsigned long delay_off)
@@ -45,7 +52,7 @@ static void led_set_software_blink(struct led_classdev *led_cdev,
 
 	/* never off - just set to brightness */
 	if (!delay_off) {
-		__led_set_brightness(led_cdev, led_cdev->blink_brightness);
+		led_set_brightness(led_cdev, led_cdev->blink_brightness);
 		return;
 	}
 
@@ -102,14 +109,10 @@ void led_blink_set(struct led_classdev *led_cdev,
 }
 EXPORT_SYMBOL(led_blink_set);
 
-void led_brightness_set(struct led_classdev *led_cdev,
+void led_set_brightness(struct led_classdev *led_cdev,
 			enum led_brightness brightness)
 {
-	/* stop and clear soft-blink timer */
-	del_timer_sync(&led_cdev->blink_timer);
-	led_cdev->blink_delay_on = 0;
-	led_cdev->blink_delay_off = 0;
-
-	__led_set_brightness(led_cdev, brightness);
+	led_stop_software_blink(led_cdev);
+	led_cdev->brightness_set(led_cdev, brightness);
 }
-EXPORT_SYMBOL(led_brightness_set);
+EXPORT_SYMBOL(led_set_brightness);
