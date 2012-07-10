@@ -2918,7 +2918,7 @@ static int rt_fill_info(struct net *net,
 	struct flowi4 *fl4 = &(inet_sk(skb->sk))->cork.fl.u.ip4;
 	unsigned long expires = 0;
 	const struct inet_peer *peer = rt->peer;
-	u32 id = 0, ts = 0, tsage = 0, error;
+	u32 id = 0, error;
 
 	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*r), flags);
 	if (nlh == NULL)
@@ -2975,10 +2975,6 @@ static int rt_fill_info(struct net *net,
 	if (peer) {
 		inet_peer_refcheck(rt->peer);
 		id = atomic_read(&peer->ip_id_count) & 0xffff;
-		if (peer->tcp_ts_stamp) {
-			ts = peer->tcp_ts;
-			tsage = get_seconds() - peer->tcp_ts_stamp;
-		}
 		expires = ACCESS_ONCE(peer->pmtu_expires);
 		if (expires)
 			expires -= jiffies;
@@ -3009,7 +3005,7 @@ static int rt_fill_info(struct net *net,
 			NLA_PUT_U32(skb, RTA_IIF, rt->rt_iif);
 	}
 
-	if (rtnl_put_cacheinfo(skb, &rt->dst, id, ts, tsage,
+	if (rtnl_put_cacheinfo(skb, &rt->dst, id, 0, 0,
 			       expires, error) < 0)
 		goto nla_put_failure;
 
