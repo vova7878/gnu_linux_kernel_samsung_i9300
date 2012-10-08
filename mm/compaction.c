@@ -255,7 +255,7 @@ typedef enum {
  * the migrate scanner within compact_control.
  */
 static isolate_migrate_t isolate_migratepages(struct zone *zone,
-					struct compact_control *cc)
+					struct compact_control *cc, bool unevictable)
 {
 	unsigned long low_pfn, end_pfn;
 	unsigned long last_pageblock_nr = 0, pageblock_nr;
@@ -373,6 +373,9 @@ static isolate_migrate_t isolate_migratepages(struct zone *zone,
 
 		if (!cc->sync)
 			mode |= ISOLATE_ASYNC_MIGRATE;
+
+		if (unevictable)
+			mode |= ISOLATE_UNEVICTABLE;
 
 		/* Try isolate the page */
 		if (__isolate_lru_page(page, mode, 0) != 0)
