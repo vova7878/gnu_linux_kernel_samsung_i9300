@@ -790,13 +790,8 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		SetPageReferenced(page);
 
-#ifndef CONFIG_DMA_CMA
-		if (referenced_page)
-			return PAGEREF_ACTIVATE;
-#else
 		if (referenced_page || referenced_ptes > 1)
 			return PAGEREF_ACTIVATE;
-#endif
 
 		/*
 		 * Activate file-backed executable pages after first usage.
@@ -1118,18 +1113,10 @@ int __isolate_lru_page(struct page *page, isolate_mode_t mode, int file)
 	if (!all_lru_mode && !!page_is_file_cache(page) != file)
 		return ret;
 
-	/*
-	 * When this function is being called for lumpy reclaim, we
-	 * initially look into all LRU pages, active, inactive and
-	 * unevictable; only give shrink_page_list evictable pages.
-	 */
-	if (PageUnevictable(page))
-#ifndef CONFIG_DMA_CMA
+	/* Compaction should not handle unevictable pages but CMA can do so */
+	if (PageUnevictable(page) && !(mode & ISOLATE_UNEVICTABLE))
 		return ret;
-#else
-		printk(KERN_ERR "%s[%d] Unevictable page %p\n",
-					__func__, __LINE__, page);
-#endif
+
 	ret = -EBUSY;
 
 	/*
