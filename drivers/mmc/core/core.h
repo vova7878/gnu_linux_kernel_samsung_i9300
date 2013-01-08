@@ -98,5 +98,7 @@ static inline void mmc_register_pm_notifier(struct mmc_host *host) { }
 static inline void mmc_unregister_pm_notifier(struct mmc_host *host) { }
 #endif
 
+int mmc_start_movi_smart(struct mmc_card *card);
+int mmc_start_movi_operation(struct mmc_card *card);
 #endif
 
