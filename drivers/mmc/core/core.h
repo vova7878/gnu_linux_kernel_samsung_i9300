@@ -89,5 +89,7 @@ void mmc_init_context_info(struct mmc_host *host);
 
 int mmc_execute_tuning(struct mmc_card *card);
 
+int mmc_start_movi_smart(struct mmc_card *card);
+int mmc_start_movi_operation(struct mmc_card *card);
 #endif
 
