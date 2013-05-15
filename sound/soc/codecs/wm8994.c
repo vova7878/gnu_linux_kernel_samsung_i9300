@@ -2138,6 +2138,7 @@ static int wm8994_get_fll_config(struct wm8994 *control, struct fll_div *fll,
 		fll->lambda = 0;
 
 		pr_debug("N=%x K=%x\n", fll->n, fll->k);
+		break;
 
 	default:
 		gcd_fll = gcd(freq_out, freq_in);
