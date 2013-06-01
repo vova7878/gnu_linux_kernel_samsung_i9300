@@ -464,3 +464,12 @@ config DEBUG_VMALLOC
 	  are the PID and the name of the task requesting vmalloc.
 
 	  Disabling these can result in savings in code size.
+
+config DYNAMIC_PAGE_WRITEBACK
+	bool "Dynamically manage the dirty page writebacks during suspend/resume"
+	default n
+	help
+	  This feature allows to use different dirty page writeback intervals
+	  when the system is suspended and when the system has been resumed.
+
+	  If unsure, say N to disable this feature
