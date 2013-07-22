@@ -31,6 +31,7 @@
 #include "squashfs_fs_sb.h"
 #include "squashfs.h"
 #include "decompressor.h"
+#include "page_actor.h"
 
 #define LZ4_LEGACY	1
 
@@ -46,25 +47,12 @@ struct squashfs_lz4 {
 
 
 
-static void *lz4_init(struct squashfs_sb_info *msblk, void *buff, int len)
+static void *lz4_init(struct squashfs_sb_info *msblk, void *buff)
 {
 	struct lz4_comp_opts *comp_opts = buff;
 	int block_size = max_t(int, msblk->block_size, SQUASHFS_METADATA_SIZE);
 	struct squashfs_lz4 *stream;
 	int err = -ENOMEM;
-
-	/* LZ4 compressed filesystems always have compression options */
-	if(comp_opts == NULL || len < sizeof(*comp_opts)) {
-		err = -EIO;
-		goto failed;
-	}
-	if(le32_to_cpu(comp_opts->version) != LZ4_LEGACY) {
-		/* LZ4 format currently used by the kernel is the 'legacy'
-		 * format */
-		ERROR("Unknown LZ4 version\n");
-		err = -EINVAL;
-		goto failed;
-	}
 
 	stream = kzalloc(sizeof(*stream), GFP_KERNEL);
 	if (stream == NULL)
@@ -100,22 +88,16 @@ static void lz4_free(void *strm)
 }
 
 
-static int lz4_uncompress(struct squashfs_sb_info *msblk, void **buffer,
-	struct buffer_head **bh, int b, int offset, int length, int srclength,
-	int pages)
+static int lz4_uncompress(struct squashfs_sb_info *msblk, void *strm,
+	struct buffer_head **bh, int b, int offset, int length,
+	struct squashfs_page_actor *output)
 {
-	struct squashfs_lz4 *stream = msblk->stream;
-	void *buff = stream->input;
+	struct squashfs_lz4 *stream = strm;
+	void *buff = stream->input, *data;
 	int avail, i, bytes = length, res;
-	size_t dest_len = srclength;
-
-	mutex_lock(&msblk->read_data_mutex);
+	size_t out_len = output->length;
 
 	for (i = 0; i < b; i++) {
-		wait_on_buffer(bh[i]);
-		if (!buffer_uptodate(bh[i]))
-			goto block_release;
-
 		avail = min(bytes, msblk->devblksize - offset);
 		memcpy(buff, bh[i]->b_data + offset, avail);
 		buff += avail;
@@ -124,32 +106,30 @@ static int lz4_uncompress(struct squashfs_sb_info *msblk, void **buffer,
 		put_bh(bh[i]);
 	}
 
-	res = lz4_decompress_unknownoutputsize(stream->input, length,
-					stream->output, &dest_len);
+	res = lz4_decompress_unknownoutputsize(stream->input, (size_t)length,
+					stream->output, &out_len);
 	if (res)
 		goto failed;
 
-	bytes = dest_len;
-	for (i = 0, buff = stream->output; bytes && i < pages; i++) {
-		avail = min_t(int, bytes, PAGE_CACHE_SIZE);
-		memcpy(buffer[i], buff, avail);
-		buff += avail;
-		bytes -= avail;
+	res = bytes = (int)out_len;
+	data = squashfs_first_page(output);
+	buff = stream->output;
+	while (data) {
+		if (bytes <= PAGE_CACHE_SIZE) {
+			memcpy(data, buff, bytes);
+			break;
+		} else {
+			memcpy(data, buff, PAGE_CACHE_SIZE);
+			buff += PAGE_CACHE_SIZE;
+			bytes -= PAGE_CACHE_SIZE;
+			data = squashfs_next_page(output);
+		}
 	}
-	if (bytes)
-		goto failed;
+	squashfs_finish_page(output);
 
-	mutex_unlock(&msblk->read_data_mutex);
-	return dest_len;
-
-block_release:
-	for (; i < b; i++)
-		put_bh(bh[i]);
+	return res;
 
 failed:
-	mutex_unlock(&msblk->read_data_mutex);
-
-	ERROR("lz4 decompression failed, data probably corrupt\n");
 	return -EIO;
 }
 
