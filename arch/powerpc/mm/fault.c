@@ -44,8 +44,6 @@
 #include <asm/siginfo.h>
 #include <mm/mmu_decl.h>
 
-#include "icswx.h"
-
 #ifdef CONFIG_KPROBES
 static inline int notify_page_fault(struct pt_regs *regs)
 {
@@ -152,13 +150,11 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	 * look at it
 	 */
 	if (error_code & ICSWX_DSI_UCT) {
-		int ret;
-
-		ret = acop_handle_fault(regs, address, error_code);
-		if (ret)
-			return ret;
+		rc = acop_handle_fault(regs, address, error_code);
+		if (rc)
+			goto bail;
 	}
-#endif
+#endif /* CONFIG_PPC_ICSWX */
 
 	if (notify_page_fault(regs))
 		return 0;
@@ -192,6 +188,17 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	}
 
 	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, regs, address);
+
+	/*
+	 * We want to do this outside mmap_sem, because reading code around nip
+	 * can result in fault, which will cause a deadlock when called with
+	 * mmap_sem held
+	 */
+	if (user_mode(regs))
+		store_update_sp = store_updates_sp(regs);
+
+	if (user_mode(regs))
+		flags |= FAULT_FLAG_USER;
 
 	/* When running in the kernel we expect faults to occur only to
 	 * addresses in user space.  All other faults represent errors in the
@@ -313,6 +320,7 @@ good_area:
 	} else if (is_write) {
 		if (!(vma->vm_flags & VM_WRITE))
 			goto bad_area;
+		flags |= FAULT_FLAG_WRITE;
 	/* a read */
 	} else {
 		/* protection fault */
