@@ -449,7 +449,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
 				if (file) {
 					f_op = file->f_op;
 					mask = DEFAULT_POLLMASK;
-					if (f_op && f_op->poll) {
+					if (f_op->poll) {
 						wait_key_set(wait, in, out, bit);
 						mask = (*f_op->poll)(file, wait);
 					}
@@ -735,7 +735,7 @@ static inline unsigned int do_pollfd(struct pollfd *pollfd, poll_table *pwait)
 		mask = POLLNVAL;
 		if (file != NULL) {
 			mask = DEFAULT_POLLMASK;
-			if (file->f_op && file->f_op->poll) {
+			if (file->f_op->poll) {
 				pwait->_key = pollfd->events|POLLERR|POLLHUP;
 				mask = file->f_op->poll(file, pwait);
 			}
