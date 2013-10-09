@@ -2641,6 +2641,27 @@ static inline int fsg_num_buffers_validate(unsigned int fsg_num_buffers)
 	return -EINVAL;
 }
 
+static struct fsg_common *fsg_common_setup(struct fsg_common *common)
+{
+	if (!common) {
+		common = kzalloc(sizeof(*common), GFP_KERNEL);
+		if (!common)
+			return ERR_PTR(-ENOMEM);
+		common->free_storage_on_release = 1;
+	} else {
+		memset(common, 0, sizeof(*common));
+		common->free_storage_on_release = 0;
+	}
+	init_rwsem(&common->filesem);
+	spin_lock_init(&common->lock);
+	kref_init(&common->ref);
+	init_completion(&common->thread_notifier);
+	init_waitqueue_head(&common->fsg_wait);
+	common->state = FSG_STATE_TERMINATED;
+
+	return common;
+}
+
 void fsg_common_set_sysfs(struct fsg_common *common, bool sysfs)
 {
 	common->sysfs = sysfs;
@@ -2709,16 +2730,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 		return ERR_PTR(-EINVAL);
 	}
 
-	/* Allocate? */
-	if (!common) {
-		common = kzalloc(sizeof *common, GFP_KERNEL);
-		if (!common)
-			return ERR_PTR(-ENOMEM);
-		common->free_storage_on_release = 1;
-	} else {
-		memset(common, 0, sizeof *common);
-		common->free_storage_on_release = 0;
-	}
+	common = fsg_common_setup(common);
+	if (IS_ERR(common))
+		return common;
 	fsg_common_set_sysfs(common, true);
 	common->state = FSG_STATE_IDLE;
 
@@ -2757,8 +2771,6 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
 		goto error_release;
 	}
 	common->luns = curlun_it;
-
-	init_rwsem(&common->filesem);
 
 	for (i = 0, lcfg = cfg->luns; i < nluns; ++i, ++curlun_it, ++lcfg) {
 		struct fsg_lun *curlun;
@@ -2853,8 +2865,6 @@ buffhds_first_it:
 	common->can_stall = cfg->can_stall &&
 		!(gadget_is_at91(common->gadget));
 
-	spin_lock_init(&common->lock);
-	kref_init(&common->ref);
 
 	/* Tell the thread to start working */
 	common->thread_task =
@@ -2863,8 +2873,6 @@ buffhds_first_it:
 		rc = PTR_ERR(common->thread_task);
 		goto error_release;
 	}
-	init_completion(&common->thread_notifier);
-	init_waitqueue_head(&common->fsg_wait);
 
 	/* Information */
 	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
