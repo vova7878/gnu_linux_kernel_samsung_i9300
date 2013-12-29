@@ -226,8 +226,10 @@ static int e4000_set_params(struct dvb_frontend *fe)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(e4000_pll_lut))
+	if (i == ARRAY_SIZE(e4000_pll_lut)) {
+		ret = -EINVAL;
 		goto err;
+	}
 
 	/*
 	 * Note: Currently f_vco overflows when c->frequency is 1 073 741 824 Hz
@@ -254,8 +256,10 @@ static int e4000_set_params(struct dvb_frontend *fe)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(e400_lna_filter_lut))
+	if (i == ARRAY_SIZE(e400_lna_filter_lut)) {
+		ret = -EINVAL;
 		goto err;
+	}
 
 	ret = e4000_wr_reg(priv, 0x10, e400_lna_filter_lut[i].val);
 	if (ret < 0)
@@ -267,8 +271,10 @@ static int e4000_set_params(struct dvb_frontend *fe)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(e4000_if_filter_lut))
+	if (i == ARRAY_SIZE(e4000_if_filter_lut)) {
+		ret = -EINVAL;
 		goto err;
+	}
 
 	buf[0] = e4000_if_filter_lut[i].reg11_val;
 	buf[1] = e4000_if_filter_lut[i].reg12_val;
@@ -283,8 +289,10 @@ static int e4000_set_params(struct dvb_frontend *fe)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(e4000_band_lut))
+	if (i == ARRAY_SIZE(e4000_band_lut)) {
+		ret = -EINVAL;
 		goto err;
+	}
 
 	ret = e4000_wr_reg(priv, 0x07, e4000_band_lut[i].reg07_val);
 	if (ret < 0)
