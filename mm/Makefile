@@ -57,3 +57,4 @@ obj-$(CONFIG_ZSMALLOC)	+= zsmalloc.o
 
 obj-$(CONFIG_CMA) += cma.o
 obj-$(CONFIG_CMA_BEST_FIT) += cma-best-fit.o
+obj-$(CONFIG_PROCESS_RECLAIM)	+= process_reclaim.o
