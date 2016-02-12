@@ -225,21 +225,6 @@ static void drm_update_vblank_count(struct drm_device *dev, unsigned int pipe,
 	}
 
 	/*
-	 * Within a drm_vblank_pre_modeset - drm_vblank_post_modeset
-	 * interval? If so then vblank irqs keep running and it will likely
-	 * happen that the hardware vblank counter is not trustworthy as it
-	 * might reset at some point in that interval and vblank timestamps
-	 * are not trustworthy either in that interval. Iow. this can result
-	 * in a bogus diff >> 1 which must be avoided as it would cause
-	 * random large forward jumps of the software vblank counter.
-	 */
-	if (diff > 1 && (vblank->inmodeset & 0x2)) {
-		DRM_DEBUG_VBL("clamping vblank bump to 1 on crtc %u: diffr=%u"
-			      " due to pre-modeset.\n", pipe, diff);
-		diff = 1;
-	}
-
-	/*
 	 * FIMXE: Need to replace this hack with proper seqlocks.
 	 *
 	 * Restrict the bump of the software vblank counter to a safe maximum
@@ -1041,12 +1026,15 @@ static void send_vblank_event(struct drm_device *dev,
 		struct drm_pending_vblank_event *e,
 		unsigned long seq, struct timeval *now)
 {
+	assert_spin_locked(&dev->event_lock);
+
 	e->event.sequence = seq;
 	e->event.tv_sec = now->tv_sec;
 	e->event.tv_usec = now->tv_usec;
 
-	drm_send_event_locked(dev, &e->base);
-
+	list_add_tail(&e->base.link,
+		      &e->base.file_priv->event_list);
+	wake_up_interruptible(&e->base.file_priv->event_wait);
 	trace_drm_vblank_event_delivered(e->base.pid, e->pipe,
 					 e->event.sequence);
 }
@@ -1271,9 +1259,9 @@ void drm_vblank_put(struct drm_device *dev, unsigned int pipe)
 	if (atomic_dec_and_test(&vblank->refcount)) {
 		if (drm_vblank_offdelay == 0)
 			return;
-		else if (drm_vblank_offdelay < 0)
+		else if (dev->vblank_disable_immediate || drm_vblank_offdelay < 0)
 			vblank_disable_fn((unsigned long)vblank);
-		else if (!dev->vblank_disable_immediate)
+		else
 			mod_timer(&vblank->disable_timer,
 				  jiffies + ((drm_vblank_offdelay * HZ)/1000));
 	}
@@ -1494,7 +1482,8 @@ void drm_vblank_on(struct drm_device *dev, unsigned int pipe)
 	 * re-enable interrupts if there are users left, or the
 	 * user wishes vblank interrupts to be enabled all the time.
 	 */
-	if (atomic_read(&vblank->refcount) != 0 || drm_vblank_offdelay == 0)
+	if (atomic_read(&vblank->refcount) != 0 ||
+	    (!dev->vblank_disable_immediate && drm_vblank_offdelay == 0))
 		WARN_ON(drm_vblank_enable(dev, pipe));
 	spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
 }
@@ -1589,7 +1578,6 @@ void drm_vblank_post_modeset(struct drm_device *dev, unsigned int pipe)
 	if (vblank->inmodeset) {
 		spin_lock_irqsave(&dev->vbl_lock, irqflags);
 		dev->vblank_disable_allowed = true;
-		drm_reset_vblank_timestamp(dev, pipe);
 		spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
 
 		if (vblank->inmodeset & 0x2)
@@ -1665,6 +1653,9 @@ static int drm_queue_vblank_event(struct drm_device *dev, unsigned int pipe,
 	e->event.base.type = DRM_EVENT_VBLANK;
 	e->event.base.length = sizeof(e->event);
 	e->event.user_data = vblwait->request.signal;
+	e->base.event = &e->event.base;
+	e->base.file_priv = file_priv;
+	e->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 
@@ -1680,12 +1671,12 @@ static int drm_queue_vblank_event(struct drm_device *dev, unsigned int pipe,
 		goto err_unlock;
 	}
 
-	ret = drm_event_reserve_init_locked(dev, file_priv, &e->base,
-					    &e->event.base);
-
-	if (ret)
+	if (file_priv->event_space < sizeof(e->event)) {
+		ret = -EBUSY;
 		goto err_unlock;
+	}
 
+	file_priv->event_space -= sizeof(e->event);
 	seq = drm_vblank_count_and_time(dev, pipe, &now);
 
 	if ((vblwait->request.type & _DRM_VBLANK_NEXTONMISS) &&
@@ -1898,16 +1889,6 @@ bool drm_handle_vblank(struct drm_device *dev, unsigned int pipe)
 
 	wake_up(&vblank->queue);
 	drm_handle_vblank_events(dev, pipe);
-
-	/* With instant-off, we defer disabling the interrupt until after
-	 * we finish processing the following vblank. The disable has to
-	 * be last (after drm_handle_vblank_events) so that the timestamp
-	 * is always accurate.
-	 */
-	if (dev->vblank_disable_immediate &&
-	    drm_vblank_offdelay > 0 &&
-	    !atomic_read(&vblank->refcount))
-		vblank_disable_fn((unsigned long)vblank);
 
 	spin_unlock_irqrestore(&dev->event_lock, irqflags);
 
