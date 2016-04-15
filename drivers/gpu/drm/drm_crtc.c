@@ -168,7 +168,6 @@ static struct drm_conn_prop_enum_list drm_connector_enum_list[] = {
 	{ DRM_MODE_CONNECTOR_eDP, "eDP" },
 	{ DRM_MODE_CONNECTOR_VIRTUAL, "Virtual" },
 	{ DRM_MODE_CONNECTOR_DSI, "DSI" },
-	{ DRM_MODE_CONNECTOR_DPI, "DPI" },
 };
 
 static const struct drm_prop_enum_list drm_encoder_enum_list[] = {
@@ -180,7 +179,6 @@ static const struct drm_prop_enum_list drm_encoder_enum_list[] = {
 	{ DRM_MODE_ENCODER_VIRTUAL, "Virtual" },
 	{ DRM_MODE_ENCODER_DSI, "DSI" },
 	{ DRM_MODE_ENCODER_DPMST, "DP MST" },
-	{ DRM_MODE_ENCODER_DPI, "DPI" },
 };
 
 static const struct drm_prop_enum_list drm_subpixel_enum_list[] = {
@@ -366,6 +364,11 @@ static struct drm_mode_object *_object_find(struct drm_device *dev,
 	if (obj &&
 	    obj->type == DRM_MODE_OBJECT_BLOB)
 		obj = NULL;
+
+	if (obj && obj->free_cb) {
+		if (!kref_get_unless_zero(&obj->refcount))
+			obj = NULL;
+	}
 	mutex_unlock(&dev->mode_config.idr_mutex);
 
 	return obj;
@@ -497,11 +500,8 @@ struct drm_framebuffer *drm_framebuffer_lookup(struct drm_device *dev,
 
 	mutex_lock(&dev->mode_config.fb_lock);
 	obj = _object_find(dev, id, DRM_MODE_OBJECT_FB);
-	if (obj) {
+	if (obj)
 		fb = obj_to_fb(obj);
-		if (!kref_get_unless_zero(&fb->base.refcount))
-			fb = NULL;
-	}
 	mutex_unlock(&dev->mode_config.fb_lock);
 
 	return fb;
@@ -2824,6 +2824,8 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 			goto out;
 		}
 
+		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);
+
 		/*
 		 * Check whether the primary plane supports the fb pixel format.
 		 * Drivers not implementing the universal planes API use a
@@ -3456,24 +3458,6 @@ int drm_mode_addfb2(struct drm_device *dev,
 	return 0;
 }
 
-struct drm_mode_rmfb_work {
-	struct work_struct work;
-	struct list_head fbs;
-};
-
-static void drm_mode_rmfb_work_fn(struct work_struct *w)
-{
-	struct drm_mode_rmfb_work *arg = container_of(w, typeof(*arg), work);
-
-	while (!list_empty(&arg->fbs)) {
-		struct drm_framebuffer *fb =
-			list_first_entry(&arg->fbs, typeof(*fb), filp_head);
-
-		list_del_init(&fb->filp_head);
-		drm_framebuffer_remove(fb);
-	}
-}
-
 /**
  * drm_mode_rmfb - remove an FB from the configuration
  * @dev: drm device for the ioctl
@@ -3492,55 +3476,38 @@ int drm_mode_rmfb(struct drm_device *dev,
 {
 	struct drm_framebuffer *fb = NULL;
 	struct drm_framebuffer *fbl = NULL;
-	struct drm_mode_object *obj;
 	uint32_t *id = data;
 	int found = 0;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
+	fb = drm_framebuffer_lookup(dev, *id);
+	if (!fb)
+		return -ENOENT;
+
 	mutex_lock(&file_priv->fbs_lock);
-	mutex_lock(&dev->mode_config.fb_lock);
-	obj = _object_find(dev, *id, DRM_MODE_OBJECT_FB);
-	if (!obj)
-		goto fail_lookup;
-	fb = obj_to_fb(obj);
 	list_for_each_entry(fbl, &file_priv->fbs, filp_head)
 		if (fb == fbl)
 			found = 1;
-	if (!found)
-		goto fail_lookup;
+	if (!found) {
+		mutex_unlock(&file_priv->fbs_lock);
+		goto fail_unref;
+	}
 
 	list_del_init(&fb->filp_head);
-	mutex_unlock(&dev->mode_config.fb_lock);
 	mutex_unlock(&file_priv->fbs_lock);
 
-	/*
-	 * we now own the reference that was stored in the fbs list
-	 *
-	 * drm_framebuffer_remove may fail with -EINTR on pending signals,
-	 * so run this in a separate stack as there's no way to correctly
-	 * handle this after the fb is already removed from the lookup table.
-	 */
-	if (atomic_read(&fb->refcount.refcount) > 1) {
-		struct drm_mode_rmfb_work arg;
+	/* we now own the reference that was stored in the fbs list */
+	drm_framebuffer_unreference(fb);
 
-		INIT_WORK_ONSTACK(&arg.work, drm_mode_rmfb_work_fn);
-		INIT_LIST_HEAD(&arg.fbs);
-		list_add_tail(&fb->filp_head, &arg.fbs);
-
-		schedule_work(&arg.work);
-		flush_work(&arg.work);
-		destroy_work_on_stack(&arg.work);
-	} else
-		drm_framebuffer_unreference(fb);
+	/* drop the reference we picked up in framebuffer lookup */
+	drm_framebuffer_unreference(fb);
 
 	return 0;
 
-fail_lookup:
-	mutex_unlock(&dev->mode_config.fb_lock);
-	mutex_unlock(&file_priv->fbs_lock);
-
+fail_unref:
+	drm_framebuffer_unreference(fb);
 	return -ENOENT;
 }
 
@@ -3686,6 +3653,7 @@ out_err1:
 	return ret;
 }
 
+
 /**
  * drm_fb_release - remove and free the FBs on this file
  * @priv: drm file for the ioctl
@@ -3700,9 +3668,6 @@ out_err1:
 void drm_fb_release(struct drm_file *priv)
 {
 	struct drm_framebuffer *fb, *tfb;
-	struct drm_mode_rmfb_work arg;
-
-	INIT_LIST_HEAD(&arg.fbs);
 
 	/*
 	 * When the file gets released that means no one else can access the fb
@@ -3715,22 +3680,10 @@ void drm_fb_release(struct drm_file *priv)
 	 * at it any more.
 	 */
 	list_for_each_entry_safe(fb, tfb, &priv->fbs, filp_head) {
-		if (atomic_read(&fb->refcount.refcount) > 1) {
-			list_move_tail(&fb->filp_head, &arg.fbs);
-		} else {
-			list_del_init(&fb->filp_head);
+		list_del_init(&fb->filp_head);
 
-			/* This drops the fpriv->fbs reference. */
-			drm_framebuffer_unreference(fb);
-		}
-	}
-
-	if (!list_empty(&arg.fbs)) {
-		INIT_WORK_ONSTACK(&arg.work, drm_mode_rmfb_work_fn);
-
-		schedule_work(&arg.work);
-		flush_work(&arg.work);
-		destroy_work_on_stack(&arg.work);
+		/* This drops the fpriv->fbs reference. */
+		drm_framebuffer_unreference(fb);
 	}
 }
 
@@ -5384,9 +5337,6 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	struct drm_framebuffer *fb = NULL;
 	struct drm_pending_vblank_event *e = NULL;
 	int ret = -EINVAL;
-
-	if (!drm_core_check_feature(dev, DRIVER_MODESET))
-		return -EINVAL;
 
 	if (page_flip->flags & ~DRM_MODE_PAGE_FLIP_FLAGS ||
 	    page_flip->reserved != 0)
