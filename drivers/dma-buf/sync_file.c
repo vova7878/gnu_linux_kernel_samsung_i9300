@@ -86,6 +86,8 @@ struct sync_file *sync_file_create(struct fence *fence)
 		 fence->ops->get_timeline_name(fence), fence->context,
 		 fence->seqno);
 
+	fence_add_callback(fence, &sync_file->cb, fence_check_cb_func);
+
 	return sync_file;
 }
 EXPORT_SYMBOL(sync_file_create);
@@ -113,29 +115,6 @@ err:
 	fput(file);
 	return NULL;
 }
-
-/**
- * sync_file_get_fence - get the fence related to the sync_file fd
- * @fd:		sync_file fd to get the fence from
- *
- * Ensures @fd references a valid sync_file and returns a fence that
- * represents all fence in the sync_file. On error NULL is returned.
- */
-struct fence *sync_file_get_fence(int fd)
-{
-	struct sync_file *sync_file;
-	struct fence *fence;
-
-	sync_file = sync_file_fdget(fd);
-	if (!sync_file)
-		return NULL;
-
-	fence = fence_get(sync_file->fence);
-	fput(sync_file->file);
-
-	return fence;
-}
-EXPORT_SYMBOL(sync_file_get_fence);
 
 static int sync_file_set_fence(struct sync_file *sync_file,
 			       struct fence **fences, int num_fences)
@@ -272,6 +251,9 @@ static struct sync_file *sync_file_merge(const char *name, struct sync_file *a,
 		goto err;
 	}
 
+	fence_add_callback(sync_file->fence, &sync_file->cb,
+			   fence_check_cb_func);
+
 	strlcpy(sync_file->name, name, sizeof(sync_file->name));
 	return sync_file;
 
@@ -286,8 +268,7 @@ static void sync_file_free(struct kref *kref)
 	struct sync_file *sync_file = container_of(kref, struct sync_file,
 						     kref);
 
-	if (test_bit(POLL_ENABLED, &sync_file->fence->flags))
-		fence_remove_callback(sync_file->fence, &sync_file->cb);
+	fence_remove_callback(sync_file->fence, &sync_file->cb);
 	fence_put(sync_file->fence);
 	kfree(sync_file);
 }
@@ -303,16 +284,17 @@ static int sync_file_release(struct inode *inode, struct file *file)
 static unsigned int sync_file_poll(struct file *file, poll_table *wait)
 {
 	struct sync_file *sync_file = file->private_data;
+	int status;
 
 	poll_wait(file, &sync_file->wq, wait);
 
-	if (!test_and_set_bit(POLL_ENABLED, &sync_file->fence->flags)) {
-		if (fence_add_callback(sync_file->fence, &sync_file->cb,
-					   fence_check_cb_func) < 0)
-			wake_up_all(&sync_file->wq);
-	}
+	status = fence_is_signaled(sync_file->fence);
 
-	return fence_is_signaled(sync_file->fence) ? POLLIN : 0;
+	if (status)
+		return POLLIN;
+	if (status < 0)
+		return POLLERR;
+	return 0;
 }
 
 static long sync_file_ioctl_merge(struct sync_file *sync_file,
