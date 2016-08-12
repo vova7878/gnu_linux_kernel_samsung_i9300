@@ -36,6 +36,8 @@
 #include <drm/drm_crtc.h>
 #include <drm/drmP.h>
 
+#include "drm_crtc_helper_internal.h"
+
 struct drm_dp_aux_dev {
 	unsigned index;
 	struct drm_dp_aux *aux;
@@ -271,12 +273,7 @@ static int auxdev_wait_atomic_t(atomic_t *p)
 	schedule();
 	return 0;
 }
-/**
- * drm_dp_aux_unregister_devnode() - unregister a devnode for this aux channel
- * @aux: DisplayPort AUX channel
- *
- * Returns 0 on success or a negative error code on failure.
- */
+
 void drm_dp_aux_unregister_devnode(struct drm_dp_aux *aux)
 {
 	struct drm_dp_aux_dev *aux_dev;
@@ -302,14 +299,7 @@ void drm_dp_aux_unregister_devnode(struct drm_dp_aux *aux)
 	DRM_DEBUG("drm_dp_aux_dev: aux [%s] unregistering\n", aux->name);
 	kref_put(&aux_dev->refcount, release_drm_dp_aux_dev);
 }
-EXPORT_SYMBOL(drm_dp_aux_unregister_devnode);
 
-/**
- * drm_dp_aux_register_devnode() - register a devnode for this aux channel
- * @aux: DisplayPort AUX channel
- *
- * Returns 0 on success or a negative error code on failure.
- */
 int drm_dp_aux_register_devnode(struct drm_dp_aux *aux)
 {
 	struct drm_dp_aux_dev *aux_dev;
@@ -335,7 +325,6 @@ error:
 	drm_dp_aux_unregister_devnode(aux);
 	return res;
 }
-EXPORT_SYMBOL(drm_dp_aux_register_devnode);
 
 int drm_dp_aux_dev_init(void)
 {
@@ -358,11 +347,9 @@ out:
 	class_destroy(drm_dp_aux_dev_class);
 	return res;
 }
-EXPORT_SYMBOL(drm_dp_aux_dev_init);
 
 void drm_dp_aux_dev_exit(void)
 {
 	unregister_chrdev(drm_dev_major, "aux");
 	class_destroy(drm_dp_aux_dev_class);
 }
-EXPORT_SYMBOL(drm_dp_aux_dev_exit);
