@@ -1911,17 +1911,23 @@ out:
 int drm_mode_page_flip_ioctl(struct drm_device *dev,
 			     void *data, struct drm_file *file_priv)
 {
-	struct drm_mode_crtc_page_flip *page_flip = data;
+	struct drm_mode_crtc_page_flip_target *page_flip = data;
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb = NULL;
 	struct drm_pending_vblank_event *e = NULL;
+	u32 target_vblank = page_flip->sequence;
 	int ret = -EINVAL;
 
-	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+	if (page_flip->flags & ~DRM_MODE_PAGE_FLIP_FLAGS)
 		return -EINVAL;
 
-	if (page_flip->flags & ~DRM_MODE_PAGE_FLIP_FLAGS ||
-	    page_flip->reserved != 0)
+	if (page_flip->sequence != 0 && !(page_flip->flags & DRM_MODE_PAGE_FLIP_TARGET))
+		return -EINVAL;
+
+	/* Only one of the DRM_MODE_PAGE_FLIP_TARGET_ABSOLUTE/RELATIVE flags
+	 * can be specified
+	 */
+	if ((page_flip->flags & DRM_MODE_PAGE_FLIP_TARGET) == DRM_MODE_PAGE_FLIP_TARGET)
 		return -EINVAL;
 
 	if ((page_flip->flags & DRM_MODE_PAGE_FLIP_ASYNC) && !dev->mode_config.async_page_flip)
@@ -1930,6 +1936,45 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	crtc = drm_crtc_find(dev, page_flip->crtc_id);
 	if (!crtc)
 		return -ENOENT;
+
+	if (crtc->funcs->page_flip_target) {
+		u32 current_vblank;
+		int r;
+
+		r = drm_crtc_vblank_get(crtc);
+		if (r)
+			return r;
+
+		current_vblank = drm_crtc_vblank_count(crtc);
+
+		switch (page_flip->flags & DRM_MODE_PAGE_FLIP_TARGET) {
+		case DRM_MODE_PAGE_FLIP_TARGET_ABSOLUTE:
+			if ((int)(target_vblank - current_vblank) > 1) {
+				DRM_DEBUG("Invalid absolute flip target %u, "
+					  "must be <= %u\n", target_vblank,
+					  current_vblank + 1);
+				drm_crtc_vblank_put(crtc);
+				return -EINVAL;
+			}
+			break;
+		case DRM_MODE_PAGE_FLIP_TARGET_RELATIVE:
+			if (target_vblank != 0 && target_vblank != 1) {
+				DRM_DEBUG("Invalid relative flip target %u, "
+					  "must be 0 or 1\n", target_vblank);
+				drm_crtc_vblank_put(crtc);
+				return -EINVAL;
+			}
+			target_vblank += current_vblank;
+			break;
+		default:
+			target_vblank = current_vblank +
+				!(page_flip->flags & DRM_MODE_PAGE_FLIP_ASYNC);
+			break;
+		}
+	} else if (crtc->funcs->page_flip == NULL ||
+		   (page_flip->flags & DRM_MODE_PAGE_FLIP_TARGET)) {
+		return -EINVAL;
+	}
 
 	drm_modeset_lock_crtc(crtc, crtc->primary);
 	if (crtc->primary->fb == NULL) {
@@ -1940,9 +1985,6 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		ret = -EBUSY;
 		goto out;
 	}
-
-	if (crtc->funcs->page_flip == NULL)
-		goto out;
 
 	fb = drm_framebuffer_lookup(dev, page_flip->fb_id);
 	if (!fb) {
@@ -1984,7 +2026,12 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	}
 
 	crtc->primary->old_fb = crtc->primary->fb;
-	ret = crtc->funcs->page_flip(crtc, fb, e, page_flip->flags);
+	if (crtc->funcs->page_flip_target)
+		ret = crtc->funcs->page_flip_target(crtc, fb, e,
+						    page_flip->flags,
+						    target_vblank);
+	else
+		ret = crtc->funcs->page_flip(crtc, fb, e, page_flip->flags);
 	if (ret) {
 		if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT)
 			drm_event_cancel_free(dev, &e->base);
@@ -1997,6 +2044,8 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	}
 
 out:
+	if (ret && crtc->funcs->page_flip_target)
+		drm_crtc_vblank_put(crtc);
 	if (fb)
 		drm_framebuffer_unreference(fb);
 	if (crtc->primary->old_fb)
