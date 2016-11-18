@@ -63,6 +63,11 @@
 	};
 };
 
+&adc {
+	vdd-supply = <&ldo10_reg>;
+	status = "okay";
+};
+
 /* VDDQ for MSHC (eMMC card) */
 &buck8_reg {
 	regulator-name = "BUCK8_VDDQ_MMC4_2.8V";
