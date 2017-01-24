@@ -11,6 +11,16 @@ menuconfig POWER_AVS
 
 	  Say Y here to enable Adaptive Voltage Scaling class support.
 
+config EXYNOS_AVS
+        tristate "Exynos Adaptive Voltage Scaling support"
+	depends on ARCH_EXYNOS && ARM_DT_BL_CPUFREQ
+	depends on PM_OPP && OF && POWER_AVS
+        help
+          Say y here to enable support Adaptive Voltage Scaling (AVS) on Exynos
+	  SoCs. By using this feature, the voltage which is optimized according
+	  to the SoC variation can be used for each given operating frequency of
+	  a device.
+
 config ROCKCHIP_IODOMAIN
         tristate "Rockchip IO domain support"
         depends on POWER_AVS && ARCH_ROCKCHIP && OF
