@@ -196,9 +196,9 @@ get_static_power(struct devfreq_cooling_device *dfc, unsigned long freq)
 	rcu_read_unlock();
 
 	if (voltage == 0) {
-		dev_warn_ratelimited(dev,
-				     "Failed to get voltage for frequency %lu: %ld\n",
-				     freq, IS_ERR(opp) ? PTR_ERR(opp) : 0);
+		dev_err_ratelimited(dev,
+				    "Failed to get voltage for frequency %lu: %ld\n",
+				    freq, IS_ERR(opp) ? PTR_ERR(opp) : 0);
 		return 0;
 	}
 
