@@ -302,6 +302,19 @@ static int max77843_muic_get_cable_type(struct max77843_muic_info *info,
 			break;
 		}
 
+		if (adc == MAX77843_MUIC_ADC_RESERVED_ACC_4) {
+			if (chg_type == MAX77843_MUIC_CHG_NONE) {
+				*attached = false;
+				cable_type = info->prev_chg_type;
+				info->prev_chg_type = MAX77843_MUIC_CHG_NONE;
+			} else {
+				*attached = true;
+				cable_type = MAX77843_MUIC_CHG_NONE;
+				info->prev_chg_type = MAX77843_MUIC_CHG_NONE;
+			}
+			break;
+		}
+
 		if (chg_type == MAX77843_MUIC_CHG_NONE) {
 			*attached = false;
 			cable_type = info->prev_chg_type;
@@ -435,6 +448,7 @@ static int max77843_muic_adc_handler(struct max77843_muic_info *info)
 
 	switch (cable_type) {
 	case MAX77843_MUIC_ADC_GROUND:
+	case MAX77843_MUIC_ADC_RESERVED_ACC_4:
 		ret = max77843_muic_adc_gnd_handler(info);
 		if (ret < 0)
 			return ret;
@@ -462,7 +476,6 @@ static int max77843_muic_adc_handler(struct max77843_muic_info *info)
 	case MAX77843_MUIC_ADC_RESERVED_ACC_1:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_2:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_3:
-	case MAX77843_MUIC_ADC_RESERVED_ACC_4:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_5:
 	case MAX77843_MUIC_ADC_AUDIO_DEVICE_TYPE2:
 	case MAX77843_MUIC_ADC_PHONE_POWERED_DEV:
