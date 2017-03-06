@@ -233,6 +233,7 @@ struct charger_manager {
 	struct thermal_zone_device *tzd_batt;
 
 	bool charger_enabled;
+	bool disable_charge;
 
 	int emergency_stop;
 

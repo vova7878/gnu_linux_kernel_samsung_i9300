@@ -190,6 +190,8 @@ static bool is_charging(struct charger_manager *cm)
 			continue;
 		if (!cm->charger_enabled)
 			continue;
+		if (cm->disable_charge)
+			continue;
 
 		psy = power_supply_get_by_name(cm->desc->psy_charger_stat[i]);
 		if (!psy) {
@@ -346,8 +348,11 @@ static int try_charger_enable(struct charger_manager *cm, bool enable)
 	int err = 0, i;
 	struct charger_desc *desc = cm->desc;
 
-	/* Ignore if it's redundent command */
-	if (enable == cm->charger_enabled)
+	/*
+	 * Ignore redundant command and prevent enabling charger
+	 * if it is disabled.
+	 */
+	if (enable == cm->charger_enabled || (enable && cm->disable_charge))
 		return 0;
 
 	if (enable) {
@@ -510,6 +515,9 @@ static int cm_check_thermal_status(struct charger_manager *cm)
  */
 static int cm_get_target_status(struct charger_manager *cm)
 {
+	if (cm->disable_charge)
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+
 	if (!is_ext_pwr_online(cm))
 		return POWER_SUPPLY_STATUS_DISCHARGING;
 
@@ -1167,10 +1175,57 @@ static ssize_t store_polling_ms(struct device *dev,
 	return count;
 }
 
+static ssize_t show_disable_charge(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct charger_manager *cm;
+
+	list_for_each_entry(cm, &cm_list, entry)
+		if (&cm->charger_psy->dev == dev)
+			break;
+
+	if (&cm->charger_psy->dev != dev)
+		return -ENODEV;
+
+	return sprintf(buf, "%d\n", cm->disable_charge);
+}
+
+static ssize_t store_disable_charge(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	struct charger_manager *cm;
+	unsigned long disable_charge;
+
+	if (kstrtoul(buf, 0, &disable_charge))
+		return -EINVAL;
+
+	list_for_each_entry(cm, &cm_list, entry)
+		if (&cm->charger_psy->dev == dev)
+			break;
+
+	if (&cm->charger_psy->dev != dev)
+		return -ENODEV;
+
+	disable_charge = !!disable_charge;
+
+	if (disable_charge == cm->disable_charge)
+		return count;
+
+	cm->disable_charge = disable_charge;
+
+	_cm_monitor(cm);
+
+	return count;
+}
+
 static DEVICE_ATTR(polling_ms, 0644, show_polling_ms, store_polling_ms);
+static DEVICE_ATTR(disable_charge, 0644,
+		   show_disable_charge, store_disable_charge);
 
 static struct attribute *charger_manager_attrs[] = {
 	&dev_attr_polling_ms.attr,
+	&dev_attr_disable_charge.attr,
 	NULL,
 };
 
