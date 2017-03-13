@@ -475,10 +475,12 @@ end:
 
 void kbase_dma_fence_cancel_all_atoms(struct kbase_context *kctx)
 {
-	struct kbase_jd_atom *katom, *katom_tmp;
+	struct list_head *list = &kctx->dma_fence.waiting_resource;
 
-	list_for_each_entry_safe(katom, katom_tmp,
-				 &kctx->dma_fence.waiting_resource, queue) {
+	while (!list_empty(list)) {
+		struct kbase_jd_atom *katom;
+
+		katom = list_first_entry(list, struct kbase_jd_atom, queue);
 		kbase_dma_fence_waiters_remove(katom);
 		kbase_dma_fence_cancel_atom(katom);
 	}
