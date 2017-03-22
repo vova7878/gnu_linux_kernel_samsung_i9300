@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -89,7 +90,17 @@
 #define PHYCLKRST_COMMONONN			BIT(0)
 
 #define EXYNOS5_DRD_PHYREG0			0x14
+
+#define PHYREG0_CR_WRITE			BIT(19)
+#define PHYREG0_CR_READ				BIT(18)
+#define PHYREG0_CR_DATA_IN(_x)			((_x) << 2)
+#define PHYREG0_CR_CR_CAP_DATA			BIT(1)
+#define PHYREG0_CR_CR_CAP_ADDR			BIT(0)
+
 #define EXYNOS5_DRD_PHYREG1			0x18
+
+#define PHYREG1_CR_DATA_OUT(_x)			((_x) << 1)
+#define PHYREG1_CR_ACK				BIT(0)
 
 #define EXYNOS5_DRD_PHYPARAM0			0x1c
 
@@ -120,6 +131,19 @@
 
 #define KHZ	1000
 #define MHZ	(KHZ * KHZ)
+
+/* USB 3.0 DRD SS Function Control registers used to access by CR PORT */
+#define EXYNOS5_DRD_PHYSS_LOSLEVEL_OVRD_IN	0x15
+
+#define LOSLEVEL_OVRD_IN_LOS_BIAS_5420		(0x5 << 13)
+#define LOSLEVEL_OVRD_IN_LOS_BIAS_DEFAULT	(0x0 << 13)
+#define LOSLEVEL_OVRD_IN_EN			(0x1 << 10)
+#define LOSLEVEL_OVRD_IN_LOS_LEVEL_DEFAULT	(0x9 << 0)
+
+#define EXYNOS5_DRD_PHYSS_TX_VBOOSTLEVEL_OVRD_IN	0x12
+
+#define TX_VBOOSTLEVEL_OVRD_IN_VBOOST_5420		(0x5 << 13)
+#define TX_VBOOSTLEVEL_OVRD_IN_VBOOST_DEFAULT		(0x4 << 13)
 
 enum exynos5_usbdrd_phy_id {
 	EXYNOS5_DRDPHY_UTMI,
@@ -188,6 +212,55 @@ struct exynos5_usbdrd_phy *to_usbdrd_phy(struct phy_usb_instance *inst)
 {
 	return container_of((inst), struct exynos5_usbdrd_phy,
 			    phys[(inst)->index]);
+}
+
+static int
+exynos5_usbdrd_phy_crport_handshake(struct exynos5_usbdrd_phy *phy_drd,
+							u32 data, u32 command)
+{
+	int ret;
+	u32 reg;
+
+	reg = PHYREG0_CR_DATA_IN(data) | command;
+	writel(reg, phy_drd->reg_phy + EXYNOS5_DRD_PHYREG0);
+
+	ret = readl_poll_timeout(phy_drd->reg_phy + EXYNOS5_DRD_PHYREG1, reg,
+				(reg & PHYREG1_CR_ACK), 1, 10);
+	if (ret < 0)
+		dev_err(phy_drd->dev, "crport handshake timeout\n");
+
+	return ret;
+}
+
+static void
+exynos5_usbdrd_phy_crport_write(struct exynos5_usbdrd_phy *phy_drd,
+							u32 addr, u32 data)
+{
+	int ret;
+
+	/* Program Address Register */
+	ret = exynos5_usbdrd_phy_crport_handshake(phy_drd, addr,
+					PHYREG0_CR_CR_CAP_ADDR);
+	if (ret < 0)
+		goto err;
+
+	/* Program Data Register */
+	ret = exynos5_usbdrd_phy_crport_handshake(phy_drd, data,
+					PHYREG0_CR_CR_CAP_DATA);
+	if (ret < 0)
+		goto err;
+
+	/* Write Data */
+	ret = exynos5_usbdrd_phy_crport_handshake(phy_drd, data,
+					PHYREG0_CR_WRITE);
+	if (ret < 0)
+		goto err;
+
+	return;
+
+err:
+	dev_err(phy_drd->dev,
+		"failed to write crport data %x to 0x%x\n", data, addr);
 }
 
 /*
@@ -349,6 +422,23 @@ static void exynos5_usbdrd_utmi_init(struct exynos5_usbdrd_phy *phy_drd)
 	reg = readl(phy_drd->reg_phy + EXYNOS5_DRD_PHYTEST);
 	reg &= ~PHYTEST_POWERDOWN_HSP;
 	writel(reg, phy_drd->reg_phy + EXYNOS5_DRD_PHYTEST);
+}
+
+static void exynos5_usbdrd_phy_tune(struct phy *phy)
+{
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
+	struct exynos5_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+	u32 data;
+
+	data = LOSLEVEL_OVRD_IN_LOS_BIAS_5420 |
+		LOSLEVEL_OVRD_IN_EN |
+		LOSLEVEL_OVRD_IN_LOS_LEVEL_DEFAULT;
+	exynos5_usbdrd_phy_crport_write(phy_drd,
+			EXYNOS5_DRD_PHYSS_LOSLEVEL_OVRD_IN, data);
+
+	data = TX_VBOOSTLEVEL_OVRD_IN_VBOOST_5420;
+	exynos5_usbdrd_phy_crport_write(phy_drd,
+			EXYNOS5_DRD_PHYSS_TX_VBOOSTLEVEL_OVRD_IN, data);
 }
 
 static int exynos5_usbdrd_phy_init(struct phy *phy)
@@ -542,6 +632,7 @@ static struct phy_ops exynos5_usbdrd_phy_ops = {
 	.exit		= exynos5_usbdrd_phy_exit,
 	.power_on	= exynos5_usbdrd_phy_power_on,
 	.power_off	= exynos5_usbdrd_phy_power_off,
+	.tune		= exynos5_usbdrd_phy_tune,
 	.owner		= THIS_MODULE,
 };
 
