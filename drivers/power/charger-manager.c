@@ -1194,8 +1194,10 @@ static int charger_manager_register_sysfs(struct charger_manager *cm)
 
 	/* Create polling_ms sysfs node */
 	ret = device_create_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
-	if (ret)
+	if (ret) {
 		pr_err("Failed to create poling_ms sysfs node (%d)\n", ret);
+		return ret;
+	}
 
 	/* Create sysfs entry to control charger(regulator) */
 	for (i = 0; i < desc->num_charger_regulators; i++) {
@@ -1570,11 +1572,8 @@ static int charger_manager_probe(struct platform_device *pdev)
 
 	/* Register sysfs entry for charger(regulator) */
 	ret = charger_manager_register_sysfs(cm);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"Cannot initialize sysfs entry of regulator\n");
+	if (ret < 0)
 		goto err_reg_sysfs;
-	}
 
 	/* Add to the list */
 	mutex_lock(&cm_list_mtx);
@@ -1607,6 +1606,9 @@ err_reg_sysfs:
 		sysfs_remove_group(&cm->charger_psy->dev.kobj,
 				&charger->attr_g);
 	}
+
+	device_remove_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
+
 err_reg_extcon:
 	for (i = 0; i < desc->num_charger_regulators; i++) {
 		struct charger_regulator *charger;
@@ -1641,6 +1643,8 @@ static int charger_manager_remove(struct platform_device *pdev)
 
 	cancel_work_sync(&setup_polling);
 	cancel_delayed_work_sync(&cm_monitor_work);
+
+	device_remove_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
 
 	for (i = 0 ; i < desc->num_charger_regulators ; i++) {
 		struct charger_regulator *charger
