@@ -1169,6 +1169,15 @@ static ssize_t store_polling_ms(struct device *dev,
 
 static DEVICE_ATTR(polling_ms, 0644, show_polling_ms, store_polling_ms);
 
+static struct attribute *charger_manager_attrs[] = {
+	&dev_attr_polling_ms.attr,
+	NULL,
+};
+
+static struct attribute_group charger_manager_attr_group = {
+	.attrs = charger_manager_attrs,
+};
+
 /**
  * charger_manager_register_sysfs - Register sysfs entry for each charger
  * @cm: the Charger Manager representing the battery.
@@ -1192,10 +1201,11 @@ static int charger_manager_register_sysfs(struct charger_manager *cm)
 	int ret = 0;
 	int i;
 
-	/* Create polling_ms sysfs node */
-	ret = device_create_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
+	/* Create sysfs node group */
+	ret = sysfs_create_group(&cm->charger_psy->dev.kobj,
+					&charger_manager_attr_group);
 	if (ret) {
-		pr_err("Failed to create poling_ms sysfs node (%d)\n", ret);
+		pr_err("Failed to create sysfs node group (%d)\n", ret);
 		return ret;
 	}
 
@@ -1607,7 +1617,8 @@ err_reg_sysfs:
 				&charger->attr_g);
 	}
 
-	device_remove_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
+	sysfs_remove_group(&cm->charger_psy->dev.kobj,
+				&charger_manager_attr_group);
 
 err_reg_extcon:
 	for (i = 0; i < desc->num_charger_regulators; i++) {
@@ -1644,7 +1655,8 @@ static int charger_manager_remove(struct platform_device *pdev)
 	cancel_work_sync(&setup_polling);
 	cancel_delayed_work_sync(&cm_monitor_work);
 
-	device_remove_file(&cm->charger_psy->dev, &dev_attr_polling_ms);
+	sysfs_remove_group(&cm->charger_psy->dev.kobj,
+				&charger_manager_attr_group);
 
 	for (i = 0 ; i < desc->num_charger_regulators ; i++) {
 		struct charger_regulator *charger
