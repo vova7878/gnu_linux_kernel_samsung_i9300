@@ -1501,6 +1501,23 @@ static int gsc_ippdrv_check_property(struct device *dev,
 	bool swap;
 	int i;
 
+	config = &property->config[EXYNOS_DRM_OPS_DST];
+
+	/* check for degree */
+	switch (config->degree) {
+	case EXYNOS_DRM_DEGREE_90:
+	case EXYNOS_DRM_DEGREE_270:
+		swap = true;
+		break;
+	case EXYNOS_DRM_DEGREE_0:
+	case EXYNOS_DRM_DEGREE_180:
+		swap = false;
+		break;
+	default:
+		DRM_ERROR("invalid degree.\n");
+		goto err_property;
+	}
+
 	for_each_ipp_ops(i) {
 		if ((i == EXYNOS_DRM_OPS_SRC) &&
 			(property->cmd == IPP_CMD_WB))
@@ -1516,21 +1533,6 @@ static int gsc_ippdrv_check_property(struct device *dev,
 			goto err_property;
 		}
 
-		/* check for degree */
-		switch (config->degree) {
-		case EXYNOS_DRM_DEGREE_90:
-		case EXYNOS_DRM_DEGREE_270:
-			swap = true;
-			break;
-		case EXYNOS_DRM_DEGREE_0:
-		case EXYNOS_DRM_DEGREE_180:
-			swap = false;
-			break;
-		default:
-			DRM_ERROR("invalid degree.\n");
-			goto err_property;
-		}
-
 		/* check for buffer bound */
 		if ((pos->x + pos->w > sz->hsize) ||
 			(pos->y + pos->h > sz->vsize)) {
@@ -1538,21 +1540,27 @@ static int gsc_ippdrv_check_property(struct device *dev,
 			goto err_property;
 		}
 
+		/*
+		 * The rotation hardware limits are related to the cropped
+		 * source size. So use rot_max size to check the limits when
+		 * swap happens. And also the scaling limits are related to pos
+		 * size, use pos size to check the limits.
+		 */
 		/* check for crop */
 		if ((i == EXYNOS_DRM_OPS_SRC) && (pp->crop)) {
 			if (swap) {
 				if ((pos->h < pp->crop_min.hsize) ||
-					(sz->vsize > pp->crop_max.hsize) ||
+					(pos->h > pp->rot_max.hsize) ||
 					(pos->w < pp->crop_min.vsize) ||
-					(sz->hsize > pp->crop_max.vsize)) {
+					(pos->w > pp->rot_max.vsize)) {
 					DRM_ERROR("out of crop size.\n");
 					goto err_property;
 				}
 			} else {
 				if ((pos->w < pp->crop_min.hsize) ||
-					(sz->hsize > pp->crop_max.hsize) ||
+					(pos->w > pp->crop_max.hsize) ||
 					(pos->h < pp->crop_min.vsize) ||
-					(sz->vsize > pp->crop_max.vsize)) {
+					(pos->h > pp->crop_max.vsize)) {
 					DRM_ERROR("out of crop size.\n");
 					goto err_property;
 				}
@@ -1563,17 +1571,17 @@ static int gsc_ippdrv_check_property(struct device *dev,
 		if ((i == EXYNOS_DRM_OPS_DST) && (pp->scale)) {
 			if (swap) {
 				if ((pos->h < pp->scale_min.hsize) ||
-					(sz->vsize > pp->scale_max.hsize) ||
+					(pos->h > pp->scale_max.hsize) ||
 					(pos->w < pp->scale_min.vsize) ||
-					(sz->hsize > pp->scale_max.vsize)) {
+					(pos->w > pp->scale_max.vsize)) {
 					DRM_ERROR("out of scale size.\n");
 					goto err_property;
 				}
 			} else {
 				if ((pos->w < pp->scale_min.hsize) ||
-					(sz->hsize > pp->scale_max.hsize) ||
+					(pos->w > pp->scale_max.hsize) ||
 					(pos->h < pp->scale_min.vsize) ||
-					(sz->vsize > pp->scale_max.vsize)) {
+					(pos->h > pp->scale_max.vsize)) {
 					DRM_ERROR("out of scale size.\n");
 					goto err_property;
 				}
@@ -1815,6 +1823,15 @@ static int gsc_probe(struct platform_device *pdev)
 
 		ctx->num_clocks = driver_data->num_clocks;
 		ctx->clk_names = driver_data->clk_names;
+
+		ret = of_property_read_u32(dev->of_node, "rot-max-hsize",
+					&ctx->ippdrv.prop_list.rot_max.hsize);
+		ret |= of_property_read_u32(dev->of_node, "rot-max-vsize",
+					&ctx->ippdrv.prop_list.rot_max.vsize);
+		if (ret) {
+			dev_err(dev, "rot-max property should be provided by device tree.\n");
+			return -EINVAL;
+		}
 	} else {
 		return -ENODEV;
 	}
