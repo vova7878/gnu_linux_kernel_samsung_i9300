@@ -821,6 +821,8 @@
 		clocks = <&clock CLK_GSCL0>;
 		clock-names = "gscl";
 		power-domains = <&gsc_pd>;
+		rot-max-hsize = <2016>;
+		rot-max-vsize = <2016>;
 		iommus = <&sysmmu_gscl0>;
 	};
 
@@ -831,6 +833,8 @@
 		clocks = <&clock CLK_GSCL1>;
 		clock-names = "gscl";
 		power-domains = <&gsc_pd>;
+		rot-max-hsize = <2016>;
+		rot-max-vsize = <2016>;
 		iommus = <&sysmmu_gscl1>;
 	};
 
