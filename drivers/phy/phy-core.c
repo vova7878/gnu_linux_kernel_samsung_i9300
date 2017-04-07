@@ -342,6 +342,13 @@ int phy_power_off(struct phy *phy)
 }
 EXPORT_SYMBOL_GPL(phy_power_off);
 
+void phy_tune(struct phy *phy)
+{
+	if (phy->ops->tune)
+		phy->ops->tune(phy);
+}
+EXPORT_SYMBOL_GPL(phy_tune);
+
 /**
  * _of_phy_get() - lookup and obtain a reference to a phy by phandle
  * @np: device_node for which to get the phy
