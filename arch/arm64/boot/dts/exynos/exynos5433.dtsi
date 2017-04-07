@@ -2278,6 +2278,8 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			rot-max-hsize = <2047>;
+			rot-max-vsize = <2047>;
 			iommus = <&sysmmu_gscl0>;
 		};
 
@@ -2297,6 +2299,8 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			rot-max-hsize = <2047>;
+			rot-max-vsize = <2047>;
 			iommus = <&sysmmu_gscl1>;
 		};
 
@@ -2316,6 +2320,8 @@
 					  <&cmu_gscl CLK_MOUT_ACLK_GSCL_333_USER>;
 			assigned-clock-parents = <&cmu_top CLK_ACLK_GSCL_111>,
 						 <&cmu_top CLK_ACLK_GSCL_333>;
+			rot-max-hsize = <2047>;
+			rot-max-vsize = <2047>;
 			iommus = <&sysmmu_gscl2>;
 		};
 
