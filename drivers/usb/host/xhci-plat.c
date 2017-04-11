@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/phy/phy.h>
 #include <linux/usb/phy.h>
 #include <linux/slab.h>
 #include <linux/usb/xhci_pdriver.h>
@@ -49,7 +50,12 @@ static int xhci_plat_setup(struct usb_hcd *hcd)
 			return ret;
 	}
 
-	return xhci_gen_setup(hcd, xhci_plat_quirks);
+	ret = xhci_gen_setup(hcd, xhci_plat_quirks);
+
+	if (!ret && hcd->phy)
+		phy_tune(hcd->phy);
+
+	return ret;
 }
 
 static int xhci_plat_start(struct usb_hcd *hcd)
@@ -106,6 +112,24 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
+
+	/*
+	 * dwc3 has parent (glue) and it handles generic phy but some platforms
+	 * has no parent or no phy, thus it is not an error if fails to get phy
+	 */
+	if (pdev->dev.parent) {
+		hcd->phy = devm_phy_get(pdev->dev.parent, "usb3-phy");
+		if (IS_ERR(hcd->phy)) {
+			if (PTR_ERR(hcd->phy) == -EPROBE_DEFER) {
+				ret = -EPROBE_DEFER;
+				goto put_hcd;
+			}
+
+			hcd->phy = NULL;
+			dev_warn(&pdev->dev,
+				 "SuperSpeed mode may not be activated.\n");
+		}
+	}
 
 	/*
 	 * Not all platforms have a clk so it is not an error if the
