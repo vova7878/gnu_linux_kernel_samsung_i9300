@@ -537,8 +537,7 @@ static void decon_dpms_on(struct decon_context *ctx)
 
 	decon_reset(ctx);
 
-	if (ctx->drv_data->type == EXYNOS_DISPLAY_TYPE_HDMI)
-		exynos_hdmiphy_enable(ctx->crtc);
+	exynos_drm_pipe_clk_enable(ctx->crtc, true);
 
 	decon_window_resume(ctx);
 	decon_apply(ctx);
@@ -575,6 +574,8 @@ static void decon_dpms_off(struct decon_context *ctx)
 	clear_bit(BIT_CLKS_ENABLED, &ctx->enabled);
 	decon_window_suspend(ctx);
 	decon_swreset(ctx);
+
+	exynos_drm_pipe_clk_enable(ctx->crtc, false);
 
 	for (i = ARRAY_SIZE(decon_clks_name) - 1; i >= 0; i--)
 		clk_disable_unprepare(ctx->clks[i]);
