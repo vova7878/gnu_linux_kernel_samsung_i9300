@@ -137,6 +137,7 @@ struct hdmi_context {
 	struct clk			**clk_muxes;
 	struct regulator_bulk_data	regul_bulk[ARRAY_SIZE(supply)];
 	struct regulator		*reg_hdmi_en;
+	struct exynos_drm_clk		phy_clk;
 };
 
 static inline struct hdmi_context *display_to_hdmi(struct exynos_drm_display *d)
@@ -1755,6 +1756,17 @@ static int hdmi_clk_init(struct hdmi_context *hdata)
 	return ret;
 }
 
+static void hdmiphy_clk_enable(struct exynos_drm_clk *clk, bool enable)
+{
+	struct hdmi_context *hdata = container_of(clk, struct hdmi_context,
+						  phy_clk);
+
+	if (enable)
+		hdmiphy_enable(hdata);
+	else
+		hdmi_poweroff(hdata);
+}
+
 static int hdmi_bridge_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
@@ -1854,8 +1866,19 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm_dev = data;
 	struct hdmi_context *hdata = dev_get_drvdata(dev);
+	int ret;
 
 	hdata->drm_dev = drm_dev;
+
+	hdata->phy_clk.enable = hdmiphy_clk_enable;
+
+	ret = exynos_drm_crtc_get_pipe_from_type(drm_dev, hdata->display.type);
+	if (ret >= 0) {
+		struct exynos_drm_private *private = drm_dev->dev_private;
+		struct exynos_drm_crtc *crtc = to_exynos_crtc(private->crtc[ret]);
+
+		crtc->pipe_clk = &hdata->phy_clk;
+	}
 
 	return exynos_drm_create_enc_conn(drm_dev, &hdata->display);
 }
