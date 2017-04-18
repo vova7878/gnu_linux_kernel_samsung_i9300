@@ -32,6 +32,10 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 
+#ifdef CONFIG_ARM
+#include <asm/system_info.h>
+#endif
+
 #include "gadget_chips.h"
 
 #include "../function/f_sdb.c"
@@ -1203,7 +1207,12 @@ static int slp_multi_bind(struct usb_composite_dev *cdev)
 	if (serial)
 		snprintf(serial_string, 18, "%s", serial);
 	else
+#ifdef CONFIG_ARM
+		snprintf(serial_string, 18, "%08x%08x",
+			 system_serial_high, system_serial_low);
+#else
 		snprintf(serial_string, 18, "%s", "01234TEST");
+#endif
 
 	id = usb_string_id(cdev);
 	if (id < 0)
