@@ -23,6 +23,7 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/delay.h>
+#include <linux/dmi.h>
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
@@ -1166,6 +1167,7 @@ static int slp_multi_bind(struct usb_composite_dev *cdev)
 {
 	struct slp_multi_dev *dev = _slp_multi_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
+	const char		*serial;
 	int			id, ret;
 
 	/*
@@ -1196,7 +1198,12 @@ static int slp_multi_bind(struct usb_composite_dev *cdev)
 	/* Default strings - should be updated by userspace */
 	strncpy(manufacturer_string, "Samsung", sizeof(manufacturer_string)-1);
 	strncpy(product_string, "TIZEN", sizeof(product_string) - 1);
-	snprintf(serial_string, 18, "%s", "01234TEST");
+
+	serial = dmi_get_system_info(DMI_PRODUCT_SERIAL);
+	if (serial)
+		snprintf(serial_string, 18, "%s", serial);
+	else
+		snprintf(serial_string, 18, "%s", "01234TEST");
 
 	id = usb_string_id(cdev);
 	if (id < 0)
