@@ -783,6 +783,14 @@ static int max77843_muic_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* JIG pin controlled by Auto detection */
+	ret = regmap_update_bits(max77843->regmap_muic,
+			MAX77843_MUIC_REG_CONTROL3,
+			MAX77843_MUIC_CONTROL3_JIGSET_MASK,
+			0 << CONTROL3_JIGSET_SHIFT);
+	if (ret)
+		dev_warn(&pdev->dev, "Failed to update MUIC_REG_CONTRO3\n");
+
 	/* Turn off auto detection configuration */
 	ret = regmap_update_bits(max77843->regmap_muic,
 			MAX77843_MUIC_REG_CONTROL4,
