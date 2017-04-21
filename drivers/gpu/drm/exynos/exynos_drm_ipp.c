@@ -366,6 +366,16 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
 
 		c_node->property = *property;
 
+		ippdrv = ipp_find_drv_by_handle(prop_id);
+		if (IS_ERR(ippdrv)) {
+			DRM_ERROR("failed to get ipp driver.\n");
+			return -EINVAL;
+		}
+
+		ret = ipp_check_driver(ippdrv, property);
+		if (ret < 0)
+			return ret;
+
 		return 0;
 	}
 
