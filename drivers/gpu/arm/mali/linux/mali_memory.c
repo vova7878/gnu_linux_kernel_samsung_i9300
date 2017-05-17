@@ -111,10 +111,13 @@ static void mali_mem_vma_close(struct vm_area_struct *vma)
 
 static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	void __user *address;
 	mali_mem_allocation *descriptor;
 
-	address = vmf->virtual_address;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	unsigned long address = vmf->address;
+#else
+	unsigned long address = (unsigned long)vmf->virtual_address;
+#endif
 	descriptor = (mali_mem_allocation *)vma->vm_private_data;
 
 	MALI_DEBUG_ASSERT(MALI_MEM_ALLOCATION_VALID_MAGIC == descriptor->magic);
