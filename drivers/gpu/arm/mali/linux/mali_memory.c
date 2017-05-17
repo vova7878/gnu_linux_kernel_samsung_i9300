@@ -109,8 +109,15 @@ static void mali_mem_vma_close(struct vm_area_struct *vma)
 	mali_mem_descriptor_destroy(descriptor);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+static int mali_kernel_memory_cpu_page_fault_handler(struct vm_fault *vmf)
+#else
 static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma, struct vm_fault *vmf)
+#endif
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+	struct vm_area_struct *vma = vmf->vma;
+#endif
 	mali_mem_allocation *descriptor;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
