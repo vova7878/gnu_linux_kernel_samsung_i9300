@@ -81,6 +81,7 @@ headers are used by the installed headers for GNU glibc and other system
 %setup -q -n linux-kernel-%{version}
 
 %build
+%{?asan:/usr/bin/gcc-unforce-options}
 # Make sure EXTRAVERSION says what we want it to say
 sed -i "s/^EXTRAVERSION.*/EXTRAVERSION = -%{variant}/" Makefile
 
