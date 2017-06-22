@@ -8,7 +8,7 @@ Summary: The Linux Kernel for TM2/TM2E board
 Version: 4.1.36
 Release: 0
 License: GPL-2.0
-ExclusiveArch: aarch64
+ExclusiveArch: %{arm} aarch64
 Group: System/Kernel
 Vendor: The Linux Community
 URL: https://www.kernel.org
@@ -26,6 +26,7 @@ BuildRequires: u-boot-tools >= 2016.03
 %description
 The Linux Kernel, the operating system core itself
 
+%ifarch aarch64
 %package -n %{variant}-linux-kernel
 License: GPL-2.0
 Summary: Tizen kernel for %{target_board}
@@ -65,6 +66,7 @@ Provides: %{variant}-kernel-devel-uname-r = %{fullVersion}
 
 %description -n %{variant}-linux-kernel-devel
 This package provides kernel map and etc information.
+%endif
 
 %package -n %{variant}-linux-kernel-headers
 License: GPL-2.0
@@ -91,6 +93,7 @@ make mrproper
 make headers_check
 make headers_install INSTALL_HDR_PATH=uapi-headers/usr
 
+%ifarch aarch64
 # 1-2. set config file
 make %{config_name}
 
@@ -105,12 +108,14 @@ mkimage -f arch/arm64/boot/tizen-tm2.its kernel.img
 
 # 1-6. Build modules
 make modules %{?_smp_mflags}
+%endif
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 
 # 2-1. Destination directories
 mkdir -p %{_builddir}/boot
+%ifarch aarch64
 mkdir -p %{_builddir}/lib/modules
 
 # 2-2. Install kernel.img
@@ -126,6 +131,7 @@ install -m 644 COPYING %{_builddir}/boot/
 
 # 2-4. Install modules
 make INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=%{_builddir} modules_install
+%endif
 
 # 2-5. Install uapi headers
 find uapi-headers/usr/include -name ".install" -delete
@@ -157,6 +163,8 @@ find %{_builddir}/linux-kernel-%{version} -name "*\.c" -not -path "%{_builddir}/
 
 # 3-2. move files for devel package
 cd %{_builddir}
+mv %{_builddir}/usr %{buildroot}/
+%ifarch aarch64
 mv linux-kernel-%{version} kernel-devel-%{variant}
 mkdir -p linux-kernel-%{version}
 
@@ -166,10 +174,10 @@ mv %{_builddir}/boot/COPYING %{buildroot}/
 mv %{_builddir}/boot/* %{buildroot}/boot/
 rm -rf %{_builddir}/boot
 mv %{_builddir}/lib %{buildroot}/
-mv %{_builddir}/usr %{buildroot}/
 mv %{_builddir}/kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/
 
 ln -s kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/tizen-devel
+%endif
 
 %clean
 rm -rf %{buildroot}
@@ -179,6 +187,7 @@ rm -rf %{_builddir}/lib
 rm -rf %{_builddir}/usr
 rm -rf %{_builddir}/kernel-devel-%{variant}
 
+%ifarch aarch64
 %files -n %{variant}-linux-kernel
 %license /COPYING
 /boot/kernel.img
@@ -189,12 +198,13 @@ rm -rf %{_builddir}/kernel-devel-%{variant}
 %files -n %{variant}-linux-kernel-devel
 /boot/kernel/devel/*
 
-%files -n %{variant}-linux-kernel-headers
-/usr/include/*
-
 %files -n %{variant}-linux-kernel-debuginfo
 /boot/Image.gz
 /boot/*.dtb
 /boot/System.map*
 /boot/config*
 /boot/vmlinux*
+%endif
+
+%files -n %{variant}-linux-kernel-headers
+/usr/include/*
