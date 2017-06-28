@@ -166,9 +166,9 @@
 		ranges = <0x0 0x0 0x0 0x18000000>;
 		dma-ranges;
 
-		chipid@10000000 {
-			compatible = "samsung,exynos4210-chipid";
-			reg = <0x10000000 0x100>;
+		chipid: chipid@10000000 {
+			compatible = "samsung,exynos4210-chipid","syscon";
+			reg = <0x10000000 0x10000>;
 		};
 
 		sysram@02020000 {
@@ -261,6 +261,51 @@
 			samsung,cam0-sysreg = <&syscon_cam0>;
 			samsung,cam1-sysreg = <&syscon_cam1>;
 			samsung,disp-sysreg = <&syscon_disp>;
+		};
+
+		exynos_avs_cpu0: exynos-avs@0 {
+			compatible = "samsung,exynos5433-avs";
+			samsung,chipid-syscon = <&chipid>;
+			resource = <&cpu0>;
+			operating-points = <
+				1300000 1125000
+				1200000 1075000
+				1100000 1037500
+				1000000 1000000
+				900000  950000
+				800000  925000
+				700000  887500
+				600000  862500
+				500000  837500
+				400000  800000
+			>;
+			samsung,avs-type-cpu-little;
+			status = "disabled";
+		};
+
+		exynos_avs_cpu4: exynos-avs@1 {
+			compatible = "samsung,exynos5433-avs";
+			samsung,chipid-syscon = <&chipid>;
+			resource = <&cpu4>;
+			operating-points = <
+				1900000 1212500
+				1800000 1175000
+				1700000 1137500
+				1600000 1087500
+				1500000 1050000
+				1400000 1025000
+				1300000 1000000
+				1200000 975000
+				1100000 950000
+				1000000 925000
+				900000  900000
+				800000  900000
+				700000  900000
+				600000  900000
+				500000  900000
+			>;
+			samsung,avs-type-cpu-big;
+			status = "disabled";
 		};
 
 		cmu_peric: clock-controller@14c80000 {
