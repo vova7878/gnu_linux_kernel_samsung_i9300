@@ -313,6 +313,16 @@
 	cpu-cluster.0-supply = <&buck2_reg>;
 };
 
+&exynos_avs_cpu0 {
+	vdd-supply = <&buck3_reg>;
+	status = "okay";
+};
+
+&exynos_avs_cpu4 {
+	vdd-supply = <&buck2_reg>;
+	status = "okay";
+};
+
 &serial_1 {
 	status = "okay";
 };
