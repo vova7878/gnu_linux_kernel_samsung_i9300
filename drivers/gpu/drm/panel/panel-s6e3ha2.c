@@ -50,7 +50,6 @@
 #define LDI_OSCCTL 0xfd
 #define LDI_OSCCTL2 0xfe
 
-#define MIN_BRIGHTNESS		0
 #define MAX_BRIGHTNESS		100
 #define DEFAULT_BRIGHTNESS	80
 
@@ -910,12 +909,6 @@ static void s6e3ha2_vr_enable(struct s6e3ha2 *ctx, int enable)
 	s6e3ha2_test_key_off_fc(ctx);
 }
 
-
-static int s6e3ha2_get_brightness(struct backlight_device *bl_dev)
-{
-	return bl_dev->props.brightness;
-}
-
 static void s6e3ha2_set_vint(struct s6e3ha2 *ctx)
 {
 	int nit = ctx->nits[ctx->hmt_mode][ctx->nit_index];
@@ -981,17 +974,9 @@ static void s6e3ha2_set_brightness(struct s6e3ha2 *ctx)
 static int s6e3ha2_bl_update_status(struct backlight_device *bl_dev)
 {
 	struct s6e3ha2 *ctx = (struct s6e3ha2 *)bl_get_data(bl_dev);
-	unsigned int brightness = bl_dev->props.brightness;
 	int ret;
 
 	mutex_lock(&ctx->lock);
-
-	if (brightness < MIN_BRIGHTNESS ||
-		brightness > bl_dev->props.max_brightness) {
-		dev_err(ctx->dev, "Invalid brightness: %u\n", brightness);
-		ret = -EINVAL;
-		goto end;
-	}
 
 	if (bl_dev->props.power > FB_BLANK_NORMAL) {
 		dev_err(ctx->dev,
@@ -1010,7 +995,6 @@ end:
 }
 
 static const struct backlight_ops s6e3ha2_bl_ops = {
-	.get_brightness = s6e3ha2_get_brightness,
 	.update_status = s6e3ha2_bl_update_status,
 };
 
