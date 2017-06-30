@@ -31,6 +31,11 @@
 /* HCI priority */
 #define HCI_PRIO_MAX	7
 
+#ifdef TIZEN_BT
+/* Reserved ACL slots for Streaming packets */
+#define STREAMING_RESERVED_SLOTS	2
+#endif
+
 /* HCI Core structures */
 struct inquiry_data {
 	bdaddr_t	bdaddr;
@@ -293,6 +298,9 @@ struct hci_dev {
 	unsigned int	acl_cnt;
 	unsigned int	sco_cnt;
 	unsigned int	le_cnt;
+#ifdef TIZEN_BT
+	unsigned int	streaming_cnt;
+#endif
 
 	unsigned int	acl_mtu;
 	unsigned int	sco_mtu;
@@ -348,6 +356,9 @@ struct hci_dev {
 	struct discovery_state	le_discovery;
 #endif
 	struct hci_conn_hash	conn_hash;
+#ifdef TIZEN_BT
+	struct hci_conn		*streaming_conn;
+#endif
 
 	struct list_head	mgmt_pending;
 	struct list_head	blacklist;
@@ -469,6 +480,7 @@ struct hci_conn {
 
 	unsigned int	sent;
 #ifdef TIZEN_BT
+	unsigned int	streaming_sent;
 	__u16		tx_len;
 	__u16		tx_time;
 	__u16		rx_len;
@@ -1577,6 +1589,7 @@ void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
 		bdaddr_t *bdaddr, u16 tx_octets, u16 tx_time,
 		u16 rx_octets, u16 rx_time);
 int hci_le_set_data_length(struct hci_conn *conn, u16 tx_octets, u16 tx_time);
+int hci_conn_streaming_mode(struct hci_conn *conn, bool streaming_mode);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,

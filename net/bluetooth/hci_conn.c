@@ -549,6 +549,12 @@ int hci_conn_del(struct hci_conn *conn)
 
 		/* Unacked frames */
 		hdev->acl_cnt += conn->sent;
+#ifdef TIZEN_BT
+		if (hdev->streaming_conn == conn) {
+			hdev->streaming_conn = NULL;
+			hdev->streaming_cnt = 0;
+		}
+#endif
 	} else if (conn->type == LE_LINK) {
 		cancel_delayed_work(&conn->le_conn_timeout);
 
@@ -1511,3 +1517,44 @@ struct hci_chan *hci_chan_lookup_handle(struct hci_dev *hdev, __u16 handle)
 
 	return hchan;
 }
+
+#ifdef TIZEN_BT
+int hci_conn_streaming_mode(struct hci_conn *conn, bool streaming_mode)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	if (streaming_mode &&
+	    conn->state != BT_CONNECTED && conn->state != BT_CONFIG)
+		return -ENOTCONN;
+
+	if (conn->type != ACL_LINK)
+		return -EOPNOTSUPP;
+
+	if (hdev->acl_pkts < STREAMING_RESERVED_SLOTS * 2)
+		return -EOPNOTSUPP;
+
+	if (streaming_mode) {
+		if (hdev->streaming_conn) {
+			if (hdev->streaming_conn == conn)
+				return 0;
+
+			BT_ERR("already set [%p], request conn [%p]",
+			       hdev->streaming_conn, conn);
+			return -EOPNOTSUPP;
+		}
+
+		hdev->streaming_cnt = STREAMING_RESERVED_SLOTS;
+		conn->streaming_sent = 0;
+		hdev->streaming_conn = conn;
+	} else {
+		if (hdev->streaming_conn != conn)
+			return -ENOENT;
+
+		hdev->streaming_conn = NULL;
+		hdev->streaming_cnt = 0;
+		conn->streaming_sent = 0;
+	}
+
+	return 0;
+}
+#endif

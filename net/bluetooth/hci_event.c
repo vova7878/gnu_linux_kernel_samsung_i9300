@@ -3480,6 +3480,16 @@ static void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *skb)
 			continue;
 
 		conn->sent -= count;
+#ifdef TIZEN_BT
+		if (hdev->streaming_conn && conn->sent < conn->streaming_sent) {
+			hdev->streaming_cnt +=
+					(conn->streaming_sent - conn->sent);
+			if (hdev->streaming_cnt > STREAMING_RESERVED_SLOTS)
+				hdev->streaming_cnt = STREAMING_RESERVED_SLOTS;
+
+			conn->streaming_sent = conn->sent;
+		}
+#endif
 
 		switch (conn->type) {
 		case ACL_LINK:

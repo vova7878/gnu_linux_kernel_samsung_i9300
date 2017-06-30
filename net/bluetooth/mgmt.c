@@ -8970,6 +8970,42 @@ void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 
 	mgmt_event(MGMT_EV_LE_DEVICE_FOUND, hdev, ev, ev_size, NULL);
 }
+
+static int set_streaming_mode(struct sock *sk, struct hci_dev *hdev,
+			      void *cp_data, u16 len)
+{
+	struct mgmt_cp_set_streaming_mode *cp = cp_data;
+	struct hci_conn *conn;
+	int err;
+	int status = MGMT_STATUS_SUCCESS;
+
+	BT_DBG("request for %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &cp->bdaddr);
+	if (!conn) {
+		err = -ENOTCONN;
+		goto unlock;
+	}
+
+	err = hci_conn_streaming_mode(conn, cp->streaming_mode);
+
+unlock:
+	if (err == -ENOTCONN)
+		status = MGMT_STATUS_NOT_CONNECTED;
+	else if (err == -EOPNOTSUPP)
+		status = MGMT_STATUS_NOT_SUPPORTED;
+	else if (err == -ENOENT)
+		status = MGMT_STATUS_INVALID_PARAMS;
+
+	err = mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_STREAMING_MODE,
+				status, NULL, 0);
+
+	hci_dev_unlock(hdev);
+
+	return err;
+}
 #endif
 
 static void read_local_oob_ext_data_complete(struct hci_dev *hdev, u8 status,
@@ -9777,6 +9813,7 @@ static const struct hci_mgmt_handler tizen_mgmt_handlers[] = {
 				   MGMT_LE_SET_DATA_LENGTH_SIZE },
 	{ set_irk,                 MGMT_SET_IRK_SIZE },
 	{ set_dev_rpa_res_support, MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE },
+	{ set_streaming_mode,      MGMT_SET_STREAMING_MODE_SIZE },
 };
 #endif
 

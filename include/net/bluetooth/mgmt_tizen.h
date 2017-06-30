@@ -235,6 +235,13 @@ struct mgmt_cp_set_dev_rpa_res_support {
 } __packed;
 #define MGMT_OP_SET_DEV_RPA_RES_SUPPORT_SIZE	8
 
+#define MGMT_OP_SET_STREAMING_MODE		(TIZEN_OP_CODE_BASE + 0x1b)
+struct mgmt_cp_set_streaming_mode {
+	uint8_t	streaming_mode;
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_SET_STREAMING_MODE_SIZE		7
+
 /* EVENTS */
 
 /* For device name update changes */
