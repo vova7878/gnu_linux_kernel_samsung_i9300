@@ -1527,6 +1527,16 @@ static int gsc_ippdrv_check_property(struct device *dev,
 		pos = &config->pos;
 		sz = &config->sz;
 
+		/*
+		 * Multiples of the resolution must be a multiple
+		 * of 4, 8 each horizontally and vertically.
+		 * Check the resolution.
+		 */
+		if ((sz->hsize & 0x3) || (sz->vsize & 0x7)) {
+			DRM_ERROR("resolution must be a multiple of 4 or 8.\n");
+			goto err_property;
+		}
+
 		/* check for flip */
 		if (!gsc_check_drm_flip(config->flip)) {
 			DRM_ERROR("invalid flip.\n");
