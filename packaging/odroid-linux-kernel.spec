@@ -46,6 +46,16 @@ Provides: %{variant}-kernel-modules-uname-r = %{fullVersion}
 %description -n %{variant}-linux-kernel-modules
 Kernel-modules includes the loadable kernel modules(.ko files) for %{target_board}
 
+%package -n %{variant}-linux-kernel-devel
+License: GPL-2.0
+Summary: Linux support kernel map and etc for other packages
+Group: System/Kernel
+Provides: %{variant}-kernel-devel = %{fullVersion}
+Provides: %{variant}-kernel-devel-uname-r = %{fullVersion}
+
+%description -n %{variant}-linux-kernel-devel
+This package provides kernel map and etc information for odroid kernel.
+
 %prep
 %setup -q -n linux-kernel-%{version}
 
@@ -93,11 +103,35 @@ find %{buildroot}/lib/modules/ -name "*.ko" -type f -print0 | xargs -0 chmod 755
 rm -f %{buildroot}/lib/modules/%{fullVersion}/build
 rm -f %{buildroot}/lib/modules/%{fullVersion}/source
 
+# 9-1. remove unnecessary files to prepare for devel package
+rm -f tools/mkimage*
+find %{_builddir}/linux-kernel-%{version} -name "*\.HEX" -type f -delete
+find %{_builddir}/linux-kernel-%{version} -name "vdso.so.raw" -type f -delete
+find %{_builddir}/linux-kernel-%{version} -name ".tmp_vmlinux*" -delete
+find %{_builddir}/linux-kernel-%{version} -name ".gitignore" -delete
+find %{_builddir}/linux-kernel-%{version} -name "\.*dtb*tmp" -delete
+find %{_builddir}/linux-kernel-%{version} -name "\.*dtb" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.*tmp" -delete
+find %{_builddir}/linux-kernel-%{version} -name "vmlinux" -delete
+find %{_builddir}/linux-kernel-%{version} -name "zImage" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*.cmd" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.ko" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.o" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.S" -delete
+find %{_builddir}/linux-kernel-%{version} -name "*\.c" -not -path "%{_builddir}/linux-kernel-%{version}/scripts/*" -delete
+
+# 9-2. copy devel package
+mkdir -p %{buildroot}/boot/kernel/devel
+cp -r %{_builddir}/linux-kernel-%{version} %{buildroot}/boot/kernel/devel/kernel-devel-%{variant}
+
 %clean
 rm -rf %{buildroot}
 
 %files -n %{variant}-linux-kernel-modules
 /lib/modules/
+
+%files -n %{variant}-linux-kernel-devel
+/boot/kernel/devel/*
 
 %files -n %{variant}-linux-kernel
 %license COPYING
