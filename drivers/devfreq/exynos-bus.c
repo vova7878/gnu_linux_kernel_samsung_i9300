@@ -198,7 +198,7 @@ static void exynos_bus_exit(struct device *dev)
 	if (bus->regulator)
 		regulator_disable(bus->regulator);
 
-	dev_pm_opp_of_remove_table(dev);
+	of_free_opp_table(dev);
 	clk_disable_unprepare(bus->clk);
 }
 
@@ -253,7 +253,7 @@ static void exynos_bus_passive_exit(struct device *dev)
 {
 	struct exynos_bus *bus = dev_get_drvdata(dev);
 
-	dev_pm_opp_of_remove_table(dev);
+	of_free_opp_table(dev);
 	clk_disable_unprepare(bus->clk);
 }
 
@@ -350,7 +350,7 @@ static int exynos_bus_parse_of(struct device_node *np,
 	}
 
 	/* Get the freq and voltage from OPP table to scale the bus freq */
-	ret = dev_pm_opp_of_add_table(dev);
+	ret = of_init_opp_table(dev);
 	if (ret < 0) {
 		dev_err(dev, "failed to get OPP table\n");
 		goto err_clk;
@@ -372,7 +372,7 @@ static int exynos_bus_parse_of(struct device_node *np,
 	return 0;
 
 err_opp:
-	dev_pm_opp_of_remove_table(dev);
+	of_free_opp_table(dev);
 err_clk:
 	clk_disable_unprepare(bus->clk);
 
@@ -511,7 +511,7 @@ out:
 	return 0;
 
 err:
-	dev_pm_opp_of_remove_table(dev);
+	of_free_opp_table(dev);
 	clk_disable_unprepare(bus->clk);
 
 	return ret;
