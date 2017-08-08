@@ -1195,22 +1195,6 @@
 	};
 };
 
-&memory_bus_int {
-	devfreq-events = <&ppmu_d0_general_0>,
-			 <&ppmu_d1_general_0>;
-	vdd-mem-supply = <&buck4_reg>;
-	exynos,saturation-ratio = <10>;
-	status = "okay";
-};
-
-&memory_bus_mif {
-	devfreq-events = <&ppmu_d0_cpu_3>,
-			 <&ppmu_d1_cpu_3>;
-	vdd-mem-supply = <&buck1_reg>;
-	exynos,saturation-ratio = <10>;
-	status = "okay";
-};
-
 &xxti {
 	clock-frequency = <24000000>;
 };
