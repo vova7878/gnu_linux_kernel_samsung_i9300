@@ -313,6 +313,12 @@
 	cpu-cluster.0-supply = <&buck2_reg>;
 };
 
+&cmu_mif {
+	assigned-clocks = <&cmu_mif CLK_DIV_MIF_PRE>,
+			<&cmu_mif CLK_DIV_ACLK_CPIF_200>;
+	assigned-clock-rates = <400000000>, <100000000>;
+};
+
 &bus_g2d_400 {
 	devfreq-events = <&ppmu_d0_general_0>, <&ppmu_d1_general_0>;
 	vdd-supply = <&buck4_reg>;
@@ -362,6 +368,43 @@
 
 &bus_noc2 {
 	devfreq = <&bus_g2d_400>;
+	status = "okay";
+};
+
+&bus_mif_400 {
+	devfreq-events = <&ppmu_d0_cpu_3>, <&ppmu_d1_cpu_3>;
+	vdd-supply = <&buck1_reg>;
+	exynos,saturation-ratio = <10>;
+	status = "okay";
+};
+
+&bus_mif_266 {
+	devfreq = <&bus_mif_400>;
+	status = "okay";
+};
+
+&bus_mif_200 {
+	devfreq = <&bus_mif_400>;
+	status = "okay";
+};
+
+&bus_mifnm_200 {
+	devfreq = <&bus_mif_400>;
+	status = "okay";
+};
+
+&bus_mifnd_133 {
+	devfreq = <&bus_mif_400>;
+	status = "okay";
+};
+
+&bus_mif_133 {
+	devfreq = <&bus_mif_400>;
+	status = "okay";
+};
+
+&bus_hpm_mif {
+	devfreq = <&bus_mif_400>;
 	status = "okay";
 };
 
