@@ -34,7 +34,7 @@ static u32 static_coefficient;
 static s32 ts[4];
 static struct thermal_zone_device *gpu_tz;
 
-static unsigned long model_static_power(unsigned long voltage)
+static unsigned long model_static_power(struct devfreq *df, unsigned long voltage)
 {
 	unsigned int temperature, temp;
 	unsigned long temp_squared, temp_cubed, temp_scaling_factor;
@@ -70,7 +70,7 @@ static unsigned long model_static_power(unsigned long voltage)
 				/ 1000000;
 }
 
-static unsigned long model_dynamic_power(unsigned long freq,
+static unsigned long model_dynamic_power(struct devfreq *df, unsigned long freq,
 		unsigned long voltage)
 {
 	/* The inputs: freq (f) is in Hz, and voltage (v) in mV.
