@@ -10,6 +10,7 @@
  */
 
 &soc {
+	/* INT (Internal) block */
 	bus_g2d_400: bus0 {
 		compatible = "samsung,exynos-bus";
 		clocks = <&cmu_top CLK_ACLK_G2D_400>;
@@ -209,6 +210,206 @@
 		};
 		opp@100000000 {
 			opp-hz = /bits/ 64 <100000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	/* MIF (Memory Interface) block*/
+	bus_mif_400: bus10 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIF_400>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mif_400_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mif_266: bus11 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIF_266>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mif_266_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mif_200: bus12 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIF_200>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mif_200_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mifnm_200: bus13 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIFNM_200>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mifnm_200_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mifnd_133: bus14 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIFND_133>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mifnd_133_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mif_133: bus15 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_DIV_ACLK_MIF_133>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_mif_opp_table>;
+		status = "disabled";
+	};
+
+	bus_hpm_mif: bus16 {
+		compatible = "samsung,exynos-bus";
+		clocks = <&cmu_mif CLK_SCLK_HPM_MIF>;
+		clock-names = "bus";
+		operating-points-v2 = <&bus_hpm_mif_opp_table>;
+		status = "disabled";
+	};
+
+	bus_mif_400_opp_table: opp_table7 {
+		compatible = "operating-points-v2";
+
+		opp@413000000 {
+			opp-hz = /bits/ 64 <413000000>;
+			opp-microvolt = <1050000>;
+		};
+		opp@275000000 {
+			opp-hz = /bits/ 64 <275000000>;
+			opp-microvolt = <975000>;
+		};
+		opp@207000000 {
+			opp-hz = /bits/ 64 <207000000>;
+			opp-microvolt = <950000>;
+		};
+		opp@165000000 {
+			opp-hz = /bits/ 64 <165000000>;
+			opp-microvolt = <925000>;
+		};
+		opp@138000000 {
+			opp-hz = /bits/ 64 <138000000>;
+			opp-microvolt = <900000>;
+		};
+	};
+
+	bus_mif_266_opp_table: opp_table8 {
+		compatible = "operating-points-v2";
+
+		opp@267000000 {
+			opp-hz = /bits/ 64 <267000000>;
+			opp-microvolt = <0>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <0>;
+		};
+		opp@160000000 {
+			opp-hz = /bits/ 64 <160000000>;
+			opp-microvolt = <0>;
+		};
+		opp@134000000 {
+			opp-hz = /bits/ 64 <134000000>;
+			opp-microvolt = <0>;
+		};
+		opp@100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	bus_mif_200_opp_table: opp_table9 {
+		compatible = "operating-points-v2";
+
+		opp@207000000 {
+			opp-hz = /bits/ 64 <207000000>;
+			opp-microvolt = <0>;
+		};
+		opp@138000000 {
+			opp-hz = /bits/ 64 <138000000>;
+			opp-microvolt = <0>;
+		};
+		opp@104000000 {
+			opp-hz = /bits/ 64 <104000000>;
+			opp-microvolt = <0>;
+		};
+		opp@83000000 {
+			opp-hz = /bits/ 64 <83000000>;
+			opp-microvolt = <0>;
+		};
+		opp@69000000 {
+			opp-hz = /bits/ 64 <69000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	bus_mifnm_200_opp_table: opp_table10 {
+		compatible = "operating-points-v2";
+
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <0>;
+		};
+		opp@100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	bus_mifnd_133_opp_table: opp_table11 {
+		compatible = "operating-points-v2";
+
+		opp@80000000 {
+			opp-hz = /bits/ 64 <80000000>;
+			opp-microvolt = <0>;
+		};
+		opp@67000000 {
+			opp-hz = /bits/ 64 <67000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	bus_mif_opp_table: opp_table12 {
+		compatible = "operating-points-v2";
+
+		opp@80000000 {
+			opp-hz = /bits/ 64 <80000000>;
+			opp-microvolt = <0>;
+		};
+		opp@67000000 {
+			opp-hz = /bits/ 64 <67000000>;
+			opp-microvolt = <0>;
+		};
+		opp@50000000 {
+			opp-hz = /bits/ 64 <50000000>;
+			opp-microvolt = <0>;
+		};
+	};
+
+	bus_hpm_mif_opp_table: opp_table13 {
+		compatible = "operating-points-v2";
+
+		opp@207000000 {
+			opp-hz = /bits/ 64 <207000000>;
+			opp-microvolt = <0>;
+		};
+		opp@167000000 {
+			opp-hz = /bits/ 64 <167000000>;
+			opp-microvolt = <0>;
+		};
+		opp@136000000 {
+			opp-hz = /bits/ 64 <136000000>;
+			opp-microvolt = <0>;
+		};
+		opp@104000000 {
+			opp-hz = /bits/ 64 <104000000>;
+			opp-microvolt = <0>;
+		};
+		opp@69000000 {
+			opp-hz = /bits/ 64 <69000000>;
 			opp-microvolt = <0>;
 		};
 	};
