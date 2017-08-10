@@ -27,7 +27,6 @@
 #include <linux/irq.h>
 #include <linux/poll.h>
 #include <linux/uaccess.h>
-#include <linux/wakelock.h>
 #include <linux/suspend.h>
 #include <linux/kernel.h>
 #include <linux/clk.h>
@@ -124,8 +123,6 @@ struct bcm_spi_priv
 	/* SPI tx/rx buf */
 	struct bcm_ssi_tx_frame *tx_buf;
 	struct bcm_ssi_rx_frame *rx_buf;
-
-	struct wake_lock bcm_wake_lock;
 
 	struct clk *clk;
 };
@@ -633,7 +630,6 @@ static irqreturn_t bcm_irq_handler(int irq, void *pdata)
 	if (!atomic_read(&priv->suspending))
 		queue_work(priv->serial_wq, &priv->rxtx_work);
 
-	wake_lock_timeout(&priv->bcm_wake_lock, HZ/2);
 	return IRQ_HANDLED;
 }
 
@@ -805,9 +801,6 @@ static int bcm_spi_probe(struct spi_device *spi)
 	priv->host_req = host_req;
 	priv->mcu_req  = mcu_req;
 	priv->mcu_resp = mcu_resp;
-
-	/* Init - etc */
-	wake_lock_init(&priv->bcm_wake_lock, WAKE_LOCK_SUSPEND, "bcm_spi_wake_lock");
 
 	g_bcm_gps = priv;
 	/* Init BBD & SSP */
