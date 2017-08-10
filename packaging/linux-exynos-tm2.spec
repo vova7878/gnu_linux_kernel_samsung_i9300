@@ -59,8 +59,6 @@ This package provides the %{target_board} linux kernel's debugging files.
 License: GPL-2.0
 Summary: Linux support kernel map and etc for other packages
 Group: System/Kernel
-Provides: kernel-devel-tizen-dev
-Provides: kernel-devel-tizen
 Provides: %{variant}-kernel-devel = %{fullVersion}
 Provides: %{variant}-kernel-devel-uname-r = %{fullVersion}
 
@@ -147,6 +145,7 @@ rm -rf vmlinux*
 rm -rf kernel.img
 rm -rf uapi-headers
 rm -f tools/mkimage*
+find %{_builddir}/linux-kernel-%{version} -name "*\.HEX" -type f -delete
 find %{_builddir}/linux-kernel-%{version} -name ".tmp_vmlinux*" -delete
 find %{_builddir}/linux-kernel-%{version} -name ".gitignore" -delete
 find %{_builddir}/linux-kernel-%{version} -name "\.*dtb*tmp" -delete
@@ -175,8 +174,6 @@ mv %{_builddir}/boot/* %{buildroot}/boot/
 rm -rf %{_builddir}/boot
 mv %{_builddir}/lib %{buildroot}/
 mv %{_builddir}/kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/
-
-ln -s kernel-devel-%{variant} %{buildroot}/boot/kernel/devel/tizen-devel
 %endif
 
 %clean
