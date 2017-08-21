@@ -824,6 +824,7 @@ static int gsc_src_set_addr(struct device *dev,
 	struct drm_exynos_ipp_cmd_node *c_node = ippdrv->c_node;
 	struct drm_exynos_ipp_property *property;
 	struct drm_exynos_ipp_config *config;
+	struct drm_exynos_sz sz;
 	int ret;
 
 	if (!c_node) {
@@ -842,7 +843,13 @@ static int gsc_src_set_addr(struct device *dev,
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
 		config = &property->config[EXYNOS_DRM_OPS_SRC];
-		ret = gsc_set_planar_addr(buf_info, config->fmt, &config->sz);
+		/*
+		 * The resolution is adjusted to a multiple of 16
+		 * to see if an overflow has occurred.
+		 */
+		sz.hsize = ALIGN(config->pos.w, 16);
+		sz.vsize = ALIGN(config->pos.h, 16);
+		ret = gsc_set_planar_addr(buf_info, config->fmt, &sz);
 		if (ret) {
 			dev_err(dev, "failed to set plane src addr.\n");
 			return ret;
@@ -1532,10 +1539,8 @@ static int gsc_ippdrv_check_property(struct device *dev,
 		 * Check the source resolution.
 		 */
 		if (i == EXYNOS_DRM_OPS_SRC &&
-			((sz->hsize & 0xf) || (sz->vsize & 0xf))) {
-			DRM_ERROR("resolution must be a multiple of 16.\n");
-			goto err_property;
-		}
+			((sz->hsize & 0xf) || (sz->vsize & 0xf)))
+			dev_warn(dev, "resolution must be a multiple of 16.\n");
 
 		/* check for flip */
 		if (!gsc_check_drm_flip(config->flip)) {
