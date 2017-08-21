@@ -1528,13 +1528,12 @@ static int gsc_ippdrv_check_property(struct device *dev,
 		sz = &config->sz;
 
 		/*
-		 * Multiples of the resolution must be a multiple
-		 * of 4, 8 each horizontally and vertically.
-		 * Check source the resolution.
+		 * Multiples of the source resolution must be a multiple of 16.
+		 * Check the source resolution.
 		 */
 		if (i == EXYNOS_DRM_OPS_SRC &&
-			((sz->hsize & 0x3) || (sz->vsize & 0x7))) {
-			DRM_ERROR("resolution must be a multiple of 4 or 8.\n");
+			((sz->hsize & 0xf) || (sz->vsize & 0xf))) {
+			DRM_ERROR("resolution must be a multiple of 16.\n");
 			goto err_property;
 		}
 
