@@ -61,6 +61,8 @@ This package provides kernel map and etc information for odroid kernel.
 
 %build
 %{?asan:/usr/bin/gcc-unforce-options}
+%{?ubsan:/usr/bin/gcc-unforce-options}
+
 # Make sure EXTRAVERSION says what we want it to say
 sed -i "s/^EXTRAVERSION.*/EXTRAVERSION = -%{release}-%{variant}/" Makefile
 
