@@ -167,13 +167,21 @@ static enum base_jd_event_code kbase_fence_trigger(struct kbase_jd_atom *katom, 
 	struct sync_pt *pt;
 	struct sync_timeline *timeline;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 	if (!list_is_singular(&katom->fence->pt_list_head)) {
+#else
+	if (katom->fence->num_fences != 1) {
+#endif
 		/* Not exactly one item in the list - so it didn't (directly) come from us */
 		return BASE_JD_EVENT_JOB_CANCELLED;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 	pt = list_first_entry(&katom->fence->pt_list_head, struct sync_pt, pt_list);
-	timeline = pt->parent;
+#else
+	pt = container_of(katom->fence->cbs[0].sync_pt, struct sync_pt, base);
+#endif
+	timeline = sync_pt_parent(pt);
 
 	if (!kbase_sync_timeline_is_ours(timeline)) {
 		/* Fence has a sync_pt which isn't ours! */
@@ -212,7 +220,11 @@ static void kbase_fence_wait_callback(struct sync_fence *fence, struct sync_fenc
 	/* Propagate the fence status to the atom.
 	 * If negative then cancel this atom and its dependencies.
 	 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 	if (fence->status < 0)
+#else
+	if (atomic_read(&fence->status) < 0)
+#endif
 		katom->event_code = BASE_JD_EVENT_JOB_CANCELLED;
 
 	/* To prevent a potential deadlock we schedule the work onto the job_done_wq workqueue
