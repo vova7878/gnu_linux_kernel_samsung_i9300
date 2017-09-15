@@ -53,7 +53,7 @@ static struct sync_pt *timeline_dup(struct sync_pt *pt)
 {
 	struct mali_sync_pt *mpt = to_mali_sync_pt(pt);
 	struct mali_sync_pt *new_mpt;
-	struct sync_pt *new_pt = sync_pt_create(pt->parent, sizeof(struct mali_sync_pt));
+	struct sync_pt *new_pt = sync_pt_create(sync_pt_parent(pt), sizeof(struct mali_sync_pt));
 
 	if (!new_pt)
 		return NULL;
@@ -68,7 +68,7 @@ static struct sync_pt *timeline_dup(struct sync_pt *pt)
 static int timeline_has_signaled(struct sync_pt *pt)
 {
 	struct mali_sync_pt *mpt = to_mali_sync_pt(pt);
-	struct mali_sync_timeline *mtl = to_mali_sync_timeline(pt->parent);
+	struct mali_sync_timeline *mtl = to_mali_sync_timeline(sync_pt_parent(pt));
 	int result = mpt->result;
 
 	int diff = atomic_read(&mtl->signalled) - mpt->order;
@@ -159,7 +159,7 @@ struct sync_pt *kbase_sync_pt_alloc(struct sync_timeline *parent)
 void kbase_sync_signal_pt(struct sync_pt *pt, int result)
 {
 	struct mali_sync_pt *mpt = to_mali_sync_pt(pt);
-	struct mali_sync_timeline *mtl = to_mali_sync_timeline(pt->parent);
+	struct mali_sync_timeline *mtl = to_mali_sync_timeline(sync_pt_parent(pt));
 	int signalled;
 	int diff;
 
