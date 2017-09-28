@@ -10,7 +10,6 @@
  * published bythe Free Software Foundation.
  */
 
-#include <linux/extcon.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -28,12 +27,9 @@ struct max77843_charger {
 	struct i2c_client	*client;
 	struct regmap		*regmap;
 	struct power_supply	*psy;
-	struct extcon_dev	*edev;
 	struct work_struct	work;
 	struct notifier_block	otg_nb;
-	struct extcon_specific_cable_nb otg_cable_nb;
 	struct max77843_charger_info	*info;
-	int			extcon_state;
 };
 
 static int max77843_charger_get_max_current(struct max77843_charger *charger)
@@ -443,74 +439,6 @@ static struct max77843_charger_info *max77843_charger_dt_init(
 	return info;
 }
 
-static void max77843_charger_otg_worker(struct work_struct *work)
-{
-	struct max77843_charger *charger =
-		container_of(work, struct max77843_charger, work);
-
-	if (charger->extcon_state) {
-		/* OTG Cable attached */
-		regmap_update_bits(charger->regmap,
-			MAX77843_CHG_REG_CHG_CNFG_00,
-			MAX77843_CHG_MODE_MASK,
-			MAX77843_CHG_OTG_MASK | MAX77843_CHG_BOOST_MASK);
-	} else {
-		/* OTG Cable detached */
-		regmap_update_bits(charger->regmap,
-			MAX77843_CHG_REG_CHG_CNFG_00,
-			MAX77843_CHG_MODE_MASK,
-			MAX77843_CHG_ENABLE | MAX77843_CHG_BUCK_MASK);
-	}
-}
-
-static int max77843_charger_otg_notifier(struct notifier_block *nb,
-		unsigned long event, void *ptr)
-{
-	struct max77843_charger *charger = container_of(nb,
-			struct max77843_charger, otg_nb);
-
-	charger->extcon_state = event;
-	schedule_work(&charger->work);
-
-	return 0;
-}
-
-static int max77843_extcon_register(struct max77843_charger *charger)
-{
-	struct device_node *np = charger->dev->of_node;
-	struct extcon_dev *edev;
-	int ret;
-
-	if (of_property_read_bool(np, "extcon")) {
-		charger->otg_nb.notifier_call = max77843_charger_otg_notifier;
-
-		edev = extcon_get_edev_by_phandle(charger->dev, 0);
-		if (IS_ERR(edev)) {
-			dev_dbg(charger->dev, "Cannot get extcon device\n");
-			return -EPROBE_DEFER;
-		}
-
-		ret = extcon_register_interest(&charger->otg_cable_nb,
-				edev->name, "USB-HOST", &charger->otg_nb);
-		if (ret < 0) {
-			dev_err(charger->dev, "Cannot register OTG notifier\n");
-			return ret;
-		}
-
-	 	charger->edev = edev;
-	}
-
-	return 0;
-}
-
-static void max77843_extcon_unregister(struct max77843_charger *charger)
-{
-	if (charger->edev) {
-		extcon_unregister_interest(&charger->otg_cable_nb);
-		charger->edev = NULL;
-	}
-}
-
 static const struct power_supply_desc max77843_charger_desc = {
 	.name		= "max77843-charger",
 	.type		= POWER_SUPPLY_TYPE_MAINS,
@@ -536,35 +464,24 @@ static int max77843_charger_probe(struct platform_device *pdev)
 	charger->max77843 = max77843;
 	charger->client = max77843->i2c_chg;
 	charger->regmap = max77843->regmap_chg;
-	INIT_WORK(&charger->work, max77843_charger_otg_worker);
-
-	ret = max77843_extcon_register(charger);
-	if (ret)
-		return ret;
 
 	charger->info = max77843_charger_dt_init(pdev);
-	if (IS_ERR(charger->info)) {
-		ret = PTR_ERR(charger->info);
-		goto err_extcon;
-	}
+	if (IS_ERR(charger->info))
+		return PTR_ERR(charger->info);
 
 	ret = max77843_charger_init(charger);
 	if (ret)
-		goto err_extcon;
+		return ret;
 
 	charger->psy = power_supply_register(&pdev->dev, &max77843_charger_desc, &psy_cfg);
 	if (IS_ERR(charger->psy)) {
 		ret = PTR_ERR(charger->psy);
 		dev_err(&pdev->dev,
 			"Failed to register power supply %d\n", ret);
-		goto err_extcon;
+		return ret;
 	}
 
 	return 0;
-
-err_extcon:
-	max77843_extcon_unregister(charger);
-	return ret;
 }
 
 static int max77843_charger_remove(struct platform_device *pdev)
@@ -572,7 +489,6 @@ static int max77843_charger_remove(struct platform_device *pdev)
 	struct max77843_charger *charger = platform_get_drvdata(pdev);
 
 	power_supply_unregister(charger->psy);
-	max77843_extcon_unregister(charger);
 	return 0;
 }
 
