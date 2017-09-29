@@ -80,7 +80,7 @@ enum max77843_muic_accessory_type {
 	MAX77843_MUIC_ADC_REMOTE_S12_BUTTON,
 	MAX77843_MUIC_ADC_RESERVED_ACC_1,
 	MAX77843_MUIC_ADC_RESERVED_ACC_2,
-	MAX77843_MUIC_ADC_RESERVED_ACC_3,
+	MAX77843_MUIC_ADC_RESERVED_ACC_3, /* SmartDock */
 	MAX77843_MUIC_ADC_RESERVED_ACC_4,
 	MAX77843_MUIC_ADC_RESERVED_ACC_5,
 	MAX77843_MUIC_ADC_AUDIO_DEVICE_TYPE2,
@@ -117,6 +117,7 @@ enum max77843_muic_charger_type {
 	MAX77843_MUIC_CHG_SPECIAL_BIAS,
 	MAX77843_MUIC_CHG_RESERVED,
 	MAX77843_MUIC_CHG_GND,
+	MAX77843_MUIC_CHG_DOCK,
 };
 
 enum {
@@ -127,6 +128,7 @@ enum {
 	MAX77843_CABLE_FAST_CHARGER,
 	MAX77843_CABLE_SLOW_CHARGER,
 	MAX77843_CABLE_MHL,
+	MAX77843_CABLE_DOCK,
 	MAX77843_CABLE_JIG_USB_ON,
 	MAX77843_CABLE_JIG_USB_OFF,
 	MAX77843_CABLE_JIG_UART_ON,
@@ -143,6 +145,7 @@ static const char *max77843_extcon_cable[] = {
 	[MAX77843_CABLE_FAST_CHARGER]		= "FAST-CHARGER",
 	[MAX77843_CABLE_SLOW_CHARGER]		= "SLOW-CHARGER",
 	[MAX77843_CABLE_MHL]			= "MHL",
+	[MAX77843_CABLE_DOCK]			= "DOCK",
 	[MAX77843_CABLE_JIG_USB_ON]		= "JIG-USB-ON",
 	[MAX77843_CABLE_JIG_USB_OFF]		= "JIG-USB-OFF",
 	[MAX77843_CABLE_JIG_UART_ON]		= "JIG-UART-ON",
@@ -216,7 +219,7 @@ static const struct regmap_irq_chip max77843_muic_irq_chip = {
 };
 
 static int max77843_muic_set_path(struct max77843_muic_info *info,
-		u8 val, bool attached)
+		u8 val, bool attached, bool nobccomp)
 {
 	struct max77843 *max77843 = info->max77843;
 	int ret = 0;
@@ -227,9 +230,15 @@ static int max77843_muic_set_path(struct max77843_muic_info *info,
 	else
 		ctrl1 = CONTROL1_SW_OPEN;
 
+	if (nobccomp) {
+		/* Disable BC1.2 protocol and force manual switch control */
+		ctrl1 |= MAX77843_MUIC_CONTROL1_NOBCCOMP_MASK;
+	}
+
 	ret = regmap_update_bits(max77843->regmap_muic,
 			MAX77843_MUIC_REG_CONTROL1,
-			CONTROL1_COM_SW, ctrl1);
+			CONTROL1_COM_SW | MAX77843_MUIC_CONTROL1_NOBCCOMP_MASK,
+			ctrl1);
 	if (ret < 0) {
 		dev_err(info->dev, "Cannot switch MUIC port\n");
 		return ret;
@@ -320,6 +329,19 @@ static int max77843_muic_get_cable_type(struct max77843_muic_info *info,
 			break;
 		}
 
+		if (adc == MAX77843_MUIC_ADC_RESERVED_ACC_3) { /* SmartDock */
+			if (chg_type == MAX77843_MUIC_CHG_NONE) {
+				*attached = false;
+				cable_type = info->prev_chg_type;
+				info->prev_chg_type = MAX77843_MUIC_CHG_NONE;
+			} else {
+				*attached = true;
+				cable_type = MAX77843_MUIC_CHG_DOCK;
+				info->prev_chg_type = MAX77843_MUIC_CHG_DOCK;
+			}
+			break;
+		}
+
 		if (adc == MAX77843_MUIC_ADC_RESERVED_ACC_4) {
 			if (chg_type == MAX77843_MUIC_CHG_NONE) {
 				*attached = false;
@@ -391,7 +413,8 @@ static int max77843_muic_adc_gnd_handler(struct max77843_muic_info *info)
 	switch (gnd_cable_type) {
 	case MAX77843_MUIC_GND_USB_HOST:
 	case MAX77843_MUIC_GND_USB_HOST_VB:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
@@ -400,7 +423,8 @@ static int max77843_muic_adc_gnd_handler(struct max77843_muic_info *info)
 		break;
 	case MAX77843_MUIC_GND_MHL_VB:
 	case MAX77843_MUIC_GND_MHL:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
@@ -425,29 +449,53 @@ static int max77843_muic_jig_handler(struct max77843_muic_info *info,
 
 	switch (cable_type) {
 	case MAX77843_MUIC_ADC_FACTORY_MODE_USB_OFF:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 		extcon_set_cable_state(info->edev, "JIG-USB-OFF", attached);
 		break;
 	case MAX77843_MUIC_ADC_FACTORY_MODE_USB_ON:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 		extcon_set_cable_state(info->edev, "JIG-USB-ON", attached);
 		break;
 	case MAX77843_MUIC_ADC_FACTORY_MODE_UART_OFF:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_UART, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_UART, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 		extcon_set_cable_state(info->edev, "JIG-UART-OFF", attached);
 		break;
 	default:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 		break;
 	}
+
+	return 0;
+}
+
+static int max77843_muic_dock_handler(struct max77843_muic_info *info,
+		bool attached)
+{
+	int ret;
+
+	dev_dbg(info->dev, "external connector is %s (adc: 0x10)\n",
+			attached ? "attached" : "detached");
+
+	ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached,
+				     attached);
+	if (ret < 0)
+		return ret;
+
+	extcon_set_cable_state(info->edev, "MHL", attached);
+	extcon_set_cable_state(info->edev, "USB-HOST", attached);
+	extcon_set_cable_state(info->edev, "DOCK", attached);
 
 	return 0;
 }
@@ -466,6 +514,11 @@ static int max77843_muic_adc_handler(struct max77843_muic_info *info)
 		info->prev_cable_type);
 
 	switch (cable_type) {
+	case MAX77843_MUIC_ADC_RESERVED_ACC_3: /* SmartDock */
+		ret = max77843_muic_dock_handler(info, attached);
+		if (ret < 0)
+			return ret;
+		break;
 	case MAX77843_MUIC_ADC_GROUND:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_4:
 		ret = max77843_muic_adc_gnd_handler(info);
@@ -494,7 +547,6 @@ static int max77843_muic_adc_handler(struct max77843_muic_info *info)
 	case MAX77843_MUIC_ADC_REMOTE_S12_BUTTON:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_1:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_2:
-	case MAX77843_MUIC_ADC_RESERVED_ACC_3:
 	case MAX77843_MUIC_ADC_RESERVED_ACC_5:
 	case MAX77843_MUIC_ADC_AUDIO_DEVICE_TYPE2:
 	case MAX77843_MUIC_ADC_PHONE_POWERED_DEV:
@@ -535,14 +587,16 @@ static int max77843_muic_chg_handler(struct max77843_muic_info *info)
 
 	switch (chg_type) {
 	case MAX77843_MUIC_CHG_USB:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_USB, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
 		extcon_set_cable_state(info->edev, "USB", attached);
 		break;
 	case MAX77843_MUIC_CHG_DOWNSTREAM:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
@@ -550,21 +604,24 @@ static int max77843_muic_chg_handler(struct max77843_muic_info *info)
 				"CHARGER-DOWNSTREAM", attached);
 		break;
 	case MAX77843_MUIC_CHG_DEDICATED:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
 		extcon_set_cable_state(info->edev, "TA", attached);
 		break;
 	case MAX77843_MUIC_CHG_SPECIAL_500MA:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
 		extcon_set_cable_state(info->edev, "SLOW-CHAREGER", attached);
 		break;
 	case MAX77843_MUIC_CHG_SPECIAL_1A:
-		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		ret = max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached,
+					     false);
 		if (ret < 0)
 			return ret;
 
@@ -580,6 +637,9 @@ static int max77843_muic_chg_handler(struct max77843_muic_info *info)
 		else if (gnd_type == MAX77843_MUIC_GND_MHL)
 			extcon_set_cable_state(info->edev, "TA", false);
 		break;
+	case MAX77843_MUIC_CHG_DOCK:
+		extcon_set_cable_state(info->edev, "TA", attached);
+		break;
 	case MAX77843_MUIC_CHG_NONE:
 		break;
 	default:
@@ -587,7 +647,7 @@ static int max77843_muic_chg_handler(struct max77843_muic_info *info)
 			"failed to detect %s accessory (chg_type:0x%x)\n",
 			attached ? "attached" : "detached", chg_type);
 
-		max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached);
+		max77843_muic_set_path(info, CONTROL1_SW_OPEN, attached, false);
 		return -EINVAL;
 	}
 
@@ -836,7 +896,7 @@ static int max77843_muic_probe(struct platform_device *pdev)
 	max77843_muic_set_debounce_time(info, MAX77843_DEBOUNCE_TIME_25MS);
 
 	/* Set initial path for UART */
-	max77843_muic_set_path(info, CONTROL1_SW_UART, true);
+	max77843_muic_set_path(info, CONTROL1_SW_UART, true, false);
 
 	/* Check revision number of MUIC device */
 	ret = regmap_read(max77843->regmap_muic, MAX77843_MUIC_REG_ID, &id);
