@@ -661,7 +661,6 @@ static int max8997_flash_enable(struct regulator_dev *rdev)
 
 	return ret;
 }
-
 static int max8997_flash_disable(struct regulator_dev *rdev)
 {
 	struct max8997_data *max8997 = rdev_get_drvdata(rdev);
