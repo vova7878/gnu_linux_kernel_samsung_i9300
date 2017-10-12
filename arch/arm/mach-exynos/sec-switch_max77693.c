@@ -316,7 +316,9 @@ int max77693_muic_charger_cb(enum cable_type_muic cable_type)
 	case CABLE_TYPE_OTG_MUIC:
 	case CABLE_TYPE_JIG_UART_OFF_MUIC:
 	case CABLE_TYPE_MHL_MUIC:
+#ifdef CONFIG_MUIC_MAX77693_SUPPORT_PS_CABLE
 	case CABLE_TYPE_POWER_SHARING_MUIC:
+#endif
 		is_cable_attached = false;
 		break;
 	case CABLE_TYPE_USB_MUIC:
@@ -398,9 +400,11 @@ int max77693_muic_charger_cb(enum cable_type_muic cable_type)
 	case CABLE_TYPE_SMARTDOCK_TA_MUIC:
 		current_cable_type = POWER_SUPPLY_TYPE_MISC;
 		break;
+#ifdef CONFIG_MUIC_MAX77693_SUPPORT_PS_CABLE
 	case CABLE_TYPE_POWER_SHARING_MUIC:
 		current_cable_type = POWER_SUPPLY_TYPE_POWER_SHARING;
 		break;
+#endif
 	default:
 		pr_err("%s: invalid type for charger:%d\n",
 				__func__, cable_type);
@@ -411,14 +415,19 @@ int max77693_muic_charger_cb(enum cable_type_muic cable_type)
 		pr_err("%s: fail to get battery psy\n", __func__);
 		return 0;
 	} else {
+#ifdef CONFIG_MUIC_MAX77693_SUPPORT_PS_CABLE
 		if (current_cable_type == POWER_SUPPLY_TYPE_POWER_SHARING) {
 			value.intval = current_cable_type;
 			psy_p->set_property(psy_p, POWER_SUPPLY_PROP_ONLINE, &value);
-		} else {
+		} else
+		{
 			if (previous_cable_type == CABLE_TYPE_POWER_SHARING_MUIC) {
 				value.intval = current_cable_type;
 				psy_p->set_property(psy_p, POWER_SUPPLY_PROP_ONLINE, &value);
 			}
+#else
+		{
+#endif
 			value.intval = current_cable_type<<ONLINE_TYPE_MAIN_SHIFT;
 			psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
 		}
@@ -429,7 +438,7 @@ skip:
 		pr_err("%s: fail to get ps psy\n", __func__);
 		return 0;
 	}
-
+#ifdef CONFIG_MUIC_MAX77693_SUPPORT_PS_CABLE
 	if (cable_type == CABLE_TYPE_POWER_SHARING_MUIC) {
 		value.intval = POWER_SUPPLY_TYPE_POWER_SHARING;
 		psy_p->set_property(psy_p, POWER_SUPPLY_PROP_ONLINE, &value);
@@ -441,6 +450,7 @@ skip:
 			pr_info("%s : pb CABLE_TYPE_POWER_SHARING_MUIC\n", __func__);
 		}
 	}
+#endif // CONFIG_MUIC_MAX77693_SUPPORT_PS_CABLE
 #endif
 	previous_cable_type = cable_type;
 skip_cable_setting:
