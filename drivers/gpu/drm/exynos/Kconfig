@@ -65,6 +65,7 @@ config DRM_EXYNOS_DP
 config DRM_EXYNOS_HDMI
 	bool "Exynos DRM HDMI"
 	depends on DRM_EXYNOS && !VIDEO_SAMSUNG_S5P_TV
+	select EXTCON
 	help
 	  Choose this option if you want to use Exynos HDMI for DRM.
 
