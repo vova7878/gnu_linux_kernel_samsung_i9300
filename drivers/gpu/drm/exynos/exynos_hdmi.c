@@ -1988,6 +1988,7 @@ static int hdmi_extcon_init(struct hdmi_context *hdata)
 {
 	struct device *dev = hdata->dev;
 	struct extcon_dev *edev;
+	enum drm_connector_status plug;
 	int ret;
 
 	edev = devm_extcon_dev_allocate(dev, extcon_cable_list);
@@ -1999,6 +2000,11 @@ static int hdmi_extcon_init(struct hdmi_context *hdata)
 		return ret;
 
 	hdata->edev = edev;
+
+	/* Notify the plugged state when hdmi is already connected */
+	plug = hdmi_detect(&hdata->connector, false);
+	if (plug == connector_status_connected)
+		extcon_set_cable_state(edev, "HDMI", 1);
 
 	return 0;
 }
