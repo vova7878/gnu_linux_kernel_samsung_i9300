@@ -8057,8 +8057,8 @@ static void __init smdkc210_machine_init(void)
 #ifdef CONFIG_VIDEO_FIMC
 	/* fimc */
 	s3c_fimc0_set_platdata(&fimc_plat);
-	s3c_fimc1_set_platdata(NULL);
-	s3c_fimc2_set_platdata(&fimc_plat);
+	s3c_fimc1_set_platdata(&fimc_plat);
+	s3c_fimc2_set_platdata(NULL);
 	s3c_fimc3_set_platdata(NULL);
 #ifdef CONFIG_VIDEO_FIMC_MIPI
 	s3c_csis0_set_platdata(NULL);
