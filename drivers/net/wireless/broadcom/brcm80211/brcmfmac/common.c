@@ -317,6 +317,7 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	}
 	if (!found) {
 		/* No platform data for this device, try OF (Open Firwmare) */
+		pr_err("%s: brcm_of_probe, bcm4334...\n", __func__);
 		brcmf_of_probe(dev, bus_type, settings);
 	}
 	return settings;
@@ -332,6 +333,14 @@ static int __init brcmf_common_pd_probe(struct platform_device *pdev)
 	brcmf_dbg(INFO, "Enter\n");
 
 	brcmfmac_pdata = dev_get_platdata(&pdev->dev);
+
+	pr_err("probing!\n");
+	if (!brcmfmac_pdata)
+		brcmfmac_pdata = brcmf_of_probe_powerup(pdev);
+
+	if (!brcmfmac_pdata)
+		return -EINVAL;
+
 
 	if (brcmfmac_pdata->power_on)
 		brcmfmac_pdata->power_on();
@@ -349,10 +358,20 @@ static int brcmf_common_pd_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id brcmf_of_match[] = {
+	{ .compatible = "brcm,bcm4329-fmac", },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, brcmf_of_match);
+#endif
+
 static struct platform_driver brcmf_pd = {
+	.probe 		= brcmf_common_pd_probe,
 	.remove		= brcmf_common_pd_remove,
 	.driver		= {
 		.name	= BRCMFMAC_PDATA_NAME,
+		.of_match_table = of_match_ptr(brcmf_of_match),
 	}
 };
 
@@ -360,13 +379,21 @@ static int __init brcmfmac_module_init(void)
 {
 	int err;
 
+	brcmf_err("PROBING DRIVER\n");
+
 	/* Initialize debug system first */
 	brcmf_debugfs_init();
 
 	/* Get the platform data (if available) for our devices */
 	err = platform_driver_probe(&brcmf_pd, brcmf_common_pd_probe);
 	if (err == -ENODEV)
-		brcmf_dbg(INFO, "No platform data available.\n");
+		brcmf_err("No platform data available.\n");
+
+#ifdef CONFIG_OF
+	brcmf_err("registering spare driver");
+	platform_driver_register(&brcmf_pd);
+#endif
+
 
 	/* Initialize global module paramaters */
 	brcmf_mp_attach();

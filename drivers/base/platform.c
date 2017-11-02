@@ -472,6 +472,7 @@ EXPORT_SYMBOL_GPL(platform_device_del);
  */
 int platform_device_register(struct platform_device *pdev)
 {
+	pr_err("add platform device %s\n", pdev->name);
 	device_initialize(&pdev->dev);
 	arch_setup_pdev_archdata(pdev);
 	return platform_device_add(pdev);

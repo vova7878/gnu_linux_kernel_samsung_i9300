@@ -16,9 +16,14 @@
 #ifdef CONFIG_OF
 void brcmf_of_probe(struct device *dev, enum brcmf_bus_type bus_type,
 		    struct brcmf_mp_device *settings);
+struct brcmfmac_platform_data *brcmf_of_probe_powerup(struct platform_device *pdev);
 #else
 static void brcmf_of_probe(struct device *dev, enum brcmf_bus_type bus_type,
 			   struct brcmf_mp_device *settings)
 {
+}
+static struct brcmfmac_platform_data *brcmf_of_probe_powerup(struct platform_device *pdev);
+{
+	return NULL;
 }
 #endif /* CONFIG_OF */
