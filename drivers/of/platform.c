@@ -177,6 +177,7 @@ static struct platform_device *of_platform_device_create_pdata(
 {
 	struct platform_device *dev;
 
+	pr_err("%s: %s/%s\n", __func__, np->name, bus_id);
 	if (!of_device_is_available(np) ||
 	    of_node_test_and_set_flag(np, OF_POPULATED))
 		return NULL;
