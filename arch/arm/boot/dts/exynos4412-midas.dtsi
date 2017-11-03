@@ -223,6 +223,13 @@
 			   };
 		};
 	};
+
+	silly {
+		compatible = "stupid,regulator-loader";
+		clocks = <&max77686 MAX77686_CLK_PMIC>;
+		default-supply = <&wlan_reg>;
+	};
+
 };
 
 &adc {
