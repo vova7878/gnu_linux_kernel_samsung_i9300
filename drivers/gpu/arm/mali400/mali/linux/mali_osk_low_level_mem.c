@@ -202,7 +202,7 @@ static u32 _kernel_page_allocate(void)
 	struct page *new_page;
 	u32 linux_phys_addr;
 
-	new_page = alloc_page(GFP_HIGHUSER | __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD);
+	new_page = alloc_page(GFP_HIGHUSER | __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN);
 
 	if ( NULL == new_page )
 	{
@@ -213,7 +213,7 @@ static u32 _kernel_page_allocate(void)
 #ifdef CONFIG_SLP
 	/* SLP: charging 3D allocated page */
 	mem_cgroup_newpage_charge(new_page, current->mm, GFP_HIGHUSER |
-	__GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD);
+	__GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN);
 
 #ifdef CONFIG_SLP_LOWMEM_NOTIFY
 	inc_mm_counter(current->mm, MM_ANONPAGES);

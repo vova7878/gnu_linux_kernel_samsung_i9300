@@ -26,7 +26,7 @@ static void mali_group_bottom_half_mmu(void *data);
 static void mali_group_bottom_half_gp(void *data);
 static void mali_group_bottom_half_pp(void *data);
 
-static void mali_group_timeout(void *data);
+static void mali_group_timeout(struct timer_list *t);
 static void mali_group_reset_pp(struct mali_group *group);
 
 #if defined(CONFIG_MALI400_PROFILING)
@@ -1698,9 +1698,10 @@ static void mali_group_post_process_job_pp(struct mali_group *group)
 	}
 }
 
-static void mali_group_timeout(void *data)
+static void mali_group_timeout(struct timer_list *t)
 {
-	struct mali_group *group = (struct mali_group *)data;
+	_mali_osk_timer_t *tim = container_of(t, _mali_osk_timer_t, timer);
+	struct mali_group *group = container_of(&tim, struct mali_group, timeout_timer);
 
 	group->core_timed_out = MALI_TRUE;
 
