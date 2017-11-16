@@ -149,7 +149,7 @@ static int mali_mem_os_alloc_pages(mali_mem_allocation *descriptor, u32 size)
 	/* Allocate new pages, if needed. */
 	for (i = 0; i < remaining; i++) {
 		dma_addr_t dma_addr;
-		gfp_t flags = __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN | __GFP_COLD;
+		gfp_t flags = __GFP_ZERO | __GFP_REPEAT | __GFP_NOWARN;
 		int err;
 
 #if defined(CONFIG_ARM) && !defined(CONFIG_ARM_LPAE)
