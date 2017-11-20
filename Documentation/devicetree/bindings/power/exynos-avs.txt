@@ -3,14 +3,11 @@
 Required properties:
 - compatible: should be "samsung,exynos5433-avs" for Exynos 5433.
 - resource: the phandle for the resource which requires the AVS feature.
-- operating-points: For details, refer to [1].
 - vdd-supply: the phandle to the regulator that provides power to the resource.
 - An empty property which is one of:
   - "samsung,avs-type-cpu-little"
   - "samsung,avs-type-cpu-big"
   is required to describe the resource type which requires the AVS feature.
-
-[1] Documentation/devicetree/bindings/power/opp.txt
 
 Required properties for "samsung,exynos5433-avs"
 - samsung,chipid-syscon: the phandle of the syscon node for the chipid
@@ -24,18 +21,6 @@ Example 1) exynos-avs nodes in exynos5433.dtsi are as follows:
 			compatible = "samsung,exynos5433-avs";
 			samsung,chipid-syscon = <&chipid>;
 			resource = <&cpu0>;
-			operating-points = <
-				1300000 1125000
-				1200000 1075000
-				1100000 1037500
-				1000000 1000000
-				900000  950000
-				800000  925000
-				700000  887500
-				600000  862500
-				500000  837500
-				400000  800000
-			>;
 			samsung,asv-type-cpu-little;
 			status = "disabled";
 		};
@@ -44,23 +29,6 @@ Example 1) exynos-avs nodes in exynos5433.dtsi are as follows:
 			compatible = "samsung,exynos5433-avs";
 			samsung,chipid-syscon = <&chipid>;
 			resource = <&cpu4>;
-			operating-points = <
-				1900000 1212500
-				1800000 1175000
-				1700000 1137500
-				1600000 1087500
-				1500000 1050000
-				1400000 1025000
-				1300000 1000000
-				1200000 975000
-				1100000 950000
-				1000000 925000
-				900000  900000
-				800000  900000
-				700000  900000
-				600000  900000
-				500000  900000
-			>;
 			samsung,avs-type-cpu-big;
 			status = "disabled";
 		 };

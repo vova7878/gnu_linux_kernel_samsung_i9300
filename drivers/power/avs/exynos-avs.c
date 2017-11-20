@@ -20,17 +20,20 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
+#include "exynos-avs.h"
+
 #define EXYNOS_AVS_5433_BASE_ADDR_OFFSET_AVS_INFO		0x4000
 #define EXYNOS_AVS_5433_TBL_VER_OFFSET_FROM_AVS_INFO		0xc
 #define EXYNOS_AVS_5433_FUSED_FLAG_OFFSET_FROM_AVS_INFO		0xc
-#define EXYNOS_AVS_5433_REGMAP_INDEX_CHIPID			0
 #define EXYNOS_AVS_5433_SUBGRP0_MIN_FREQ_CPU_LITTLE		1200000000
 #define EXYNOS_AVS_5433_SUBGRP1_MIN_FREQ_CPU_LITTLE		700000000
 #define EXYNOS_AVS_5433_SUBGRP0_MIN_FREQ_CPU_BIG		1700000000
 #define EXYNOS_AVS_5433_SUBGRP1_MIN_FREQ_CPU_BIG		1200000000
-#define EXYNOS_AVS_5433_SUPPORT_AVS_GROUP			8
-#define EXYNOS_AVS_5433_SUPPORT_TABLE_VER_MAX			8
-#define EXYNOS_AVS_5433_SUPPORT_TABLE_VER_MIN			6
+#define EXYNOS_AVS_5433_TABLE_1_VER_MIN				1
+#define EXYNOS_AVS_5433_TABLE_2_VER_MIN				5
+#define EXYNOS_AVS_5433_TABLE_3_VER_MIN				6
+#define EXYNOS_AVS_5433_TABLES_VER_MAX				8
+#define EXYNOS_AVS_5433_TABLES_VER_MIN				0
 
 enum exynos_avs_type {
 	TYPE_CPU_LITTLE = 0,
@@ -43,30 +46,44 @@ struct exynos_avs_desc {
 			unsigned long val, void *data);
 };
 
-struct exynos_avs_group {
-	unsigned long freq;
-	int group_num;
-	int is_support;
-};
-
 struct exynos_avs_drv {
 	enum exynos_avs_type type;
 	struct device_node *resource_np;
 	struct device *dev;
-	int table_ver;
 	int is_fused_avs_group;
 	struct regulator *regulator;
-	unsigned long u_volt_max;
-	unsigned long u_volt_min;
 	const struct exynos_avs_desc *desc;
 	struct regmap *chipid_regmap;
 	struct notifier_block cpu_nb;
-	struct exynos_avs_group *avs_group_table;
+	struct exynos_avs_volt_table *volt_table;
 };
 
 static inline struct device *get_first_cpu_device_of_cluster(unsigned int cpu)
 {
 	return get_cpu_device(cpumask_first(topology_core_cpumask(cpu)));
+}
+
+static unsigned long exynos_avs_get_volt_from_volt_table(
+		const struct exynos_avs_volt_table *table, unsigned long freq)
+{
+	int i;
+
+	if (table == NULL)
+		return 0;
+
+	for (i = 0; table[i].freq != 0; i++) {
+		if (table[i].freq == freq) {
+			int avs_group = table[i].avs_group;
+
+			if ((avs_group < 0) ||
+				(avs_group >= EXYNOS_AVS_GROUP_NUM_MAX))
+				return 0;
+
+			return table[i].u_volts[avs_group];
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -95,93 +112,68 @@ static void exynos_avs_free_opp_table(struct device *to)
 					__func__, freq);
 			continue;
 		}
+
 		dev_pm_opp_remove(to, freq);
 	}
 }
 
 /*
- * exynos_avs_update_opp_table() - update OPP table of the target device to that
- * of the AVS device
+ * exynos_avs_update_opp_table() - update voltage values in the OPP table of
+ * the target device according to the values in the static table of the AVS
+ * device
  * @dev:	a pointer of the corresponding AVS device
  * @to:		a pointer of the target device
  *
- * Helper function to update OPP table of the target device to that of the AVS
+ * Helper function to update voltage values in the OPP table of the target
+ * device to the values in the static (hard-coded) voltage table of the AVS
  * device. In the OPP table of the target device, only OPP which has the
- * frequency value matching to the frequency value of a OPP in the OPP table of
- * the AVS device is updated.
+ * frequency value matching to the frequency value of the static table of the
+ * AVS device is updated.
  *
  * Note: this function only works for operating-points v1.
  */
 static int exynos_avs_update_opp_table(struct device *dev, struct device *to)
 {
 	struct exynos_avs_drv *drv = dev_get_drvdata(dev);
-	struct dev_pm_opp *opp;
-	struct exynos_avs_group *avs_group;
 	unsigned long freq, u_volt;
-	int nr_opp, i, ret;
-
-	nr_opp = dev_pm_opp_get_opp_count(dev);
-
-	for (i = 0; i < nr_opp; i++) {
-		avs_group = &drv->avs_group_table[i];
-		if (!avs_group->is_support)
-			continue;
-
-		freq = avs_group->freq;
-
-		rcu_read_lock();
-		opp = dev_pm_opp_find_freq_exact(to, freq, true);
-		rcu_read_unlock();
-		if (IS_ERR(opp))
-			continue;
-		dev_pm_opp_remove(to, freq);
-
-		rcu_read_lock();
-		opp = dev_pm_opp_find_freq_exact(dev, freq, true);
-		rcu_read_unlock();
-		if (IS_ERR(opp)) {
-			ret = IS_ERR(opp);
-			goto out_err;
-		}
-
-		u_volt = dev_pm_opp_get_voltage(opp);
-		if (!u_volt) {
-			ret = -EINVAL;
-			goto out_err;
-		}
-		ret = dev_pm_opp_add(to, freq, u_volt);
-		if (ret)
-			goto out_err;
-	}
+	int i, nr_opp, ret;
 
 	nr_opp = dev_pm_opp_get_opp_count(to);
-	drv->u_volt_max = 0;
-	drv->u_volt_min = ULONG_MAX;
-
 	for (i = 0, freq = 0; i < nr_opp; i++, freq++) {
+		struct dev_pm_opp *opp;
+
 		rcu_read_lock();
+
 		opp = dev_pm_opp_find_freq_ceil(to, &freq);
 		if (IS_ERR(opp)) {
-			ret = PTR_ERR(opp);
 			rcu_read_unlock();
-			goto out_err;
+			continue;
 		}
 
-		u_volt = dev_pm_opp_get_voltage(opp);
+		u_volt = exynos_avs_get_volt_from_volt_table(drv->volt_table,
+				freq);
+		if (!u_volt) {
+			rcu_read_unlock();
+			continue;
+		}
+
+		if (!regulator_is_supported_voltage(drv->regulator,
+					u_volt, u_volt)) {
+			rcu_read_unlock();
+			continue;
+		}
+
 		rcu_read_unlock();
-		if (u_volt > drv->u_volt_max)
-			drv->u_volt_max = u_volt;
-		if (u_volt < drv->u_volt_min)
-			drv->u_volt_min = u_volt;
+
+		dev_pm_opp_remove(to, freq);
+		ret = dev_pm_opp_add(to, freq, u_volt);
+		/* Failed to update opp table */
+		if (ret)
+			return ret;
+
 	}
 
 	return 0;
-
-out_err:
-	exynos_avs_free_opp_table(to);
-	of_init_opp_table(to);
-
-	return ret;
 }
 
 static int exynos_avs_5433_get_table_ver(struct device *dev)
@@ -198,21 +190,8 @@ static int exynos_avs_5433_get_table_ver(struct device *dev)
 
 	val &= 0xF;
 
-	/*
-	 * Note that, for Exynos 5433, there are four versions (that is, 0, 1,
-	 * 2, and 3) of the AVS table, and it is determined by the value read
-	 * from the specific register. The relations between the value and the
-	 * version of AVS table are as follows:
-	 * 	when the value is 0, version 0 of the tableis used,
-	 * 	when the value is ranged from 1 to 3, version 1 is used,
-	 * 	when the value is 5, version 2 is used,
-	 * 	and when the value is ranged from 6 to 8, version 3 is used.
-	 *
-	 * Instead of supporting all the versions of the AVS table, this driver
-	 * only supports the the case of version 3.
-	 */
-	if ((val < EXYNOS_AVS_5433_SUPPORT_TABLE_VER_MIN) ||
-		(val > EXYNOS_AVS_5433_SUPPORT_TABLE_VER_MAX))
+	if ((val < EXYNOS_AVS_5433_TABLES_VER_MIN) ||
+		(val > EXYNOS_AVS_5433_TABLES_VER_MAX))
 		return -ENODEV;
 
 	return val;
@@ -287,85 +266,6 @@ static int exynos_avs_5433_get_avs_group(struct device *dev, unsigned long freq)
 	return val & 0xF;
 }
 
-/*
- * exynos_avs_5433_verify_opp_cpu() - verify OPP table of the CPU device
- *
- * @dev:	a pointer of the corresponding AVS device
- * @cpu:	a pointer of the target CPU device
- *
- * Helper function to verify OPP table of the target CPU device. This function
- * checks that the regulator of the target CPU device can support all the
- * voltage values of the OPP table of the device and, for the CPU frequency
- * driver, updates the transition_latency value using the maximum and minimum
- * supply voltage values of the target CPU's OPP table.
- *
- * Note: this function only works for operating-points v1.
- */
-static int exynos_avs_5433_verify_opp_cpu(struct device *dev,
-		struct device *cpu)
-{
-	struct exynos_avs_drv *drv;
-	struct device *first_cpu;
-	struct device_node *np;
-	struct cpufreq_policy *policy;
-	struct dev_pm_opp *opp;
-	unsigned int transition_latency;
-	unsigned long freq, u_volt;
-	int i, nr_opp, ret;
-
-	drv = dev_get_drvdata(dev);
-	first_cpu = get_first_cpu_device_of_cluster(cpu->id);
-
-	policy = cpufreq_cpu_get(cpu->id);
-	if (!policy)
-		return -ENODEV;
-
-	np = of_node_get(first_cpu->of_node);
-	if (!np) {
-		ret = -ENODEV;
-		goto out_put_cpu;
-	}
-
-	if (of_property_read_u32(np, "clock-latency", &transition_latency))
-		transition_latency = CPUFREQ_ETERNAL;
-
-	nr_opp = dev_pm_opp_get_opp_count(first_cpu);
-	for (i = 0, freq = 0; i < nr_opp; i++, freq++) {
-		opp = dev_pm_opp_find_freq_ceil(first_cpu, &freq);
-		if (IS_ERR(opp)) {
-			ret = PTR_ERR(opp);
-			goto out_put;
-		}
-
-		u_volt = dev_pm_opp_get_voltage(opp);
-		if (!regulator_is_supported_voltage(drv->regulator,
-					u_volt, u_volt)) {
-			ret = -EINVAL;
-			goto out_put;
-		}
-	}
-
-	/*
-	 * The value of transition_latency is basically determined by the value
-	 * specified in the 'clock-latency' device tree property of the resource
-	 * phandle. If ret is not 0, the transition_latency is increased by the
-	 * value of ret. Otherwise, it is not required to do anything.
-	 */
-	ret = regulator_set_voltage_time(drv->regulator,
-			drv->u_volt_min, drv->u_volt_max);
-	if ((ret > 0) && (transition_latency != CPUFREQ_ETERNAL))
-		transition_latency += ret * 1000;
-
-	policy->cpuinfo.transition_latency = transition_latency;
-	ret = 0;
-
-out_put:
-	of_node_put(first_cpu->of_node);
-out_put_cpu:
-	cpufreq_cpu_put(policy);
-	return ret;
-
-}
 
 static int exynos_avs_5433_cpu_notifier(struct notifier_block *nb,
 		unsigned long val, void *data)
@@ -398,9 +298,6 @@ static int exynos_avs_5433_cpu_notifier(struct notifier_block *nb,
 		ret = exynos_avs_update_opp_table(drv->dev, first_cpu_dev);
 		if (ret)
 			goto out_err;
-		ret = exynos_avs_5433_verify_opp_cpu(drv->dev, cpu_dev);
-		if (ret)
-			goto out_err;
 		break;
 	case CPU_DOWN_PREPARE:
 		exynos_avs_free_opp_table(first_cpu_dev);
@@ -410,27 +307,25 @@ static int exynos_avs_5433_cpu_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 
 out_err:
+	/*
+	 * Free the OPP table of the target device and re-init the table using
+	 * DT.
+	 */
 	exynos_avs_free_opp_table(first_cpu_dev);
 	of_init_opp_table(first_cpu_dev);
+
 	return NOTIFY_DONE;
 }
-
 static int exynos_avs_5433_init_avs(struct device *dev)
 {
 	struct exynos_avs_drv *drv = dev_get_drvdata(dev);
-	struct dev_pm_opp *opp;
 	struct device *cpu_dev;
-	unsigned long freq;
-	int nr_opp, i, ret;
+	int table_ver, i, ret;
 
 	drv->chipid_regmap = syscon_regmap_lookup_by_phandle(dev->of_node,
 			"samsung,chipid-syscon");
 	if (IS_ERR(drv->chipid_regmap))
 		return PTR_ERR(drv->chipid_regmap);
-
-	drv->table_ver = exynos_avs_5433_get_table_ver(dev);
-	if (drv->table_ver < 0)
-		return drv->table_ver;
 
 	drv->is_fused_avs_group = exynos_avs_5433_is_fused_avs_group(dev);
 	if (drv->is_fused_avs_group < 0)
@@ -440,37 +335,58 @@ static int exynos_avs_5433_init_avs(struct device *dev)
 	if (IS_ERR(drv->regulator))
 		return PTR_ERR(drv->regulator);
 
-	nr_opp = dev_pm_opp_get_opp_count(dev);
-	drv->avs_group_table = devm_kzalloc(dev,
-			sizeof(*drv->avs_group_table) * nr_opp, GFP_KERNEL);
-	if (!drv->avs_group_table)
-		return -ENOMEM;
-
-	for (i = 0, freq = 0; i < nr_opp; i++, freq++) {
-		struct exynos_avs_group *avs_group;
-
-		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
-		if (IS_ERR(opp))
-			return PTR_ERR(opp);
-
-		avs_group = &drv->avs_group_table[i];
-		avs_group->is_support = false;
-		avs_group->freq = freq;
-		avs_group->group_num = exynos_avs_5433_get_avs_group(dev, freq);
-		if (avs_group->group_num == EXYNOS_AVS_5433_SUPPORT_AVS_GROUP)
-			avs_group->is_support = true;
-	}
-
 	if ((drv->type != TYPE_CPU_LITTLE) && (drv->type != TYPE_CPU_BIG))
 		return -ENODEV;
+
+	/*
+	 * Note that, for Exynos 5433, there are four versions (that is, 0, 1,
+	 * 2, and 3) of the AVS table, and it is determined by the value
+	 * (in this case, table_ver) from the specific register. The relations
+	 * between the value and the version of AVS table are as follows:
+	 * 	when the value is 0, version 0 of the table is used,
+	 * 	when the value is ranged from 1 to 4, version 1 is used,
+	 * 	when the value is 5, version 2 is used,
+	 * 	and when the value is ranged from 6 to 8, version 3 is used.
+	 */
+	table_ver = exynos_avs_5433_get_table_ver(dev);
+	if (table_ver < 0) {
+		return table_ver;
+	} else if (table_ver >= EXYNOS_AVS_5433_TABLE_3_VER_MIN) {
+		if (drv->type == TYPE_CPU_BIG)
+			drv->volt_table = exynos_avs_big_5433_volt_table_v3;
+		else
+			drv->volt_table = exynos_avs_little_5433_volt_table_v3;
+	} else if (table_ver >= EXYNOS_AVS_5433_TABLE_2_VER_MIN) {
+		if (drv->type == TYPE_CPU_BIG)
+			drv->volt_table = exynos_avs_big_5433_volt_table_v2;
+		else
+			drv->volt_table = exynos_avs_little_5433_volt_table_v2;
+	} else if (table_ver >= EXYNOS_AVS_5433_TABLE_1_VER_MIN) {
+		if (drv->type == TYPE_CPU_BIG)
+			drv->volt_table = exynos_avs_big_5433_volt_table_v1;
+		else
+			drv->volt_table = exynos_avs_little_5433_volt_table_v1;
+	} else {
+		if (drv->type == TYPE_CPU_BIG)
+			drv->volt_table = exynos_avs_big_5433_volt_table_v0;
+		else
+			drv->volt_table = exynos_avs_little_5433_volt_table_v0;
+	}
+
+	for (i = 0; drv->volt_table[i].freq != 0; i++) {
+		int avs_group = exynos_avs_5433_get_avs_group(dev,
+				drv->volt_table[i].freq);
+
+		if (avs_group < 0)
+			continue;
+
+		drv->volt_table[i].avs_group = avs_group;
+	}
 
 	for_each_online_cpu(i) {
 		cpu_dev = get_cpu_device(i);
 		if (cpu_dev->of_node == drv->resource_np) {
 			ret = exynos_avs_update_opp_table(drv->dev, cpu_dev);
-			if (ret)
-				goto out_err;
-			ret = exynos_avs_5433_verify_opp_cpu(drv->dev, cpu_dev);
 			if (ret)
 				goto out_err;
 		}
@@ -479,6 +395,10 @@ static int exynos_avs_5433_init_avs(struct device *dev)
 	return 0;
 
 out_err:
+	/*
+	 * Free the OPP table of the target device and re-init the table using
+	 * DT.
+	 */
 	exynos_avs_free_opp_table(cpu_dev);
 	of_init_opp_table(cpu_dev);
 
@@ -531,10 +451,6 @@ static int exynos_avs_probe(struct platform_device *pdev)
 		drv->type = TYPE_CPU_BIG;
 	else
 		return -ENODEV;
-
-	ret = of_init_opp_table(dev);
-	if (ret)
-		return ret;
 
 	dev_set_drvdata(dev, drv);
 
