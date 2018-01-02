@@ -531,11 +531,11 @@ static int gsc_set_planar_addr(struct drm_exynos_ipp_buf_info *buf_info,
 	case DRM_FORMAT_NV61:
 		ofs[0] = sz->hsize * sz->vsize;
 		ofs[1] = ofs[0] >> 1;
-		if (*base[0] && *base[1]) {
-			if (size[0] + size[1] < ofs[0] + ofs[1])
-				goto err_info;
+		if (size[0] + size[1] < ofs[0] + ofs[1])
+			goto err_info;
+
+		if (*base[0] && *base[1])
 			bypass = true;
-		}
 		break;
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
@@ -549,19 +549,18 @@ static int gsc_set_planar_addr(struct drm_exynos_ipp_buf_info *buf_info,
 	case DRM_FORMAT_YVU444:
 		ofs[0] = sz->hsize * sz->vsize;
 		ofs[1] = ofs[2] = ofs[0] >> 2;
-		if (*base[0] && *base[1] && *base[2]) {
-			if (size[0]+size[1]+size[2] < ofs[0]+ofs[1]+ofs[2])
-				goto err_info;
+		if (size[0]+size[1]+size[2] < ofs[0]+ofs[1]+ofs[2])
+			goto err_info;
+
+		if (*base[0] && *base[1] && *base[2])
 			bypass = true;
-		}
 	break;
 	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
 		ofs[0] = sz->hsize * sz->vsize << 2;
-		if (*base[0]) {
-			if (size[0] < ofs[0])
-				goto err_info;
-		}
+		if (size[0] < ofs[0])
+			goto err_info;
+
 		bypass = true;
 		break;
 	default:
