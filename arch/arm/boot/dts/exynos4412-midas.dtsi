@@ -393,6 +393,11 @@
 	status = "okay";
 };
 
+&gpu {
+	status = "okay";
+	mali-supply = <&buck4_reg>;
+};
+
 &hsotg {
 	vusb_d-supply = <&ldo15_reg>;
 	vusb_a-supply = <&ldo12_reg>;
