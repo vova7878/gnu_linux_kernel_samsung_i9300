@@ -19,6 +19,7 @@ extern "C" {
 #include <linux/mm.h>
 #include <linux/idr.h>
 #include <linux/rbtree.h>
+#include <linux/version.h>
 #include "mali_kernel_license.h"
 #include "mali_osk_types.h"
 
@@ -37,6 +38,10 @@ extern int vm_insert_pfn(struct vm_area_struct *vma, unsigned long addr,
 #define _access_ok(TYPE, BUF, SIZE) access_ok(BUF, SIZE)
 #else
 #define _access_ok(TYPE, BUF, SIZE) access_ok(TYPE, BUF, SIZE)
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+#define __GFP_REPEAT __GFP_RETRY_MAYFAIL
 #endif
 
 #ifdef __cplusplus
