@@ -17,11 +17,16 @@ extern "C"
 #endif
 
 #include <linux/cdev.h>     /* character device definitions */
+#include <linux/version.h>
 #include <linux/mm.h>
 #include "mali_kernel_license.h"
 #include "mali_osk.h"
 
 extern struct platform_device *mali_platform_device;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+#define __GFP_REPEAT __GFP_RETRY_MAYFAIL
+#endif
 
 #if MALI_LICENSE_IS_GPL
 /* Defined in mali_osk_irq.h */
