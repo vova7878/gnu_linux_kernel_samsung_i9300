@@ -82,26 +82,30 @@ config DRM_EXYNOS_G2D
 	  Choose this option if you want to use Exynos G2D for DRM.
 
 config DRM_EXYNOS_IPP
-	bool "Exynos DRM IPP"
-	depends on DRM_EXYNOS
-	help
-	  Choose this option if you want to use IPP feature for DRM.
+	bool
 
 config DRM_EXYNOS_FIMC
-	bool "Exynos DRM FIMC"
-	depends on DRM_EXYNOS_IPP && MFD_SYSCON
+	bool "FIMC"
+	select DRM_EXYNOS_IPP
 	help
 	  Choose this option if you want to use Exynos FIMC for DRM.
 
 config DRM_EXYNOS_ROTATOR
-	bool "Exynos DRM Rotator"
-	depends on DRM_EXYNOS_IPP
+	bool "Rotator"
+	select DRM_EXYNOS_IPP
 	help
 	  Choose this option if you want to use Exynos Rotator for DRM.
 
+config DRM_EXYNOS_SCALER
+	bool "Scaler"
+	select DRM_EXYNOS_IPP
+	help
+	  Choose this option if you want to use Exynos Scaler for DRM.
+
 config DRM_EXYNOS_GSC
-	bool "Exynos DRM GSC"
-	depends on DRM_EXYNOS_IPP && ARCH_EXYNOS
+	bool "GScaler"
+	depends on VIDEO_SAMSUNG_EXYNOS_GSC=n
+	select DRM_EXYNOS_IPP
 	help
 	  Choose this option if you want to use Exynos GSC for DRM.
 

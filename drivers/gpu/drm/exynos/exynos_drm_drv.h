@@ -359,6 +359,15 @@ int exynos_drm_component_add(struct device *dev,
 void exynos_drm_component_del(struct device *dev,
 				enum exynos_drm_device_type dev_type);
 
+#ifdef CONFIG_DRM_EXYNOS_FIMC
+int exynos_drm_check_fimc_device(struct device *dev);
+#else
+static inline int exynos_drm_check_fimc_device(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 extern struct platform_driver fimd_driver;
 extern struct platform_driver exynos5433_decon_driver;
 extern struct platform_driver decon_driver;
@@ -371,7 +380,7 @@ extern struct platform_driver vidi_driver;
 extern struct platform_driver g2d_driver;
 extern struct platform_driver fimc_driver;
 extern struct platform_driver rotator_driver;
+extern struct platform_driver scaler_driver;
 extern struct platform_driver gsc_driver;
-extern struct platform_driver ipp_driver;
 extern struct platform_driver mic_driver;
 #endif
