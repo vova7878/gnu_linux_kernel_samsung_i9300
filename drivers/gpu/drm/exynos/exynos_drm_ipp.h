@@ -15,6 +15,42 @@
 struct exynos_drm_ipp;
 struct exynos_drm_ipp_task;
 
+#define DRM_MODE_ROTATE_0       (1<<0)
+#define DRM_MODE_ROTATE_90      (1<<1)
+#define DRM_MODE_ROTATE_180     (1<<2)
+#define DRM_MODE_ROTATE_270     (1<<3)
+#define DRM_MODE_REFLECT_X	(1<<4)
+#define DRM_MODE_REFLECT_Y	(1<<5)
+
+#define DRM_MODE_ROTATE_MASK (\
+            DRM_MODE_ROTATE_0  | DRM_MODE_ROTATE_90  | \
+            DRM_MODE_ROTATE_180 | DRM_MODE_ROTATE_270)
+
+static inline bool drm_rotation_90_or_270(unsigned int rotation)
+{
+	return rotation & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270);
+}
+
+/**
+ * struct drm_format_info - information about a DRM format
+ * @format: 4CC format identifier (DRM_FORMAT_*)
+ * @depth: Color depth (number of bits per pixel excluding padding bits),
+ *	valid for a subset of RGB formats only. This is a legacy field, do not
+ *	use in new code and set to 0 for new formats.
+ * @num_planes: Number of color planes (1 to 3)
+ * @cpp: Number of bytes per pixel (per plane)
+ * @hsub: Horizontal chroma subsampling factor
+ * @vsub: Vertical chroma subsampling factor
+ */
+struct drm_format_info {
+	u32 format;
+	u8 depth;
+	u8 num_planes;
+	u8 cpp[3];
+	u8 hsub;
+	u8 vsub;
+};
+
 /**
  * struct exynos_drm_ipp_funcs - exynos_drm_ipp control functions
  */
@@ -75,7 +111,7 @@ struct exynos_drm_ipp_buffer {
 	struct drm_exynos_ipp_task_buffer buf;
 	struct drm_exynos_ipp_task_rect rect;
 
-	struct exynos_drm_gem *exynos_gem[MAX_FB_BUFFER];
+	struct exynos_drm_gem_obj *exynos_gem[MAX_FB_BUFFER];
 	const struct drm_format_info *format;
 	dma_addr_t dma_addr[MAX_FB_BUFFER];
 };

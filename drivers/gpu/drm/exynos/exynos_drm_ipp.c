@@ -28,6 +28,105 @@
 static int num_ipp;
 static LIST_HEAD(ipp_list);
 
+/*
+ * Internal function to query information for a given format. See
+ * drm_format_info() for the public API.
+ */
+const struct drm_format_info *__drm_format_info(u32 format)
+{
+	static const struct drm_format_info formats[] = {
+		{ .format = DRM_FORMAT_C8,		.depth = 8,  .num_planes = 1, .cpp = { 1, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGB332,		.depth = 8,  .num_planes = 1, .cpp = { 1, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGR233,		.depth = 8,  .num_planes = 1, .cpp = { 1, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XRGB4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XBGR4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBX4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRX4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ARGB4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ABGR4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBA4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRA4444,	.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XRGB1555,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XBGR1555,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBX5551,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRX5551,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ARGB1555,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ABGR1555,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBA5551,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRA5551,	.depth = 15, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGB565,		.depth = 16, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGR565,		.depth = 16, .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGB888,		.depth = 24, .num_planes = 1, .cpp = { 3, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGR888,		.depth = 24, .num_planes = 1, .cpp = { 3, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XRGB8888,	.depth = 24, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XBGR8888,	.depth = 24, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBX8888,	.depth = 24, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRX8888,	.depth = 24, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XRGB2101010,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_XBGR2101010,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBX1010102,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRX1010102,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ARGB2101010,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ABGR2101010,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBA1010102,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRA1010102,	.depth = 30, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ARGB8888,	.depth = 32, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_ABGR8888,	.depth = 32, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_RGBA8888,	.depth = 32, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_BGRA8888,	.depth = 32, .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_YUV410,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 4, .vsub = 4 },
+		{ .format = DRM_FORMAT_YVU410,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 4, .vsub = 4 },
+		{ .format = DRM_FORMAT_YUV411,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 4, .vsub = 1 },
+		{ .format = DRM_FORMAT_YVU411,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 4, .vsub = 1 },
+		{ .format = DRM_FORMAT_YUV420,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 2, .vsub = 2 },
+		{ .format = DRM_FORMAT_YVU420,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 2, .vsub = 2 },
+		{ .format = DRM_FORMAT_YUV422,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_YVU422,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_YUV444,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_YVU444,		.depth = 0,  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_NV12,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 2, .vsub = 2 },
+		{ .format = DRM_FORMAT_NV21,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 2, .vsub = 2 },
+		{ .format = DRM_FORMAT_NV16,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_NV61,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_NV24,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_NV42,		.depth = 0,  .num_planes = 2, .cpp = { 1, 2, 0 }, .hsub = 1, .vsub = 1 },
+		{ .format = DRM_FORMAT_YUYV,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_YVYU,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_UYVY,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_VYUY,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
+		{ .format = DRM_FORMAT_AYUV,		.depth = 0,  .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
+	};
+
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(formats); ++i) {
+		if (formats[i].format == format)
+			return &formats[i];
+	}
+
+	return NULL;
+}
+
+/**
+ * drm_format_info - query information for a given format
+ * @format: pixel format (DRM_FORMAT_*)
+ *
+ * The caller should only pass a supported pixel format to this function.
+ * Unsupported pixel formats will generate a warning in the kernel log.
+ *
+ * Returns:
+ * The instance of struct drm_format_info that describes the pixel format, or
+ * NULL if the format is unsupported.
+ */
+static const struct drm_format_info *drm_format_info(u32 format)
+{
+	const struct drm_format_info *info;
+
+	info = __drm_format_info(format);
+	WARN_ON(!info);
+	return info;
+}
+
 /**
  * exynos_drm_ipp_register - Register a new picture processor hardware module
  * @dev: DRM device
@@ -339,7 +438,8 @@ static int exynos_drm_ipp_task_set(struct exynos_drm_ipp_task *task,
 	return 0;
 }
 
-static int exynos_drm_ipp_task_setup_buffer(struct exynos_drm_ipp_buffer *buf,
+static int exynos_drm_ipp_task_setup_buffer(struct drm_device *dev,
+					    struct exynos_drm_ipp_buffer *buf,
 					    struct drm_file *filp)
 {
 	int ret = 0;
@@ -372,27 +472,27 @@ static int exynos_drm_ipp_task_setup_buffer(struct exynos_drm_ipp_buffer *buf,
 			     DIV_ROUND_UP(buf->buf.height, buf->format->vsub);
 		unsigned long size = height * buf->buf.pitch[i] +
 				     buf->buf.offset[i];
-		struct drm_gem_object *obj = drm_gem_object_lookup(filp,
+		struct drm_gem_object *obj = drm_gem_object_lookup(dev, filp,
 							    buf->buf.gem_id[i]);
 		if (!obj) {
 			ret = -ENOENT;
 			goto gem_free;
 		}
-		buf->exynos_gem[i] = to_exynos_gem(obj);
+		buf->exynos_gem[i] = to_exynos_gem_obj(obj);
 
 		if (size > buf->exynos_gem[i]->size) {
 			i++;
 			ret = -EINVAL;
 			goto gem_free;
 		}
-		buf->dma_addr[i] = buf->exynos_gem[i]->dma_addr +
+		buf->dma_addr[i] = buf->exynos_gem[i]->buffer->dma_addr +
 				   buf->buf.offset[i];
 	}
 
 	return 0;
 gem_free:
 	while (i--) {
-		drm_gem_object_put_unlocked(&buf->exynos_gem[i]->base);
+		drm_gem_object_unreference_unlocked(&buf->exynos_gem[i]->base);
 		buf->exynos_gem[i] = NULL;
 	}
 	return ret;
@@ -405,7 +505,7 @@ static void exynos_drm_ipp_task_release_buf(struct exynos_drm_ipp_buffer *buf)
 	if (!buf->exynos_gem[0])
 		return;
 	for (i = 0; i < buf->format->num_planes; i++)
-		drm_gem_object_put_unlocked(&buf->exynos_gem[i]->base);
+		drm_gem_object_unreference_unlocked(&buf->exynos_gem[i]->base);
 }
 
 static void exynos_drm_ipp_task_free(struct exynos_drm_ipp *ipp,
@@ -415,8 +515,18 @@ static void exynos_drm_ipp_task_free(struct exynos_drm_ipp *ipp,
 
 	exynos_drm_ipp_task_release_buf(&task->src);
 	exynos_drm_ipp_task_release_buf(&task->dst);
-	if (task->event)
-		drm_event_cancel_free(ipp->dev, &task->event->base);
+	if (task->event) {
+		struct drm_pending_event *p = &task->event->base;
+		struct drm_device *dev = ipp->dev;
+		unsigned long flags;
+
+		spin_lock_irqsave(&dev->event_lock, flags);
+		if (p->file_priv)
+			p->file_priv->event_space += p->event->length;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+
+		kfree(p);
+	}
 	kfree(task);
 }
 
@@ -640,12 +750,12 @@ static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
 	if (ret)
 		return ret;
 
-	ret = exynos_drm_ipp_task_setup_buffer(src, filp);
+	ret = exynos_drm_ipp_task_setup_buffer(ipp->dev, src, filp);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Task %pK: src buffer setup failed\n", task);
 		return ret;
 	}
-	ret = exynos_drm_ipp_task_setup_buffer(dst, filp);
+	ret = exynos_drm_ipp_task_setup_buffer(ipp->dev, dst, filp);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Task %pK: dst buffer setup failed\n", task);
 		return ret;
@@ -656,6 +766,27 @@ static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
 	return ret;
 }
 
+static int drm_event_reserve_init(struct drm_device *drm_dev,
+				  struct drm_file *file_priv,
+				  struct drm_pending_event *p,
+				  struct drm_event *e)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&drm_dev->event_lock, flags);
+	if (file_priv->event_space < e->length) {
+		spin_unlock_irqrestore(&drm_dev->event_lock, flags);
+		return -ENOMEM;
+	}
+	file_priv->event_space -= e->length;
+	spin_unlock_irqrestore(&drm_dev->event_lock, flags);
+
+	p->event = e;
+	p->file_priv = file_priv;
+	p->destroy = (void (*) (struct drm_pending_event *)) kfree;
+
+	return 0;
+}
 
 static int exynos_drm_ipp_event_create(struct exynos_drm_ipp_task *task,
 				 struct drm_file *file_priv, uint64_t user_data)
@@ -685,14 +816,20 @@ free:
 
 static void exynos_drm_ipp_event_send(struct exynos_drm_ipp_task *task)
 {
+	struct drm_device *drm_dev = task->ipp->dev;
+	struct drm_pending_exynos_ipp_event *e = task->event;
 	struct timespec64 now;
+	unsigned long flags;
 
 	ktime_get_ts64(&now);
-	task->event->event.tv_sec = now.tv_sec;
-	task->event->event.tv_usec = now.tv_nsec / NSEC_PER_USEC;
-	task->event->event.sequence = atomic_inc_return(&task->ipp->sequence);
+	e->event.tv_sec = now.tv_sec;
+	e->event.tv_usec = now.tv_nsec / NSEC_PER_USEC;
+	e->event.sequence = atomic_inc_return(&task->ipp->sequence);
 
-	drm_send_event(task->dev, &task->event->base);
+	spin_lock_irqsave(&drm_dev->event_lock, flags);
+	list_add_tail(&e->base.link, &e->base.file_priv->event_list);
+	wake_up_interruptible(&e->base.file_priv->event_wait);
+	spin_unlock_irqrestore(&drm_dev->event_lock, flags);
 }
 
 static int exynos_drm_ipp_task_cleanup(struct exynos_drm_ipp_task *task)

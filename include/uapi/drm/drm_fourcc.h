@@ -143,6 +143,7 @@
 
 /* Vendor Ids: */
 #define DRM_FORMAT_MOD_NONE           0
+#define DRM_FORMAT_MOD_VENDOR_NONE    0
 #define DRM_FORMAT_MOD_VENDOR_INTEL   0x01
 #define DRM_FORMAT_MOD_VENDOR_AMD     0x02
 #define DRM_FORMAT_MOD_VENDOR_NV      0x03
@@ -160,6 +161,25 @@
  * similar to the fourcc codes above. drm_fourcc.h is considered the
  * authoritative source for all of these.
  */
+
+/*
+ * Invalid Modifier
+ *
+ * This modifier can be used as a sentinel to terminate the format modifiers
+ * list, or to initialize a variable with an invalid modifier. It might also be
+ * used to report an error back to userspace for certain APIs.
+ */
+#define DRM_FORMAT_MOD_INVALID	fourcc_mod_code(NONE, DRM_FORMAT_RESERVED)
+
+/*
+ * Linear Layout
+ *
+ * Just plain linear layout. Note that this is different from no specifying any
+ * modifier (e.g. not setting DRM_MODE_FB_MODIFIERS in the DRM_ADDFB2 ioctl),
+ * which tells the driver to also take driver-internal information into account
+ * and so might actually result in a tiled framebuffer.
+ */
+#define DRM_FORMAT_MOD_LINEAR	fourcc_mod_code(NONE, 0)
 
 /* Intel framebuffer modifiers */
 
@@ -207,4 +227,19 @@
  */
 #define I915_FORMAT_MOD_Yf_TILED fourcc_mod_code(INTEL, 3)
 
+
+/*
+ * Tiled, NV12MT, grouped in 64 (pixels) x 32 (lines) -sized macroblocks
+ *
+ * Macroblocks are laid in a Z-shape, and each pixel data is following the
+ * standard NV12 style.
+ * As for NV12, an image is the result of two frame buffers: one for Y,
+ * one for the interleaved Cb/Cr components (1/2 the height of the Y buffer).
+ * Alignment requirements are (for each buffer):
+ * - multiple of 128 pixels for the width
+ * - multiple of  32 pixels for the height
+ *
+ * For more information: see https://linuxtv.org/downloads/v4l-dvb-apis/re32.html
+ */
+#define DRM_FORMAT_MOD_SAMSUNG_64_32_TILE	fourcc_mod_code(SAMSUNG, 1)
 #endif /* DRM_FOURCC_H */

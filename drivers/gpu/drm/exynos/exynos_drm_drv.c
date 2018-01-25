@@ -28,10 +28,10 @@
 #include "exynos_drm_fb.h"
 #include "exynos_drm_gem.h"
 #include "exynos_drm_plane.h"
+#include "exynos_drm_ipp.h"
 #include "exynos_drm_vidi.h"
 #include "exynos_drm_dmabuf.h"
 #include "exynos_drm_g2d.h"
-#include "exynos_drm_ipp.h"
 #include "exynos_drm_iommu.h"
 #include "exynos_drm_debugfs.h"
 
@@ -265,13 +265,15 @@ static const struct drm_ioctl_desc exynos_ioctls[] = {
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(EXYNOS_G2D_EXEC, exynos_g2d_exec_ioctl,
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_GET_PROPERTY, exynos_drm_ipp_get_property,
+	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_GET_RESOURCES,
+			exynos_drm_ipp_get_res_ioctl,
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_SET_PROPERTY, exynos_drm_ipp_set_property,
+	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_GET_CAPS, exynos_drm_ipp_get_caps_ioctl,
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_QUEUE_BUF, exynos_drm_ipp_queue_buf,
+	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_GET_LIMITS,
+			exynos_drm_ipp_get_limits_ioctl,
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_CMD_CTRL, exynos_drm_ipp_cmd_ctrl,
+	DRM_IOCTL_DEF_DRV(EXYNOS_IPP_COMMIT, exynos_drm_ipp_commit_ioctl,
 			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 };
 
@@ -387,12 +389,6 @@ static struct platform_driver *const exynos_drm_kms_drivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_VIDI
 	&vidi_driver,
 #endif
-};
-
-static struct platform_driver *const exynos_drm_non_kms_drivers[] = {
-#ifdef CONFIG_DRM_EXYNOS_G2D
-	&g2d_driver,
-#endif
 #ifdef CONFIG_DRM_EXYNOS_FIMC
 	&fimc_driver,
 #endif
@@ -402,8 +398,14 @@ static struct platform_driver *const exynos_drm_non_kms_drivers[] = {
 #ifdef CONFIG_DRM_EXYNOS_GSC
 	&gsc_driver,
 #endif
-#ifdef CONFIG_DRM_EXYNOS_IPP
-	&ipp_driver,
+#ifdef CONFIG_DRM_EXYNOS_SCALER
+	&scaler_driver,
+#endif
+};
+
+static struct platform_driver *const exynos_drm_non_kms_drivers[] = {
+#ifdef CONFIG_DRM_EXYNOS_G2D
+	&g2d_driver,
 #endif
 	&exynos_drm_platform_driver,
 };
@@ -411,9 +413,6 @@ static struct platform_driver *const exynos_drm_non_kms_drivers[] = {
 static struct platform_driver *const exynos_drm_drv_with_simple_dev[] = {
 #ifdef CONFIG_DRM_EXYNOS_VIDI
 	&vidi_driver,
-#endif
-#ifdef CONFIG_DRM_EXYNOS_IPP
-	&ipp_driver,
 #endif
 	&exynos_drm_platform_driver,
 };
@@ -436,7 +435,11 @@ static struct component_match *exynos_drm_match_add(struct device *dev)
 		while ((d = bus_find_device(&platform_bus_type, p, drv,
 					    (void *)platform_bus_type.match))) {
 			put_device(p);
-			component_match_add(dev, &match, compare_dev, d);
+
+			if (!strstr(dev_name(d), "fimc") ||
+			    exynos_drm_check_fimc_device(d) == 0)
+				component_match_add(dev, &match,
+						    compare_dev, d);
 			p = d;
 		}
 		put_device(p);
