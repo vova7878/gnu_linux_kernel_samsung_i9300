@@ -374,20 +374,6 @@
 			clocks = <&i2s0 CLK_I2S_CDCLK>;
 		};
 	};
-
-	usb_extcon_a: odroid-usbotg-a {
-		compatible = "extcon-odroid-usbotg";
-		pinctrl-names = "default";
-		pinctrl-0 = <&otg_ida &vbus_deta>;
-		otg-id-gpio = <&gpx1 1 0>;
-		vbus-det-gpio = <&gpx3 4 0>;
-	};
-
-	usb_extcon_b: odroid-usbotg-b {
-		compatible = "extcon-odroid-usbotg";
-		pinctrl-0 = <&vbus_detb>;
-		vbus-det-gpio = <&gpx3 5 0>;
-	};
 };
 
 &bus_wcore {
@@ -594,20 +580,8 @@
 	mali-supply = <&buck4_reg>;
 };
 
-&usbdrd3_0 {
-	extcon = <&usb_extcon_b>;
-};
-
-&usbdrd3_1 {
-	extcon = <&usb_extcon_a>;
-};
-
 &usbdrd_dwc3_0 {
 	dr_mode = "host";
-};
-
-&usbdrd_dwc3_1 {
-	dr_mode = "otg";
 };
 
 &cpu0 {

@@ -16,6 +16,14 @@
 / {
 	model = "Hardkernel Odroid XU3";
 	compatible = "hardkernel,odroid-xu3", "samsung,exynos5800", "samsung,exynos5";
+
+	usb_extcon_a: odroid-usbotg-a {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-names = "default";
+		pinctrl-0 = <&otg_ida &vbus_deta>;
+		otg-id-gpio = <&gpx1 1 0>;
+		vbus-det-gpio = <&gpx3 4 0>;
+	};
 };
 
 &i2c_0 {
@@ -48,4 +56,12 @@
 		reg = <0x45>;
 		shunt-resistor = <10000>;
 	};
+};
+
+&usbdrd3_1 {
+	extcon = <&usb_extcon_a>;
+};
+
+&usbdrd_dwc3_1 {
+	dr_mode = "otg";
 };
