@@ -470,8 +470,7 @@ static int exynos_drm_ipp_task_setup_buffer(struct drm_device *dev,
 	for (i = 0; i < buf->format->num_planes; i++) {
 		unsigned int height = (i == 0) ? buf->buf.height :
 			     DIV_ROUND_UP(buf->buf.height, buf->format->vsub);
-		unsigned long size = height * buf->buf.pitch[i] +
-				     buf->buf.offset[i];
+		unsigned long size = height * buf->buf.pitch[i];
 		struct drm_gem_object *obj = drm_gem_object_lookup(dev, filp,
 							    buf->buf.gem_id[i]);
 		if (!obj) {
@@ -480,7 +479,7 @@ static int exynos_drm_ipp_task_setup_buffer(struct drm_device *dev,
 		}
 		buf->exynos_gem[i] = to_exynos_gem_obj(obj);
 
-		if (size > buf->exynos_gem[i]->size) {
+		if (size + buf->buf.offset[i] > buf->exynos_gem[i]->size) {
 			i++;
 			ret = -EINVAL;
 			goto gem_free;
@@ -650,6 +649,7 @@ static int exynos_drm_ipp_check_scale_limits(
 				unsigned int num_limits, bool swap)
 {
 	const struct drm_exynos_ipp_limit_val *lh, *lv;
+	int dw, dh;
 
 	for (; num_limits; limits++, num_limits--)
 		if ((limits->type & DRM_EXYNOS_IPP_LIMIT_TYPE_MASK) ==
@@ -660,9 +660,11 @@ static int exynos_drm_ipp_check_scale_limits(
 
 	lh = (!swap) ? &limits->h : &limits->v;
 	lv = (!swap) ? &limits->v : &limits->h;
+	dw = (!swap) ? dst->w : dst->h;
+	dh = (!swap) ? dst->h : dst->w;
 
-	if (!__scale_limit_check(src->w, dst->w, lh->min, lh->max) ||
-	    !__scale_limit_check(src->h, dst->h, lv->min, lv->max))
+	if (!__scale_limit_check(src->w, dw, lh->min, lh->max) ||
+	    !__scale_limit_check(src->h, dh, lv->min, lv->max))
 		return -EINVAL;
 
 	return 0;
@@ -741,7 +743,7 @@ static int exynos_drm_ipp_task_check(struct exynos_drm_ipp_task *task,
 	}
 	ret = exynos_drm_ipp_check_size_limits(dst, dst_fmt->limits,
 					       dst_fmt->num_limits,
-					       rotate, swap);
+					       false, swap);
 	if (ret)
 		return ret;
 	ret = exynos_drm_ipp_check_scale_limits(&src->rect, &dst->rect,
@@ -866,7 +868,7 @@ void exynos_drm_ipp_task_done(struct exynos_drm_ipp_task *task, int ret)
 	struct exynos_drm_ipp *ipp = task->ipp;
 	unsigned long flags;
 
-	DRM_DEBUG_DRIVER("ipp: %d, task %pK done\n", ipp->id, task);
+	DRM_DEBUG_DRIVER("ipp: %d, task %pK done: %d\n", ipp->id, task, ret);
 
 	spin_lock_irqsave(&ipp->lock, flags);
 	if (ipp->task == task)
