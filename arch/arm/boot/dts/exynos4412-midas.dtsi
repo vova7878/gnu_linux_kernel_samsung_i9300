@@ -30,6 +30,10 @@
 		stdout-path = &serial_2;
 	};
 
+	firmware: firmware {
+		/* overlayed by bootloader for android */
+	};
+
 	firmware@204f000 {
 		compatible = "samsung,secure-firmware";
 		reg = <0x0204F000 0x1000>;

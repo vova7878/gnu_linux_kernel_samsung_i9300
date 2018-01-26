@@ -1,0 +1,34 @@
+/*
+ * Device tree overlay for booting Android on Midas boards
+ *
+ * Copyright (c) 2018 Simon Shields <simon@lineageos.org>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation
+ */
+/dts-v1/;
+/plugin/;
+
+&firmware {
+	android {
+		compatible = "android,firmware";
+		fstab {
+			compatible = "android,fstab";
+			system {
+				compatible = "android,system";
+				dev = "/dev/block/platform/soc/12550000.mmc/by-name/system";
+				type = "ext4";
+				mnt_flags = "ro,noatime";
+				fsmgr_flags = "wait,verify";
+			};
+			vendor {
+				compatible = "android,vendor";
+				dev = "/dev/block/platform/soc/12550000.mmc/by-name/vendor";
+				type = "ext4";
+				mnt_flags = "ro,noatime";
+				fsmgr_flags = "wait";
+			};
+		};
+	};
+};
