@@ -80,8 +80,6 @@
 				 300000  937500
 				 200000  925000
 			>;
-			cooling-min-level = <15>;
-			cooling-max-level = <9>;
 			#cooling-cells = <2>; /* min followed by max */
 		};
 		cpu@1 {
@@ -115,21 +113,18 @@
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x10044000 0x20>;
 			#power-domain-cells = <0>;
-			label = "GSC";
 		};
 
 		pd_mfc: mfc-power-domain@10044040 {
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x10044040 0x20>;
 			#power-domain-cells = <0>;
-			label = "MFC";
 		};
 
 		pd_disp1: disp1-power-domain@100440A0 {
 			compatible = "samsung,exynos4210-pd";
 			reg = <0x100440A0 0x20>;
 			#power-domain-cells = <0>;
-			label = "DISP1";
 			clocks = <&clock CLK_FIN_PLL>,
 				 <&clock CLK_MOUT_ACLK200_DISP1_SUB>,
 				 <&clock CLK_MOUT_ACLK300_DISP1_SUB>;
@@ -153,10 +148,10 @@
 
 		timer {
 			compatible = "arm,armv7-timer";
-			interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
-				     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
-				     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
-				     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+			interrupts = <1 13 0xf08>,
+				     <1 14 0xf08>,
+				     <1 11 0xf08>,
+				     <1 10 0xf08>;
 			/*
 			 * Unfortunately we need this since some versions
 			 * of U-Boot on Exynos don't set the CNTFRQ register,
@@ -643,7 +638,7 @@
 			power-domains = <&pd_gsc>;
 			clocks = <&clock CLK_GSCL0>;
 			clock-names = "gscl";
-			iommu = <&sysmmu_gsc0>;
+			iommus = <&sysmmu_gsc0>;
 		};
 
 		gsc_1:  gsc@13e10000 {
@@ -653,7 +648,7 @@
 			power-domains = <&pd_gsc>;
 			clocks = <&clock CLK_GSCL1>;
 			clock-names = "gscl";
-			iommu = <&sysmmu_gsc1>;
+			iommus = <&sysmmu_gsc1>;
 		};
 
 		gsc_2:  gsc@13e20000 {
@@ -663,7 +658,7 @@
 			power-domains = <&pd_gsc>;
 			clocks = <&clock CLK_GSCL2>;
 			clock-names = "gscl";
-			iommu = <&sysmmu_gsc2>;
+			iommus = <&sysmmu_gsc2>;
 		};
 
 		gsc_3:  gsc@13e30000 {
@@ -673,7 +668,7 @@
 			power-domains = <&pd_gsc>;
 			clocks = <&clock CLK_GSCL3>;
 			clock-names = "gscl";
-			iommu = <&sysmmu_gsc3>;
+			iommus = <&sysmmu_gsc3>;
 		};
 
 		hdmi: hdmi@14530000 {
@@ -687,19 +682,6 @@
 			clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
 					"sclk_hdmiphy", "mout_hdmi";
 			samsung,syscon-phandle = <&pmu_system_controller>;
-		};
-
-		hdmicec: cec@101B0000 {
-			compatible = "samsung,s5p-cec";
-			reg = <0x101B0000 0x200>;
-			interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clock CLK_HDMI_CEC>;
-			clock-names = "hdmicec";
-			samsung,syscon-phandle = <&pmu_system_controller>;
-			hdmi-phandle = <&hdmi>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&hdmi_cec>;
-			status = "disabled";
 		};
 
 		mixer@14450000 {
@@ -1059,29 +1041,21 @@
 &serial_0 {
 	clocks = <&clock CLK_UART0>, <&clock CLK_SCLK_UART0>;
 	clock-names = "uart", "clk_uart_baud0";
-	dmas = <&pdma0 13>, <&pdma0 14>;
-	dma-names = "rx", "tx";
 };
 
 &serial_1 {
 	clocks = <&clock CLK_UART1>, <&clock CLK_SCLK_UART1>;
 	clock-names = "uart", "clk_uart_baud0";
-	dmas = <&pdma1 15>, <&pdma1 16>;
-	dma-names = "rx", "tx";
 };
 
 &serial_2 {
 	clocks = <&clock CLK_UART2>, <&clock CLK_SCLK_UART2>;
 	clock-names = "uart", "clk_uart_baud0";
-	dmas = <&pdma0 15>, <&pdma0 16>;
-	dma-names = "rx", "tx";
 };
 
 &serial_3 {
 	clocks = <&clock CLK_UART3>, <&clock CLK_SCLK_UART3>;
 	clock-names = "uart", "clk_uart_baud0";
-	dmas = <&pdma1 17>, <&pdma1 18>;
-	dma-names = "rx", "tx";
 };
 
 #include "exynos5250-pinctrl.dtsi"
