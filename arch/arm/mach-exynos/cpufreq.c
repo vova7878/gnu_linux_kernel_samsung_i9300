@@ -11,6 +11,7 @@
 */
 
 #include <linux/types.h>
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -671,8 +672,12 @@ static struct notifier_block exynos_cpufreq_notifier = {
 	.notifier_call = exynos_cpufreq_notifier_event,
 };
 
-#ifdef CONFIG_INTELLI_PLUG
+#if defined (CONFIG_INTELLI_PLUG)
 extern unsigned int intelli_plug_active;
+#endif
+
+#if defined (CONFIG_MSM_HOTPLUG)
+extern unsigned int msm_enabled;
 #endif
 
 static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
@@ -682,7 +687,7 @@ static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-#ifdef CONFIG_INTELLI_PLUG
+#if defined(CONFIG_INTELLI_PLUG) || defined(CONFIG_MSM_HOTPLUG)
 		/*
 		 * arter97: add intelli_plug hook here;
 		 * if the selected governor has its own hotplugging implemented, disable intelli_plug,
@@ -697,6 +702,7 @@ static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
 		 || (!strnicmp(policy->governor->name, "yankasusq",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "zzmoove",	CPUFREQ_NAME_LEN))
  		 || (!strnicmp(policy->governor->name, "pegasusqpluso",	CPUFREQ_NAME_LEN))) {
+#if defined (CONFIG_INTELLI_PLUG)
 			if (intelli_plug_active) {
 				printk(KERN_DEBUG "disabling intelli_plug for governor: %s\n",
 								policy->governor->name);
@@ -711,6 +717,21 @@ static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
 		} /* intelli_plug */
 #endif
 
+#if defined (CONFIG_MSM_HOTPLUG)
+			if (msm_enabled) {
+				printk(KERN_DEBUG "disabling msm_hotplug for governor: %s\n",
+								policy->governor->name);
+				msm_enabled = 0;
+			}
+		} else {
+			if (!msm_enabled) {
+				printk(KERN_DEBUG "enabling msm_hotplug for governor: %s\n",
+								policy->governor->name);
+				msm_enabled = 1;
+			}
+		} /* hotplug */
+#endif
+#endif
 		if ((!strnicmp(policy->governor->name, "powersave",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "performance",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "userspace",	CPUFREQ_NAME_LEN))) {
