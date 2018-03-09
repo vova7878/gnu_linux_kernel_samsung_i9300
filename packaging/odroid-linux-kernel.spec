@@ -130,7 +130,7 @@ cp -r %{_builddir}/linux-kernel-%{version} %{buildroot}/boot/kernel/devel/kernel
 rm -rf %{buildroot}
 
 %files -n %{variant}-linux-kernel-modules
-/lib/modules/
+/lib/modules/*
 
 %files -n %{variant}-linux-kernel-devel
 /boot/kernel/devel/*
