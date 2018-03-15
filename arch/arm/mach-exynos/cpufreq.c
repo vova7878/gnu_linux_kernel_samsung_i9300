@@ -693,6 +693,7 @@ static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
 		 * if the selected governor has its own hotplugging implemented, disable intelli_plug,
 		 * if not, enable intelli_plug.
 		 */
+#if defined (CONFIG_INTELLI_PLUG) || defined (CONFIG_MSM_HOTPLUG)
 		if ((!strnicmp(policy->governor->name, "lulzactiveq",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "pegasusq",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "pegasusqplus",	CPUFREQ_NAME_LEN))
