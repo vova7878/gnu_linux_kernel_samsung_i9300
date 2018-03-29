@@ -38,8 +38,15 @@
 #define DRIVER_NAME	"exynos"
 #define DRIVER_DESC	"Samsung SoC DRM"
 #define DRIVER_DATE	"20110530"
+
+/*
+ * Interface history:
+ *
+ * 1.0 - Original version
+ * 1.1 - Upgrade IPP driver to version 2.0
+*/
 #define DRIVER_MAJOR	1
-#define DRIVER_MINOR	0
+#define DRIVER_MINOR	1
 
 static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 {
