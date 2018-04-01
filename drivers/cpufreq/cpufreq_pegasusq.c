@@ -233,7 +233,7 @@ static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				unsigned int event);
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_PEGASUSQ
+#if !defined(CONFIG_CPU_FREQ_DEFAULT_GOV_PEGASUSQ) && !defined(CONFIG_CPU_FREQ_DEFAULT_GOV_PYRAMID)
 static
 #endif
 struct cpufreq_governor cpufreq_gov_pegasusq = {
