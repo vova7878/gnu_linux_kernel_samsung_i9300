@@ -86,7 +86,7 @@ mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 
 # 2. Install zImage, System.map, ...
 install -m 755 arch/arm/boot/zImage %{buildroot}/boot/
-install -m 644 arch/arm/boot/dts/*.dtb %{buildroot}/boot/
+install -m 644 arch/arm/boot/dts/*odroid*.dtb %{buildroot}/boot/
 
 install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
