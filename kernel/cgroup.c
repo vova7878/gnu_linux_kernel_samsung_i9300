@@ -3982,6 +3982,10 @@ static int cgroup_clear_css_refs(struct cgroup *cgrp)
 
 static int cgroup_rmdir(struct inode *unused_dir, struct dentry *dentry)
 {
+
+	if(dentry == NULL)
+		return 1;
+
 	struct cgroup *cgrp = dentry->d_fsdata;
 	struct dentry *d;
 	struct cgroup *parent;
