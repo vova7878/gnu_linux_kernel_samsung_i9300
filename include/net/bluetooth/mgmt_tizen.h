@@ -339,4 +339,9 @@ struct mgmt_ev_le_data_length_changed {
 	__le16	max_rx_time;
 } __packed;
 
+#define MGMT_EV_RPA_CHANGED			(TIZEN_EV_BASE + 0x0e)
+struct mgmt_ev_rpa_changed {
+	bdaddr_t bdaddr;
+} __packed;
+
 #endif	/* __MGMT_TIZEN_H */

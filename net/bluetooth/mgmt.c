@@ -7810,6 +7810,18 @@ void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
 	mgmt_event(MGMT_EV_LE_DATA_LENGTH_CHANGED, hdev, &ev, sizeof(ev), NULL);
 }
 
+void mgmt_rpa_updated_evt(struct hci_dev *hdev, bdaddr_t *rpa)
+{
+	struct mgmt_ev_rpa_changed mgmt_ev;
+
+	BT_DBG("RPA updated");
+
+	bacpy(&mgmt_ev.bdaddr, rpa);
+
+	mgmt_event(MGMT_EV_RPA_CHANGED, hdev, &mgmt_ev,
+				sizeof(struct mgmt_ev_rpa_changed), NULL);
+}
+
 static int set_irk(struct sock *sk, struct hci_dev *hdev, void *cp_data,
 		   u16 len)
 {

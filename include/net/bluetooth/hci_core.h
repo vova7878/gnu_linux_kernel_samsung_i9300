@@ -1590,6 +1590,7 @@ void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
 		u16 rx_octets, u16 rx_time);
 int hci_le_set_data_length(struct hci_conn *conn, u16 tx_octets, u16 tx_time);
 int hci_conn_streaming_mode(struct hci_conn *conn, bool streaming_mode);
+void mgmt_rpa_updated_evt(struct hci_dev *hdev, bdaddr_t *rpa);
 #endif
 
 u8 hci_le_conn_update(struct hci_conn *conn, u16 min, u16 max, u16 latency,
