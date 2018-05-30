@@ -279,7 +279,7 @@ static void decon_win_set_pixfmt(struct decon_context *ctx, unsigned int win)
 	int padding;
 
 	val = readl(ctx->addr + DECON_WINCONx(win));
-	val &= ~WINCONx_BPPMODE_MASK;
+	val &= WINCONx_ENWIN_F;
 
 	switch (plane->pixel_format) {
 	case DRM_FORMAT_XRGB1555:
