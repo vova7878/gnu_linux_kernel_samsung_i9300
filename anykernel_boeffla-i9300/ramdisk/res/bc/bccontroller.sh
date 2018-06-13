@@ -25,12 +25,12 @@ KERNEL_FEATURES="-2-3-6-7-9-"
 LIBPATH="/system/lib/modules"
 
 # block devices
-###SYSTEM_DEVICE###
-###CACHE_DEVICE###
-###DATA_DEVICE###
-###BOOT_DEVICE###
-###RADIO_DEVICE###
-###RECOVERY_DEVICE###
+SYSTEM_DEVICE="/dev/block/mmcblk0p9"
+CACHE_DEVICE="/dev/block/mmcblk0p8"
+DATA_DEVICE="/dev/block/mmcblk0p12"
+BOOT_DEVICE="/dev/block/mmcblk0p5"
+RADIO_DEVICE="/dev/block/mmcblk0p7"
+RECOVERY_DEVICE="/dev/block/mmcblk0p6"
 
 # *******************
 # List of values
