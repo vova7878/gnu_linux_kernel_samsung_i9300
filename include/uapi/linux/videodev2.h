@@ -529,6 +529,15 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_JPGL	v4l2_fourcc('J', 'P', 'G', 'L') /* JPEG-Lite */
 #define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1') /* se401 janggu compressed rgb */
 #define V4L2_PIX_FMT_S5C_UYVY_JPG v4l2_fourcc('S', '5', 'C', 'I') /* S5C73M3 interleaved UYVY/JPEG */
+#define V4L2_PIX_FMT_Y8I      v4l2_fourcc('Y', '8', 'I', ' ') /* Greyscale 8-bit L/R interleaved */
+#define V4L2_PIX_FMT_Y12I     v4l2_fourcc('Y', '1', '2', 'I') /* Greyscale 12-bit L/R interleaved */
+#define V4L2_PIX_FMT_Z16      v4l2_fourcc('Z', '1', '6', ' ') /* Depth data 16-bit */
+#define V4L2_PIX_FMT_Y8       v4l2_fourcc('Y', '8', ' ', ' ') /* Greyscale 8-bit */
+#define V4L2_PIX_FMT_Y10      v4l2_fourcc('Y', '1', '0', ' ') /* Greyscale 10-bit */
+#define V4L2_PIX_FMT_Y12      v4l2_fourcc('Y', '1', '2', ' ') /* Greyscale 12-bit */
+#define V4L2_PIX_FMT_Y16      v4l2_fourcc('Y', '1', '6', ' ') /* Greyscale 16-bit */
+#define V4L2_PIX_FMT_RAW8     v4l2_fourcc('R', 'A', 'W', '8') /* Raw data 8-bit */
+#define V4L2_PIX_FMT_RW16     v4l2_fourcc('R', 'W', '1', '6') /* Raw data 16-bit */
 #define V4L2_PIX_FMT_INVZ v4l2_fourcc('I',  'N',  'V',  'Z') /* 16 Depth */
 #define V4L2_PIX_FMT_INZI v4l2_fourcc('I',  'N',  'Z',  'I') /* 24 Depth/IR 16:8 */
 #define V4L2_PIX_FMT_INVR v4l2_fourcc('I',  'N',  'V',  'R') /* 16 Depth */
