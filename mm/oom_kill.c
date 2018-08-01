@@ -35,7 +35,7 @@
 #include <linux/freezer.h>
 
 int sysctl_panic_on_oom;
-int sysctl_oom_kill_allocating_task;
+int sysctl_oom_kill_allocating_task = 1;
 int sysctl_oom_dump_tasks = 1;
 static DEFINE_SPINLOCK(zone_scan_lock);
 
@@ -728,7 +728,6 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 
 	read_lock(&tasklist_lock);
 	if (sysctl_oom_kill_allocating_task &&
-	    !oom_unkillable_task(current, NULL, nodemask) &&
 	    current->mm) {
 		/*
 		 * oom_kill_process() needs tasklist_lock held.  If it returns
