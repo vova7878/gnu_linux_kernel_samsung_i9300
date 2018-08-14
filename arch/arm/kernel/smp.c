@@ -27,7 +27,6 @@
 #include <linux/completion.h>
 
 #include <asm/atomic.h>
-#include <asm/bugs.h>
 #include <asm/cacheflush.h>
 #include <asm/cpu.h>
 #include <asm/cputype.h>
@@ -316,9 +315,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * before we continue - which happens after __cpu_up returns.
 	 */
 	set_cpu_online(cpu, true);
-
-	check_other_bugs();
-
 	complete(&cpu_running);
 
 	/*
