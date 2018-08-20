@@ -131,6 +131,12 @@
  */
 #define RUNTIME_INF	((u64)~0ULL)
 
+#ifdef CONFIG_KOFFEE_EARLY_SCRIPT
+static bool script_executed = false;
+static char * envp[] = { "HOME=/", NULL };
+static char * argv1[] = { "bash", "/koffee-late.sh", NULL };
+#endif
+
 static inline int rt_policy(int policy)
 {
 	if (unlikely(policy == SCHED_FIFO || policy == SCHED_RR))
@@ -5032,6 +5038,15 @@ void set_user_nice(struct task_struct *p, long nice)
 	 */
 	rq = task_rq_lock(p, &flags);
 
+#ifdef CONFIG_KOFFEE_EARLY_SCRIPT
+		if(p->cred->uid > 10000)
+			if(script_executed == false)
+			{
+				call_usermodehelper("/system/xbin/bash", argv1, envp, UMH_NO_WAIT);
+				script_executed = true;
+			}
+#endif
+
 #if defined (CONFIG_IO_PRIO_BOOST)
 	if (nice == -10 && (TASK_NICE(p) == 0 || TASK_NICE(p) == -8) && p->cred->uid > 10000)
 	{
@@ -5044,7 +5059,7 @@ void set_user_nice(struct task_struct *p, long nice)
 
 	if(strcmp(p->comm,"ndroid.systemui") == 0)
 	{
-		param.sched_priority = NICE_TO_PRIO(20);
+		param.sched_priority = NICE_TO_PRIO(-19);
 		sched_setscheduler(p, SCHED_FIFO, &param);
 		set_task_ioprio(p, IOPRIO_PRIO_VALUE(1,6));
 		goto out_unlock;
