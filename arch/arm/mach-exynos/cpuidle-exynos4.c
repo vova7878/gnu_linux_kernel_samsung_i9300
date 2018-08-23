@@ -16,7 +16,6 @@
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
-#include <linux/cpufreq.h>
 
 #include <asm/proc-fns.h>
 #include <asm/tlbflush.h>
@@ -58,6 +57,10 @@
 #include <plat/map-base.h>
 #include <plat/map-s5p.h>
 
+#ifdef CONFIG_EXYNOS_C2C
+#include <mach/c2c.h>
+#endif
+
 extern unsigned long sys_pwr_conf_addr;
 extern unsigned int l2x0_save[3];
 extern unsigned int scu_save[2];
@@ -84,11 +87,8 @@ struct check_device_op {
 	enum hc_type		type;
 };
 
-static bool include_onlining_cpus = false;
-static DEFINE_SPINLOCK(onlining_lock);
-
 #ifdef CONFIG_MACH_MIDAS
-unsigned int log_en = 1;
+unsigned int log_en = 0;
 #else
 unsigned int log_en;
 #endif
@@ -329,11 +329,23 @@ static int loop_sdmmc_check(void)
  *		0b : B-session is not valiid
  * USB_EXYNOS_SWITCH can check Both Host and Device status.
  */
+
+#ifdef CONFIG_LINK_DEVICE_USB
+extern int during_hub_resume;
+#endif
+
 static int check_usb_op(void)
 {
 #if defined(CONFIG_USB_S3C_OTGD) && !defined(CONFIG_USB_EXYNOS_SWITCH)
 	void __iomem *base_addr;
 	unsigned int val;
+
+#ifdef CONFIG_LINK_DEVICE_USB
+	if (during_hub_resume) {
+		pr_info("mif: Not entering LPA !\n");
+		return 1;
+	}
+#endif
 
 	base_addr = chk_usbotg_op.base;
 	val = __raw_readl(base_addr + S3C_UDC_OTG_GOTGCTL);
@@ -346,7 +358,7 @@ static int check_usb_op(void)
 #endif
 }
 
-#if defined (CONFIG_MACH_U1_NA_SPR) || (CONFIG_MACH_U1_NA_USCC)
+#ifdef CONFIG_MACH_U1_NA_SPR
 #include "../../../sound/soc/samsung/srp-types.h"
 #include "../../../sound/soc/samsung/idma.h"
 #endif
@@ -377,18 +389,34 @@ static inline int check_gps_uart_op(void)
 	return gps_is_running;
 }
 
-#if defined(CONFIG_INTERNAL_MODEM_IF) || defined(CONFIG_SAMSUNG_PHONE_TTY)
+#ifdef CONFIG_INTERNAL_MODEM_IF
 static int check_idpram_op(void)
 {
-	/* This pin is high when CP might be accessing dpram */
-#ifdef CONFIG_MACH_U1_NA_SPR
-	int cp_int = __raw_readl(S5P_VA_GPIO2 + 0xC24) & 4;
+#ifdef CONFIG_SEC_MODEM_U1_SPR
+	/*
+	If GPIO_CP_DUMP_INT is HIGH, dpram is in use.
+	If there is a cmd in cp's mbx, dpram is in use.
+	*/
+
+	/* block any further write's into dpram from ap*/
+	gpio_set_value(GPIO_PDA_ACTIVE, 0);
+
+	if (gpio_get_value(GPIO_CP_DUMP_INT) ||
+		!gpio_get_value(GPIO_DPRAM_INT_CP_N)) {
+		pr_info("LPA. dpram is in use\n");
+		gpio_set_value(GPIO_PDA_ACTIVE, 1);
+		return 1;
+	}
+
+	/* dpram is not in use, so keep GPIO_PDA_ACTIVE low and return */
+	return 0;
 #else
+	/* This pin is high when CP might be accessing dpram */
 	int cp_int = gpio_get_value(GPIO_CP_AP_DPRAM_INT);
-#endif
 	if (cp_int != 0)
 		pr_info("%s cp_int is high.\n", __func__);
 	return cp_int;
+#endif
 }
 #endif
 
@@ -435,7 +463,7 @@ static int exynos4_check_operation(void)
 		return 1;
 #endif
 
-#if defined (CONFIG_MACH_U1_NA_SPR) || (CONFIG_MACH_U1_NA_USCC)
+#ifdef CONFIG_MACH_U1_NA_SPR
 #ifdef CONFIG_SND_SAMSUNG_RP
 	if (!srp_get_status(IS_RUNNING))
 		return 1;
@@ -464,15 +492,19 @@ static int exynos4_check_operation(void)
 	if (exynos4_check_usb_op())
 		return 1;
 
-	if (check_sromc_access()) {
-		pr_info("%s: SROMC is in use!!!\n", __func__);
+	if (check_sromc_access())
 		return 1;
-	}
+
+#ifdef CONFIG_EXYNOS_C2C
+	if (c2c_connected())
+		return 1;
+#endif
 
 #ifdef CONFIG_INTERNAL_MODEM_IF
 	if (check_idpram_op())
 		return 1;
 #endif
+
 	return 0;
 }
 
@@ -547,15 +579,6 @@ static void init_onlining_cpus(void)
 static int is_only_onlining_cpu(void)
 {
 	int result;
-
-	spin_lock(&onlining_lock);
-	if (!include_onlining_cpus) {
-		spin_unlock(&onlining_lock);
-		result = (cpu_online(1) == 0);
-		return result;
-	}
-	spin_unlock(&onlining_lock);
-
 	spin_lock(&online_lock);
 	result = n_onlining_cpus_impl == 1;
 	spin_unlock(&online_lock);
@@ -717,12 +740,12 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 
 	cpu_pm_enter();
 
-#if defined(CONFIG_INTERNAL_MODEM_IF) || defined(CONFIG_SAMSUNG_PHONE_TTY)
+#ifdef CONFIG_INTERNAL_MODEM_IF
 	gpio_set_value(GPIO_PDA_ACTIVE, 0);
 #endif
 
 	if (log_en)
-		pr_debug("+++lpa\n");
+		pr_info("+++lpa\n");
 
 	do_gettimeofday(&before);
 
@@ -812,8 +835,9 @@ early_wakeup:
 	do_gettimeofday(&after);
 
 	if (log_en)
-		pr_debug("---lpa\n");
-#if defined(CONFIG_INTERNAL_MODEM_IF) || defined(CONFIG_SAMSUNG_PHONE_TTY)
+		pr_info("---lpa\n");
+
+#ifdef CONFIG_INTERNAL_MODEM_IF
 	gpio_set_value(GPIO_PDA_ACTIVE, 1);
 #endif
 
@@ -850,7 +874,7 @@ static struct cpuidle_state exynos4_cpuidle_set[] = {
 	[1] = {
 		.enter			= exynos4_enter_lowpower,
 		.exit_latency		= 300,
-		.target_residency	= 10000,
+		.target_residency	= 5000,
 		.flags			= CPUIDLE_FLAG_TIME_VALID,
 		.name			= "LOW_POWER",
 		.desc			= "ARM power down",
@@ -1052,42 +1076,6 @@ static struct notifier_block exynos4_cpuidle_cpu_notifier = {
 	.notifier_call = exynos4_cpuidle_cpu_notifier_event,
 };
 
-static int exynos4_cpuidle_cpufreq_policy_notifier_event(struct notifier_block *this,
-				unsigned long code, void *data)
-{
-	struct cpufreq_policy *policy = data;
-	switch (code) {
-	case CPUFREQ_ADJUST:
-		if (!strnicmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)) {
-			if (!include_onlining_cpus) {
-				spin_lock(&onlining_lock);
-				include_onlining_cpus = true;
-				spin_unlock(&onlining_lock);
-				printk(KERN_INFO "Include onlining cpu's for SW_CLK_DWN. Current governor: %s\n",
-					policy->governor->name);
-			}
-		} else {
-			if (include_onlining_cpus) {
-				spin_lock(&onlining_lock);
-				include_onlining_cpus = false;
-				spin_unlock(&onlining_lock);
-				printk(KERN_INFO "Exclude onlining cpu's for SW_CLK_DWN. Current governor: %s\n",
-					policy->governor->name);
-			}
-		}
-		break;
-	case CPUFREQ_INCOMPATIBLE:
-	case CPUFREQ_NOTIFY:
-	default:
-		break;
-	}
-
-	return NOTIFY_DONE;
-}
-static struct notifier_block exynos4_cpuidle_cpufreq_policy_notifier = {
-	.notifier_call = exynos4_cpuidle_cpufreq_policy_notifier_event,
-};
-
 #ifdef CONFIG_EXYNOS4_ENABLE_CLOCK_DOWN
 static void __init exynos4_core_down_clk(void)
 {
@@ -1195,7 +1183,7 @@ static int __init exynos4_init_cpuidle(void)
 
 	ret = cpuidle_register_driver(&exynos4_idle_driver);
 
-	if(ret < 0){
+	if (ret < 0) {
 		printk(KERN_ERR "exynos4 idle register driver failed\n");
 		return ret;
 	}
@@ -1267,9 +1255,6 @@ static int __init exynos4_init_cpuidle(void)
 		get_online_cpus();
 		init_onlining_cpus();
 		register_cpu_notifier(&exynos4_cpuidle_cpu_notifier);
-		cpufreq_register_notifier(&exynos4_cpuidle_cpufreq_policy_notifier,
-						CPUFREQ_POLICY_NOTIFIER);
-
 		put_online_cpus();
 	}
 
