@@ -4,9 +4,10 @@
 #include <linux/platform_device.h>
 #include <mach/gpio.h>
 #include <plat/gpio-cfg.h>
-#include <mach/board-gps.h>
+#include <mach/sec_gps.h>
 
 static struct device *gps_dev;
+
 
 static int __init gps_bcm4752_init(void)
 {
@@ -25,7 +26,6 @@ static int __init gps_bcm4752_init(void)
 
 	if (gpio_request(GPIO_GPS_PWR_EN, "GPS_PWR_EN")) {
 		WARN(1, "fail to request gpio (GPS_PWR_EN)\n");
-		gpio_free(GPIO_GPS_PWR_EN);
 		return 1;
 	}
 
