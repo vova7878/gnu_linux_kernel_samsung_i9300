@@ -687,7 +687,7 @@ static ssize_t gpu_lock_store(struct kobject *kobj,
 		}
 	} else if (val == 1) {
 		if (gpu_lock_val == 0) {
-			exynos_gpufreq_lock();
+			exynos_gpufreq_lock(val);
 			gpu_lock_val = val;
 		} else {
 			pr_info("%s: Lock request is ignored\n", __func__);
@@ -709,7 +709,7 @@ static inline void rotation_booster_on(void)
 {
 	exynos_cpufreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, L0);
 	exynos4_busfreq_lock(DVFS_LOCK_ID_ROTATION_BOOSTER, BUS_L0);
-	exynos_gpufreq_lock();
+	exynos_gpufreq_lock(1);
 }
 
 static inline void rotation_booster_off(void)
