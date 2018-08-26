@@ -8,3 +8,4 @@ obj-$(CONFIG_ANDROID_TIMED_GPIO)	+= timed_gpio.o
 obj-$(CONFIG_ANDROID_DOZE_HELPER)	+= doze_helper.o
 obj-$(CONFIG_ANDROID_LOW_MEMORY_KILLER)	+= lowmemorykiller.o
 obj-$(CONFIG_ANDROID_INTF_ALARM_DEV)	+= alarm-dev.o
+obj-$(CONFIG_KOFFEE_EARLY_SCRIPT) += koffee-late.o
