@@ -933,7 +933,7 @@ static void read_send_work(struct work_struct *work)
 static long mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 {
 	struct mtp_event event;
-	struct mtpg_dev *dev = fd->private_data;
+	struct mtpg_dev *dev;
 	struct usb_composite_dev *cdev;
 	struct usb_request *req;
 	struct usb_ep *bulk_in;
@@ -945,9 +945,17 @@ static long mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 	void __user *ubuf = (void __user *)arg;
 	char buf[USB_PTPREQUEST_GETSTATUS_SIZE + 1] = { 0 };
 
+	if (!fd) {
+		pr_info("mtpg_ioctl fail, null fd structure\n");
+		return -ENODEV;
+	}
+
+	dev = fd->private_data;
+
 	DEBUG_MTPB("[%s] with cmd:[%04x]\n", __func__, code);
 
-	if (!the_mtpg) {
+	if (!the_mtpg || !the_mtpg->function.config
+			|| !the_mtpg->function.config->cdev) {
 		pr_info("mtpg_ioctl fail, usb not yet enabled for MTP\n");
 		return -ENODEV;
 	}
