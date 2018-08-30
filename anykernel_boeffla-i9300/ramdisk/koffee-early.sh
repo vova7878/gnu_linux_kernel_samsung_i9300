@@ -62,3 +62,4 @@
 
 # Exiting
 /sbin/busybox mount -o remount,ro /
+exit 0
