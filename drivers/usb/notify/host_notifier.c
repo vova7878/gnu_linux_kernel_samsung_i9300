@@ -119,7 +119,7 @@ static int stop_usbhostd_thread(void)
 int start_usbhostd_wakelock(void)
 {
 	pr_info("host_notifier: start usbhostd wakelock\n");
-	wake_lock(&ninfo.wlock);
+	__pm_stay_awake(&ninfo.wlock);
 
 	return 0;
 }
@@ -127,7 +127,7 @@ int start_usbhostd_wakelock(void)
 int stop_usbhostd_wakelock(void)
 {
 	pr_info("host_notifier: stop usbhostd wakelock\n");
-	wake_unlock(&ninfo.wlock);
+	__pm_relax(&ninfo.wlock);
 
 	return 0;
 }
