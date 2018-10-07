@@ -353,13 +353,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 */
 	percpu_timer_setup();
 
-	while (!cpu_active(cpu))
-		cpu_relax();
-
-	/*
-	 * cpu_active bit is set, so it's safe to enalbe interrupts
-	 * now.
-	 */
 	local_irq_enable();
 	local_fiq_enable();
 
@@ -565,6 +558,9 @@ static void ipi_cpu_stop(unsigned int cpu)
 	local_fiq_disable();
 	local_irq_disable();
 
+	flush_cache_all();
+	local_flush_tlb_all();
+
 	while (1)
 		cpu_relax();
 }
@@ -709,4 +705,14 @@ void smp_send_stop(void)
 int setup_profiling_timer(unsigned int multiplier)
 {
 	return -EINVAL;
+}
+
+static void flush_all_cpu_cache(void *info)
+{
+	flush_cache_all();
+}
+
+void flush_all_cpu_caches(void)
+{
+	on_each_cpu(flush_all_cpu_cache, NULL, 1);
 }
