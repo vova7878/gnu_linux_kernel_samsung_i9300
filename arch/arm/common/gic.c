@@ -277,6 +277,8 @@ void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 static void __init gic_dist_init(struct gic_chip_data *gic)
 {
 	unsigned int i, irq;
+	unsigned int gic_irqs = gic->gic_irqs;
+	struct irq_domain *domain = &gic->domain;
 	void __iomem *base = gic_data_dist_base(gic);
 	u32 cpumask;
 	u32 cpu = 0;
@@ -577,11 +579,14 @@ void __init gic_init(unsigned int gic_nr, int irq_start,
 {
 	struct gic_chip_data *gic;
 	struct irq_domain *domain;
-	int cpu, gic_irqs;
+	int gic_irqs;
+	int cpu;
 
 	BUG_ON(gic_nr >= MAX_GIC_NR);
 
 	gic = &gic_data[gic_nr];
+	domain = &gic->domain;
+
 	gic->dist_base = alloc_percpu(void __iomem *);
 	gic->cpu_base = alloc_percpu(void __iomem *);
 	if (WARN_ON(!gic->dist_base || !gic->cpu_base)) {
@@ -594,10 +599,6 @@ void __init gic_init(unsigned int gic_nr, int irq_start,
 		*per_cpu_ptr(gic->dist_base, cpu) = dist_base;
 		*per_cpu_ptr(gic->cpu_base, cpu) = cpu_base;
 	}
-
-	gic->irq_offset = (irq_start - 1) & ~31;
-
-	domain = &gic->domain;
 
 	/*
 	 * For primary GICs, skip over SGIs.
