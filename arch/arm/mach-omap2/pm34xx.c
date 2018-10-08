@@ -30,8 +30,6 @@
 #include <linux/slab.h>
 #include <trace/events/power.h>
 
-#include <asm/suspend.h>
-
 #include <plat/sram.h>
 #include "clockdomain.h"
 #include "powerdomain.h"
@@ -365,7 +363,8 @@ void omap_sram_idle(void)
 	if (save_state)
 		omap34xx_save_context(omap3_arm_context);
 	if (save_state == 1 || save_state == 3)
-		cpu_suspend(save_state, omap34xx_do_sram_idle);
+		cpu_suspend(0, PHYS_OFFSET - PAGE_OFFSET, save_state,
+			    omap34xx_do_sram_idle);
 	else
 		omap34xx_do_sram_idle(save_state);
 
