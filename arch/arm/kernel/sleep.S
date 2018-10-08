@@ -88,7 +88,6 @@ ENDPROC(cpu_resume_turn_mmu_on)
 cpu_resume_after_mmu:
 	str	r5, [r2, r4, lsl #2]	@ restore old mapping
 	mcr	p15, 0, r0, c1, c0, 0	@ turn on D-cache
-	bl	cpu_init		@ restore the und/abt/irq banked regs
 	ldmfd	sp!, {pc}
 ENDPROC(cpu_resume_after_mmu)
 
