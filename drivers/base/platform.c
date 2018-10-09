@@ -33,7 +33,7 @@ EXPORT_SYMBOL_GPL(platform_bus);
 
 /**
  * arch_setup_pdev_archdata - Allow manipulation of archdata before its used
- * @pdev: platform device
+ * @dev: platform device
  *
  * This is called before platform_device_add() such that any pdev_archdata may
  * be setup before the platform_notifier is called.  So if a user needs to
