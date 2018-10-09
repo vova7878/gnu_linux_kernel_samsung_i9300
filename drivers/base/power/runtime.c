@@ -135,9 +135,8 @@ static int rpm_check_suspend_allowed(struct device *dev)
 
 	if (dev->power.runtime_error)
 		retval = -EINVAL;
-	else if (dev->power.disable_depth > 0)
-		retval = -EACCES;
-	else if (atomic_read(&dev->power.usage_count) > 0)
+	else if (atomic_read(&dev->power.usage_count) > 0
+	    || dev->power.disable_depth > 0)
 		retval = -EAGAIN;
 	else if (!pm_children_suspended(dev))
 		retval = -EBUSY;
@@ -263,7 +262,7 @@ static int rpm_callback(int (*cb)(struct device *), struct device *dev)
 		spin_lock_irq(&dev->power.lock);
 	}
 	dev->power.runtime_error = retval;
-	return retval != -EACCES ? retval : -EIO;
+	return retval;
 }
 
 /**
@@ -459,7 +458,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	if (dev->power.runtime_error)
 		retval = -EINVAL;
 	else if (dev->power.disable_depth > 0)
-		retval = -EACCES;
+		retval = -EAGAIN;
 	if (retval)
 		goto out;
 
