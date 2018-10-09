@@ -269,10 +269,8 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 
 	list_for_each_entry_reverse(dle, &genpd->dev_list, node) {
 		ret = __pm_genpd_save_device(dle, genpd);
-		if (ret) {
-			genpd_set_active(genpd);
-			goto out;
-		}
+		if (ret)
+			goto err_dev;
 
 		if (genpd_abort_poweroff(genpd))
 			goto out;
@@ -313,6 +311,13 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 	genpd->poweroff_task = NULL;
 	wake_up_all(&genpd->status_wait_queue);
 	return ret;
+
+ err_dev:
+	list_for_each_entry_continue(dle, &genpd->dev_list, node)
+		__pm_genpd_restore_device(dle, genpd);
+
+	genpd_set_active(genpd);
+	goto out;
 }
 
 /**
