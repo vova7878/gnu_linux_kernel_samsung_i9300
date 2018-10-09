@@ -376,7 +376,7 @@ int devtmpfs_mount(const char *mntdir)
 	return err;
 }
 
-static DECLARE_COMPLETION(setup_done);
+static __initdata DECLARE_COMPLETION(setup_done);
 
 static int handle(const char *name, umode_t mode, struct device *dev)
 {
