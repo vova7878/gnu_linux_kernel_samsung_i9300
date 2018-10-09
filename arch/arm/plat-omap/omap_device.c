@@ -620,7 +620,7 @@ static int _od_resume_noirq(struct device *dev)
 #define _od_resume_noirq NULL
 #endif
 
-static struct dev_pm_domain omap_device_pm_domain = {
+static struct dev_power_domain omap_device_power_domain = {
 	.ops = {
 		SET_RUNTIME_PM_OPS(_od_runtime_suspend, _od_runtime_resume,
 				   _od_runtime_idle)
@@ -643,7 +643,7 @@ int omap_device_register(struct omap_device *od)
 	pr_debug("omap_device: %s: registering\n", od->pdev.name);
 
 	od->pdev.dev.parent = &omap_device_parent;
-	od->pdev.dev.pm_domain = &omap_device_pm_domain;
+	od->pdev.dev.pwr_domain = &omap_device_power_domain;
 	return platform_device_register(&od->pdev);
 }
 
