@@ -450,10 +450,6 @@ static int pm_genpd_suspend_noirq(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (device_may_wakeup(dev)
-	    && genpd->active_wakeup && genpd->active_wakeup(dev))
-		return 0;
-
 	if (genpd->stop_device)
 		genpd->stop_device(dev);
 
@@ -673,10 +669,6 @@ static int pm_genpd_dev_poweroff_noirq(struct device *dev)
 	ret = pm_generic_poweroff_noirq(dev);
 	if (ret)
 		return ret;
-
-	if (device_may_wakeup(dev)
-	    && genpd->active_wakeup && genpd->active_wakeup(dev))
-		return 0;
 
 	if (genpd->stop_device)
 		genpd->stop_device(dev);
