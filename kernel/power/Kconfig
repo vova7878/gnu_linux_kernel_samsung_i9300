@@ -325,7 +325,3 @@ config SUSPEND_TIME
 config CPU_PM
 	bool
 	depends on SUSPEND || CPU_IDLE
-
-config PM_GENERIC_DOMAINS
-	bool
-	depends on PM
