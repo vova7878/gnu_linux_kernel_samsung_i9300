@@ -113,4 +113,3 @@ struct regmap *regmap_init_i2c(struct i2c_client *i2c,
 }
 EXPORT_SYMBOL_GPL(regmap_init_i2c);
 
-MODULE_LICENSE("GPL");
