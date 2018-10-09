@@ -18,7 +18,6 @@
 #include <linux/module.h>
 
 struct i2c_client;
-struct spi_device;
 
 /**
  * Configuration for the register map of a device.
@@ -70,9 +69,6 @@ struct regmap *regmap_init(struct device *dev,
 			   const struct regmap_config *config);
 struct regmap *regmap_init_i2c(struct i2c_client *i2c,
 			       const struct regmap_config *config);
-struct regmap *regmap_init_spi(struct spi_device *dev,
-			       const struct regmap_config *config);
-
 void regmap_exit(struct regmap *map);
 int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 int regmap_raw_write(struct regmap *map, unsigned int reg,
