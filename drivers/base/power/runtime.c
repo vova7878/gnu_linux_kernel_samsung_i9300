@@ -226,17 +226,11 @@ static int rpm_idle(struct device *dev, int rpmflags)
 		callback = NULL;
 
 	if (callback) {
-		if (dev->power.irq_safe)
-			spin_unlock(&dev->power.lock);
-		else
-			spin_unlock_irq(&dev->power.lock);
+		spin_unlock_irq(&dev->power.lock);
 
 		callback(dev);
 
-		if (dev->power.irq_safe)
-			spin_lock(&dev->power.lock);
-		else
-			spin_lock_irq(&dev->power.lock);
+		spin_lock_irq(&dev->power.lock);
 	}
 
 	dev->power.idle_notification = false;
