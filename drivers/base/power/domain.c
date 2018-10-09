@@ -367,7 +367,6 @@ static void pm_genpd_sync_poweroff(struct generic_pm_domain *genpd)
 static int pm_genpd_prepare(struct device *dev)
 {
 	struct generic_pm_domain *genpd;
-	int ret;
 
 	dev_dbg(dev, "%s()\n", __func__);
 
@@ -401,16 +400,7 @@ static int pm_genpd_prepare(struct device *dev)
 
 	mutex_unlock(&genpd->lock);
 
-	ret = pm_generic_prepare(dev);
-	if (ret) {
-		mutex_lock(&genpd->lock);
-
-		if (--genpd->prepared_count == 0)
-			genpd->suspend_power_off = false;
-
-		mutex_unlock(&genpd->lock);
-	}
-	return ret;
+	return pm_generic_prepare(dev);
 }
 
 /**
