@@ -232,6 +232,7 @@ static int regcache_lzo_read(struct regmap *map,
 	size_t blksize, tmp_dst_len;
 	void *tmp_dst;
 
+	*value = 0;
 	/* index of the compressed lzo block */
 	blkindex = regcache_lzo_get_blkindex(map, reg);
 	/* register index within the decompressed block */
@@ -260,8 +261,7 @@ static int regcache_lzo_read(struct regmap *map,
 	/* restore the pointer and length of the compressed block */
 	lzo_block->dst = tmp_dst;
 	lzo_block->dst_len = tmp_dst_len;
-
-	return ret;
+	return 0;
 }
 
 static int regcache_lzo_write(struct regmap *map,
