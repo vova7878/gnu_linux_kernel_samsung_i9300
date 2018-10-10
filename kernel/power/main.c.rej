@@ -1,0 +1,35 @@
+--- kernel/power/main.c
++++ kernel/power/main.c
+@@ -20,25 +20,24 @@
+ #endif
+ 
+ #if defined(CONFIG_CPU_EXYNOS4210)
+-#define CONFIG_EXYNOS4_GPU_LOCK
++#define CONFIG_GPU_LOCK
+ #define CONFIG_ROTATION_BOOSTER_SUPPORT
+ #endif
+ 
+-#if defined(CONFIG_CPU_EXYNOS4412) && defined(CONFIG_VIDEO_MALI400MP_DVFS)
+-#define CONFIG_EXYNOS4_GPU_LOCK
+-#endif
+-
+ #ifdef CONFIG_DVFS_LIMIT
+ #include <linux/cpufreq.h>
+ #include <mach/cpufreq.h>
+ #endif
+ 
+-#ifdef CONFIG_EXYNOS4_GPU_LOCK
++#ifdef CONFIG_GPU_LOCK
+ #include <mach/gpufreq.h>
+ #endif
+ 
+-#ifdef CONFIG_FAST_BOOT
+-#include <linux/fake_shut_down.h>
++#if defined(CONFIG_CPU_EXYNOS4412) && defined(CONFIG_VIDEO_MALI400MP) \
++		&& defined(CONFIG_VIDEO_MALI400MP_DVFS)
++#define CONFIG_PEGASUS_GPU_LOCK
++extern int mali_dvfs_bottom_lock_push(int lock_step);
++extern int mali_dvfs_bottom_lock_pop(void);
+ #endif
+ 
+ #include "power.h"
