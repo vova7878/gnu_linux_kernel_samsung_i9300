@@ -10,7 +10,6 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/capability.h>
-#include <linux/export.h>
 #include <linux/suspend.h>
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
