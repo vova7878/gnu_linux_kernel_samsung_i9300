@@ -24,30 +24,30 @@
 #define PM_QOS_NETWORK_LAT_DEFAULT_VALUE	(2000 * USEC_PER_SEC)
 #define PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE	0
 
-struct pm_qos_request {
-	struct plist_node node;
+struct pm_qos_request_list {
+	struct plist_node list;
 	int pm_qos_class;
 };
 
 #ifdef CONFIG_PM
-void pm_qos_add_request(struct pm_qos_request *req, int pm_qos_class,
-			s32 value);
-void pm_qos_update_request(struct pm_qos_request *req,
+void pm_qos_add_request(struct pm_qos_request_list *l,
+			int pm_qos_class, s32 value);
+void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
 			   s32 new_value);
-void pm_qos_remove_request(struct pm_qos_request *req);
+void pm_qos_remove_request(struct pm_qos_request_list *pm_qos_req);
 
 int pm_qos_request(int pm_qos_class);
 int pm_qos_add_notifier(int pm_qos_class, struct notifier_block *notifier);
 int pm_qos_remove_notifier(int pm_qos_class, struct notifier_block *notifier);
-int pm_qos_request_active(struct pm_qos_request *req);
+int pm_qos_request_active(struct pm_qos_request_list *req);
 #else
-static inline void pm_qos_add_request(struct pm_qos_request *req,
+static inline void pm_qos_add_request(struct pm_qos_request_list *l,
 				      int pm_qos_class, s32 value)
 			{ return; }
-static inline void pm_qos_update_request(struct pm_qos_request *req,
+static inline void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
 					 s32 new_value)
 			{ return; }
-static inline void pm_qos_remove_request(struct pm_qos_request *req)
+static inline void pm_qos_remove_request(struct pm_qos_request_list *pm_qos_req)
 			{ return; }
 
 static inline int pm_qos_request(int pm_qos_class)
@@ -58,7 +58,7 @@ static inline int pm_qos_add_notifier(int pm_qos_class,
 static inline int pm_qos_remove_notifier(int pm_qos_class,
 					 struct notifier_block *notifier)
 			{ return 0; }
-static inline int pm_qos_request_active(struct pm_qos_request *req)
+static inline int pm_qos_request_active(struct pm_qos_request_list *req)
 			{ return 0; }
 #endif
 
