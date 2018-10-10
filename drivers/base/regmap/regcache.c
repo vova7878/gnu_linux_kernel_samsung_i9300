@@ -223,39 +223,20 @@ EXPORT_SYMBOL_GPL(regcache_write);
  */
 int regcache_sync(struct regmap *map)
 {
-	int ret = 0;
-	unsigned int val;
-	unsigned int i;
+	int ret;
 	const char *name;
 
 	BUG_ON(!map->cache_ops);
 
-	dev_dbg(map->dev, "Syncing %s cache\n",
-		map->cache_ops->name);
-	name = map->cache_ops->name;
-	trace_regcache_sync(map->dev, name, "start");
 	if (map->cache_ops->sync) {
+		dev_dbg(map->dev, "Syncing %s cache\n",
+			map->cache_ops->name);
+		name = map->cache_ops->name;
+		trace_regcache_sync(map->dev, name, "start");
 		ret = map->cache_ops->sync(map);
-	} else {
-		for (i = 0; i < map->num_reg_defaults; i++) {
-			ret = regcache_read(map, i, &val);
-			if (ret < 0)
-				goto out;
-			regcache_cache_bypass(map, true);
-			ret = regcache_write(map, i, val);
-			regcache_cache_bypass(map, false);
-			if (ret < 0)
-				goto out;
-			dev_dbg(map->dev, "Synced register %#x, value %#x\n",
-				map->reg_defaults[i].reg,
-				map->reg_defaults[i].def);
-		}
-
+		trace_regcache_sync(map->dev, name, "stop");
 	}
-out:
-	trace_regcache_sync(map->dev, name, "stop");
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(regcache_sync);
 
