@@ -316,17 +316,14 @@ static int menu_select(struct cpuidle_device *dev)
 /**
  * menu_reflect - records that data structures need update
  * @dev: the CPU
- * @index: the index of actual entered state
  *
  * NOTE: it's important to be fast here because this operation will add to
  *       the overall exit latency.
  */
-static void menu_reflect(struct cpuidle_device *dev, int index)
+static void menu_reflect(struct cpuidle_device *dev)
 {
 	struct menu_device *data = &__get_cpu_var(menu_devices);
-	data->last_state_idx = index;
-	if (index >= 0)
-		data->needs_update = 1;
+	data->needs_update = 1;
 }
 
 /**
