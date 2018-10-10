@@ -148,12 +148,12 @@ include/linux/pm_wakeup.h.
 
 The "power.can_wakeup" flag just records whether the device (and its driver) can
 physically support wakeup events.  The device_set_wakeup_capable() routine
-affects this flag.  The "power.wakeup" field is a pointer to an object of type
-struct wakeup_source used for controlling whether or not the device should use
-its system wakeup mechanism and for notifying the PM core of system wakeup
-events signaled by the device.  This object is only present for wakeup-capable
-devices (i.e. devices whose "can_wakeup" flags are set) and is created (or
-removed) by device_set_wakeup_capable().
+affects this flag.  The "should_wakeup" flag controls whether the device should
+try to use its wakeup mechanism.  device_set_wakeup_enable() affects this flag;
+for the most part drivers should not change its value.  The initial value of
+should_wakeup is supposed to be false for the majority of devices; the major
+exceptions are power buttons, keyboards, and Ethernet adapters whose WoL
+(wake-on-LAN) feature has been set up with ethtool.
 
 Whether or not a device is capable of issuing wakeup events is a hardware
 matter, and the kernel is responsible for keeping track of it.  By contrast,
