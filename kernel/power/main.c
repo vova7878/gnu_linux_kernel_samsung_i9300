@@ -159,6 +159,8 @@ static ssize_t pm_test_store(struct kobject *kobj, struct kobj_attribute *attr,
 power_attr(pm_test);
 #endif /* CONFIG_PM_DEBUG */
 
+#endif /* CONFIG_PM_SLEEP */
+
 #ifdef CONFIG_DEBUG_FS
 static char *suspend_step_name(enum suspend_stat_step step)
 {
@@ -253,8 +255,6 @@ static int __init pm_debugfs_init(void)
 
 late_initcall(pm_debugfs_init);
 #endif /* CONFIG_DEBUG_FS */
-
-#endif /* CONFIG_PM_SLEEP */
 
 struct kobject *power_kobj;
 
