@@ -79,9 +79,9 @@ static struct davinci_ops davinci_states[DAVINCI_CPUIDLE_MAX_STATES] = {
 
 /* Actual code that puts the SoC in different idle states */
 static int davinci_enter_idle(struct cpuidle_device *dev,
-						int index)
+						struct cpuidle_state *state)
 {
-	struct davinci_ops *ops = cpuidle_get_statedata(&dev->states[index]);
+	struct davinci_ops *ops = cpuidle_get_statedata(state);
 	struct timeval before, after;
 	int idle_time;
 
@@ -99,10 +99,7 @@ static int davinci_enter_idle(struct cpuidle_device *dev,
 	local_irq_enable();
 	idle_time = (after.tv_sec - before.tv_sec) * USEC_PER_SEC +
 			(after.tv_usec - before.tv_usec);
-
-	dev->last_residency = idle_time;
-
-	return index;
+	return idle_time;
 }
 
 static int __init davinci_cpuidle_probe(struct platform_device *pdev)
