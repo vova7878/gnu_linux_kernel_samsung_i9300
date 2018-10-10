@@ -33,17 +33,17 @@ static DEFINE_PER_CPU(struct cpuidle_device, kirkwood_cpuidle_device);
 
 /* Actual code that puts the SoC in different idle states */
 static int kirkwood_enter_idle(struct cpuidle_device *dev,
-			       int index)
+			       struct cpuidle_state *state)
 {
 	struct timeval before, after;
 	int idle_time;
 
 	local_irq_disable();
 	do_gettimeofday(&before);
-	if (index == 0)
+	if (state == &dev->states[0])
 		/* Wait for interrupt state */
 		cpu_do_idle();
-	else if (index == 1) {
+	else if (state == &dev->states[1]) {
 		/*
 		 * Following write will put DDR in self refresh.
 		 * Note that we have 256 cycles before DDR puts it
@@ -58,11 +58,7 @@ static int kirkwood_enter_idle(struct cpuidle_device *dev,
 	local_irq_enable();
 	idle_time = (after.tv_sec - before.tv_sec) * USEC_PER_SEC +
 			(after.tv_usec - before.tv_usec);
-
-	/* Update last residency */
-	dev->last_residency = idle_time;
-
-	return index;
+	return idle_time;
 }
 
 /* Initialize CPU idle by registering the idle states */

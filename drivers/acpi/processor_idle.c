@@ -37,7 +37,7 @@
 #include <linux/dmi.h>
 #include <linux/moduleparam.h>
 #include <linux/sched.h>	/* need_resched() */
-#include <linux/pm_qos.h>
+#include <linux/pm_qos_params.h>
 #include <linux/clockchips.h>
 #include <linux/cpuidle.h>
 #include <linux/irqflags.h>
@@ -224,6 +224,7 @@ static void lapic_timer_state_broadcast(struct acpi_processor *pr,
 /*
  * Suspend / resume control
  */
+static int acpi_idle_suspend;
 static u32 saved_bm_rld;
 
 static void acpi_idle_bm_rld_save(void)
@@ -242,13 +243,21 @@ static void acpi_idle_bm_rld_restore(void)
 
 int acpi_processor_suspend(struct acpi_device * device, pm_message_t state)
 {
+	if (acpi_idle_suspend == 1)
+		return 0;
+
 	acpi_idle_bm_rld_save();
+	acpi_idle_suspend = 1;
 	return 0;
 }
 
 int acpi_processor_resume(struct acpi_device * device)
 {
+	if (acpi_idle_suspend == 0)
+		return 0;
+
 	acpi_idle_bm_rld_restore();
+	acpi_idle_suspend = 0;
 	return 0;
 }
 
@@ -732,26 +741,31 @@ static inline void acpi_idle_do_entry(struct acpi_processor_cx *cx)
 /**
  * acpi_idle_enter_c1 - enters an ACPI C1 state-type
  * @dev: the target CPU
- * @index: index of target state
+ * @state: the state data
  *
  * This is equivalent to the HALT instruction.
  */
 static int acpi_idle_enter_c1(struct cpuidle_device *dev,
-				int index)
+			      struct cpuidle_state *state)
 {
 	ktime_t  kt1, kt2;
 	s64 idle_time;
 	struct acpi_processor *pr;
-	struct cpuidle_state *state = &dev->states[index];
 	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 
 	pr = __this_cpu_read(processors);
-	dev->last_residency = 0;
 
 	if (unlikely(!pr))
-		return -EINVAL;
+		return 0;
 
 	local_irq_disable();
+
+	/* Do not access any ACPI IO ports in suspend path */
+	if (acpi_idle_suspend) {
+		local_irq_enable();
+		cpu_relax();
+		return 0;
+	}
 
 	lapic_timer_state_broadcast(pr, cx, 1);
 	kt1 = ktime_get_real();
@@ -759,36 +773,34 @@ static int acpi_idle_enter_c1(struct cpuidle_device *dev,
 	kt2 = ktime_get_real();
 	idle_time =  ktime_to_us(ktime_sub(kt2, kt1));
 
-	/* Update device last_residency*/
-	dev->last_residency = (int)idle_time;
-
 	local_irq_enable();
 	cx->usage++;
 	lapic_timer_state_broadcast(pr, cx, 0);
 
-	return index;
+	return idle_time;
 }
 
 /**
  * acpi_idle_enter_simple - enters an ACPI state without BM handling
  * @dev: the target CPU
- * @index: the index of suggested state
+ * @state: the state data
  */
 static int acpi_idle_enter_simple(struct cpuidle_device *dev,
-				int index)
+				  struct cpuidle_state *state)
 {
 	struct acpi_processor *pr;
-	struct cpuidle_state *state = &dev->states[index];
 	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 	ktime_t  kt1, kt2;
 	s64 idle_time_ns;
 	s64 idle_time;
 
 	pr = __this_cpu_read(processors);
-	dev->last_residency = 0;
 
 	if (unlikely(!pr))
-		return -EINVAL;
+		return 0;
+
+	if (acpi_idle_suspend)
+		return(acpi_idle_enter_c1(dev, state));
 
 	local_irq_disable();
 
@@ -803,7 +815,7 @@ static int acpi_idle_enter_simple(struct cpuidle_device *dev,
 		if (unlikely(need_resched())) {
 			current_thread_info()->status |= TS_POLLING;
 			local_irq_enable();
-			return -EINVAL;
+			return 0;
 		}
 	}
 
@@ -825,9 +837,6 @@ static int acpi_idle_enter_simple(struct cpuidle_device *dev,
 	idle_time = idle_time_ns;
 	do_div(idle_time, NSEC_PER_USEC);
 
-	/* Update device last_residency*/
-	dev->last_residency = (int)idle_time;
-
 	/* Tell the scheduler how much we idled: */
 	sched_clock_idle_wakeup_event(idle_time_ns);
 
@@ -839,24 +848,23 @@ static int acpi_idle_enter_simple(struct cpuidle_device *dev,
 
 	lapic_timer_state_broadcast(pr, cx, 0);
 	cx->time += idle_time;
-	return index;
+	return idle_time;
 }
 
 static int c3_cpu_count;
-static DEFINE_RAW_SPINLOCK(c3_lock);
+static DEFINE_SPINLOCK(c3_lock);
 
 /**
  * acpi_idle_enter_bm - enters C3 with proper BM handling
  * @dev: the target CPU
- * @index: the index of suggested state
+ * @state: the state data
  *
  * If BM is detected, the deepest non-C3 idle state is entered instead.
  */
 static int acpi_idle_enter_bm(struct cpuidle_device *dev,
-				int index)
+			      struct cpuidle_state *state)
 {
 	struct acpi_processor *pr;
-	struct cpuidle_state *state = &dev->states[index];
 	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 	ktime_t  kt1, kt2;
 	s64 idle_time_ns;
@@ -864,20 +872,22 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 
 
 	pr = __this_cpu_read(processors);
-	dev->last_residency = 0;
 
 	if (unlikely(!pr))
-		return -EINVAL;
+		return 0;
+
+	if (acpi_idle_suspend)
+		return(acpi_idle_enter_c1(dev, state));
 
 	if (!cx->bm_sts_skip && acpi_idle_bm_check()) {
-		if (dev->safe_state_index >= 0) {
-			return dev->states[dev->safe_state_index].enter(dev,
-						dev->safe_state_index);
+		if (dev->safe_state) {
+			dev->last_state = dev->safe_state;
+			return dev->safe_state->enter(dev, dev->safe_state);
 		} else {
 			local_irq_disable();
 			acpi_safe_halt();
 			local_irq_enable();
-			return -EINVAL;
+			return 0;
 		}
 	}
 
@@ -894,7 +904,7 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 		if (unlikely(need_resched())) {
 			current_thread_info()->status |= TS_POLLING;
 			local_irq_enable();
-			return -EINVAL;
+			return 0;
 		}
 	}
 
@@ -920,12 +930,12 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 	 * without doing anything.
 	 */
 	if (pr->flags.bm_check && pr->flags.bm_control) {
-		raw_spin_lock(&c3_lock);
+		spin_lock(&c3_lock);
 		c3_cpu_count++;
 		/* Disable bus master arbitration when all CPUs are in C3 */
 		if (c3_cpu_count == num_online_cpus())
 			acpi_write_bit_register(ACPI_BITREG_ARB_DISABLE, 1);
-		raw_spin_unlock(&c3_lock);
+		spin_unlock(&c3_lock);
 	} else if (!pr->flags.bm_check) {
 		ACPI_FLUSH_CPU_CACHE();
 	}
@@ -934,18 +944,15 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 
 	/* Re-enable bus master arbitration */
 	if (pr->flags.bm_check && pr->flags.bm_control) {
-		raw_spin_lock(&c3_lock);
+		spin_lock(&c3_lock);
 		acpi_write_bit_register(ACPI_BITREG_ARB_DISABLE, 0);
 		c3_cpu_count--;
-		raw_spin_unlock(&c3_lock);
+		spin_unlock(&c3_lock);
 	}
 	kt2 = ktime_get_real();
 	idle_time_ns = ktime_to_ns(ktime_sub(kt2, kt1));
 	idle_time = idle_time_ns;
 	do_div(idle_time, NSEC_PER_USEC);
-
-	/* Update device last_residency*/
-	dev->last_residency = (int)idle_time;
 
 	/* Tell the scheduler how much we idled: */
 	sched_clock_idle_wakeup_event(idle_time_ns);
@@ -958,7 +965,7 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 
 	lapic_timer_state_broadcast(pr, cx, 0);
 	cx->time += idle_time;
-	return index;
+	return idle_time;
 }
 
 struct cpuidle_driver acpi_idle_driver = {
@@ -985,7 +992,6 @@ static int acpi_processor_setup_cpuidle(struct acpi_processor *pr)
 	}
 
 	dev->cpu = pr->id;
-	dev->safe_state_index = -1;
 	for (i = 0; i < CPUIDLE_STATE_MAX; i++) {
 		dev->states[i].name[0] = '\0';
 		dev->states[i].desc[0] = '\0';
@@ -1021,13 +1027,13 @@ static int acpi_processor_setup_cpuidle(struct acpi_processor *pr)
 				state->flags |= CPUIDLE_FLAG_TIME_VALID;
 
 			state->enter = acpi_idle_enter_c1;
-			dev->safe_state_index = count;
+			dev->safe_state = state;
 			break;
 
 			case ACPI_STATE_C2:
 			state->flags |= CPUIDLE_FLAG_TIME_VALID;
 			state->enter = acpi_idle_enter_simple;
-			dev->safe_state_index = count;
+			dev->safe_state = state;
 			break;
 
 			case ACPI_STATE_C3:

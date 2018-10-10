@@ -82,7 +82,7 @@ static unsigned int mwait_substates;
 static unsigned int lapic_timer_reliable_states = (1 << 1);	 /* Default to only C1 */
 
 static struct cpuidle_device __percpu *intel_idle_cpuidle_devices;
-static int intel_idle(struct cpuidle_device *dev, int index);
+static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state);
 
 static struct cpuidle_state *cpuidle_state_table;
 
@@ -210,13 +210,12 @@ static struct cpuidle_state atom_cstates[MWAIT_MAX_NUM_CSTATES] = {
 /**
  * intel_idle
  * @dev: cpuidle_device
- * @index: index of cpuidle state
+ * @state: cpuidle state
  *
  */
-static int intel_idle(struct cpuidle_device *dev, int index)
+static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state)
 {
 	unsigned long ecx = 1; /* break on interrupt flag */
-	struct cpuidle_state *state = &dev->states[index];
 	unsigned long eax = (unsigned long)cpuidle_get_statedata(state);
 	unsigned int cstate;
 	ktime_t kt_before, kt_after;
@@ -258,10 +257,7 @@ static int intel_idle(struct cpuidle_device *dev, int index)
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
 
-	/* Update cpuidle counters */
-	dev->last_residency = (int)usec_delta;
-
-	return index;
+	return usec_delta;
 }
 
 static void __setup_broadcast_timer(void *arg)
