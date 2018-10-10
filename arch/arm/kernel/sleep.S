@@ -9,14 +9,12 @@
 
 /*
  * Save CPU state for a suspend
- *  r0 = phys addr of temporary page tables
  *  r1 = v:p offset
  *  r2 = suspend function arg0
  *  r3 = suspend function
  */
 ENTRY(__cpu_suspend)
 	stmfd	sp!, {r4 - r11, lr}
-	mov	r4, r0
 #ifdef MULTI_CPU
 	ldr	r10, =processor
 	ldr	r5, [r10, #CPU_SLEEP_SIZE] @ size of CPU sleep state
@@ -69,6 +67,9 @@ ENDPROC(cpu_suspend_abort)
 
 /*
  * r0 = control register value
+ * r1 = v:p offset (preserved by cpu_do_resume)
+ * r2 = phys page table base
+ * r3 = L1 section flags
  */
 ENTRY(cpu_resume_mmu)
 	adr	r4, cpu_resume_turn_mmu_on
