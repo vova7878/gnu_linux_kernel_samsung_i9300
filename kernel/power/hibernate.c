@@ -31,14 +31,14 @@
 #include "power.h"
 
 
-static int nocompress;
-static int noresume;
-static int resume_wait;
-static int resume_delay;
+static int nocompress = 0;
+static int noresume = 0;
+static int resume_wait = 0;
+static int resume_delay = 0;
 static char resume_file[256] = CONFIG_PM_STD_PARTITION;
 dev_t swsusp_resume_device;
 sector_t swsusp_resume_block;
-int in_suspend __nosavedata;
+int in_suspend __nosavedata = 0;
 
 enum {
 	HIBERNATION_INVALID,
