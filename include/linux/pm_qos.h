@@ -7,7 +7,6 @@
 #include <linux/plist.h>
 #include <linux/notifier.h>
 #include <linux/miscdevice.h>
-#include <linux/device.h>
 
 #define PM_QOS_RESERVED 0
 #define PM_QOS_CPU_DMA_LATENCY 1
@@ -82,7 +81,6 @@ int pm_qos_remove_notifier(int pm_qos_class, struct notifier_block *notifier);
 int pm_qos_request_active(struct pm_qos_request *req);
 s32 pm_qos_read_value(struct pm_qos_constraints *c);
 
-s32 dev_pm_qos_read_value(struct device *dev);
 int dev_pm_qos_add_request(struct device *dev, struct dev_pm_qos_request *req,
 			   s32 value);
 int dev_pm_qos_update_request(struct dev_pm_qos_request *req, s32 new_value);
@@ -123,8 +121,6 @@ static inline int pm_qos_request_active(struct pm_qos_request *req)
 static inline s32 pm_qos_read_value(struct pm_qos_constraints *c)
 			{ return 0; }
 
-static inline s32 dev_pm_qos_read_value(struct device *dev)
-			{ return 0; }
 static inline int dev_pm_qos_add_request(struct device *dev,
 					 struct dev_pm_qos_request *req,
 					 s32 value)
@@ -147,13 +143,9 @@ static inline int dev_pm_qos_remove_global_notifier(
 					struct notifier_block *notifier)
 			{ return 0; }
 static inline void dev_pm_qos_constraints_init(struct device *dev)
-{
-	dev->power.power_state = PMSG_ON;
-}
+			{ return; }
 static inline void dev_pm_qos_constraints_destroy(struct device *dev)
-{
-	dev->power.power_state = PMSG_INVALID;
-}
+			{ return; }
 #endif
 
 #endif
