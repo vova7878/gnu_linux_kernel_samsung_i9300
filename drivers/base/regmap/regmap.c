@@ -482,14 +482,8 @@ int regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 		    size_t val_len)
 {
 	int ret;
-	int i;
-	bool vol = true;
 
-	for (i = 0; i < val_len / map->format.val_bytes; i++)
-		if (!regmap_volatile(map, reg + i))
-			vol = false;
-
-	WARN_ON(!vol && map->cache_type != REGCACHE_NONE);
+	WARN_ON(map->cache_type != REGCACHE_NONE);
 
 	mutex_lock(&map->lock);
 
@@ -517,30 +511,18 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg, void *val,
 {
 	int ret, i;
 	size_t val_bytes = map->format.val_bytes;
-	bool vol = true;
+
+	WARN_ON(map->cache_type != REGCACHE_NONE);
 
 	if (!map->format.parse_val)
 		return -EINVAL;
 
-	/* Is this a block of volatile registers? */
-	for (i = 0; i < val_count; i++)
-		if (!regmap_volatile(map, reg + i))
-			vol = false;
+	ret = regmap_raw_read(map, reg, val, val_bytes * val_count);
+	if (ret != 0)
+		return ret;
 
-	if (vol || map->cache_type == REGCACHE_NONE) {
-		ret = regmap_raw_read(map, reg, val, val_bytes * val_count);
-		if (ret != 0)
-			return ret;
-
-		for (i = 0; i < val_count * val_bytes; i += val_bytes)
-			map->format.parse_val(val + i);
-	} else {
-		for (i = 0; i < val_count; i++) {
-			ret = regmap_read(map, reg + i, val + (i * val_bytes));
-			if (ret != 0)
-				return ret;
-		}
-	}
+	for (i = 0; i < val_count * val_bytes; i += val_bytes)
+		map->format.parse_val(val + i);
 
 	return 0;
 }
