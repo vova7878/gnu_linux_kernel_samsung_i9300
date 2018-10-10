@@ -193,7 +193,8 @@ static int regcache_rbtree_read(struct regmap *map,
 		*value = regcache_rbtree_get_register(rbnode, reg_tmp,
 						      map->cache_word_size);
 	} else {
-		return -ENOENT;
+		/* uninitialized registers default to 0 */
+		*value = 0;
 	}
 
 	return 0;
