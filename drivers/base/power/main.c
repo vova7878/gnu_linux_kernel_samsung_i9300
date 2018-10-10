@@ -920,8 +920,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
  End:
 	if (!error) {
 		dev->power.is_suspended = true;
-		if (dev->power.wakeup_path
-		    && dev->parent && !dev->parent->power.ignore_children)
+		if (dev->power.wakeup_path && dev->parent)
 			dev->parent->power.wakeup_path = true;
 	}
 
