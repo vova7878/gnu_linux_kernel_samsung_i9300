@@ -378,7 +378,7 @@ int regcache_lookup_reg(struct regmap *map, unsigned int reg)
 	if (r)
 		return r - map->reg_defaults;
 	else
-		return -ENOENT;
+		return -1;
 }
 
 int regcache_insert_reg(struct regmap *map, unsigned int reg,
