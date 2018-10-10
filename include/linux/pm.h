@@ -462,13 +462,6 @@ enum rpm_request {
 
 struct wakeup_source;
 
-struct pm_subsys_data {
-	spinlock_t lock;
-#ifdef CONFIG_PM_CLK
-	struct list_head clock_list;
-#endif
-};
-
 struct dev_pm_info {
 	pm_message_t		power_state;
 	unsigned int		can_wakeup:1;
@@ -510,7 +503,7 @@ struct dev_pm_info {
 	unsigned long		suspended_jiffies;
 	unsigned long		accounting_timestamp;
 #endif
-	struct pm_subsys_data	*subsys_data;  /* Owned by the subsystem. */
+	void			*subsys_data;  /* Owned by the subsystem. */
 };
 
 extern void update_pm_runtime_accounting(struct device *dev);
