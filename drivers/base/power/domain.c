@@ -81,59 +81,45 @@ static void genpd_set_active(struct generic_pm_domain *genpd)
 }
 
 /**
- * __pm_genpd_poweron - Restore power to a given PM domain and its parents.
+ * pm_genpd_poweron - Restore power to a given PM domain and its parents.
  * @genpd: PM domain to power up.
  *
  * Restore power to @genpd and all of its parents so that it is possible to
  * resume a device belonging to it.
  */
-int __pm_genpd_poweron(struct generic_pm_domain *genpd)
-	__releases(&genpd->lock) __acquires(&genpd->lock)
+int pm_genpd_poweron(struct generic_pm_domain *genpd)
 {
-	DEFINE_WAIT(wait);
+	struct generic_pm_domain *parent;
 	int ret = 0;
 
-	/* If the domain's parent is being waited for, we have to wait too. */
-	for (;;) {
-		prepare_to_wait(&genpd->status_wait_queue, &wait,
-				TASK_UNINTERRUPTIBLE);
-		if (genpd->status != GPD_STATE_WAIT_PARENT)
-			break;
-		mutex_unlock(&genpd->lock);
+	mutex_lock(&genpd->lock);
 
-		schedule();
+	parent = genpd->parent;
 
-		mutex_lock(&genpd->lock);
-	}
-	finish_wait(&genpd->status_wait_queue, &wait);
-
+ start:
 	if (genpd->status == GPD_STATE_ACTIVE
 	    || (genpd->prepared_count > 0 && genpd->suspend_power_off))
-		return 0;
+		goto out;
 
 	if (genpd->status != GPD_STATE_POWER_OFF) {
 		genpd_set_active(genpd);
-		return 0;
+		goto out;
 	}
 
-	if (genpd->parent) {
-		genpd_sd_counter_inc(genpd->parent);
-		genpd->status = GPD_STATE_WAIT_PARENT;
+	if (parent) {
+		genpd_sd_counter_inc(parent);
 
 		mutex_unlock(&genpd->lock);
 
-		ret = pm_genpd_poweron(genpd->parent);
+		ret = pm_genpd_poweron(parent);
 
 		mutex_lock(&genpd->lock);
 
-		/*
-		 * The "wait for parent" status is guaranteed not to change
-		 * while the parent is powering on.
-		 */
-		genpd->status = GPD_STATE_POWER_OFF;
-		wake_up_all(&genpd->status_wait_queue);
 		if (ret)
 			goto err;
+
+		parent = NULL;
+		goto start;
 	}
 
 	if (genpd->power_on) {
@@ -144,27 +130,16 @@ int __pm_genpd_poweron(struct generic_pm_domain *genpd)
 
 	genpd_set_active(genpd);
 
-	return 0;
+ out:
+	mutex_unlock(&genpd->lock);
+
+	return ret;
 
  err:
 	if (genpd->parent)
 		genpd_sd_counter_dec(genpd->parent);
 
-	return ret;
-}
-
-/**
- * pm_genpd_poweron - Restore power to a given PM domain and its parents.
- * @genpd: PM domain to power up.
- */
-int pm_genpd_poweron(struct generic_pm_domain *genpd)
-{
-	int ret;
-
-	mutex_lock(&genpd->lock);
-	ret = __pm_genpd_poweron(genpd);
-	mutex_unlock(&genpd->lock);
-	return ret;
+	goto out;
 }
 
 #endif /* CONFIG_PM */
@@ -250,8 +225,7 @@ static void __pm_genpd_restore_device(struct dev_list_entry *dle,
  */
 static bool genpd_abort_poweroff(struct generic_pm_domain *genpd)
 {
-	return genpd->status == GPD_STATE_WAIT_PARENT
-		|| genpd->status == GPD_STATE_ACTIVE || genpd->resume_count > 0;
+	return genpd->status == GPD_STATE_ACTIVE || genpd->resume_count > 0;
 }
 
 /**
@@ -287,13 +261,11 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 	/*
 	 * Do not try to power off the domain in the following situations:
 	 * (1) The domain is already in the "power off" state.
-	 * (2) The domain is waiting for its parent to power up.
+	 * (2) System suspend is in progress.
 	 * (3) One of the domain's devices is being resumed right now.
-	 * (4) System suspend is in progress.
 	 */
-	if (genpd->status == GPD_STATE_POWER_OFF
-	    || genpd->status == GPD_STATE_WAIT_PARENT
-	    || genpd->resume_count > 0 || genpd->prepared_count > 0)
+	if (genpd->status == GPD_STATE_POWER_OFF || genpd->prepared_count > 0
+	    || genpd->resume_count > 0)
 		return 0;
 
 	if (atomic_read(&genpd->sd_count) > 0)
@@ -327,14 +299,13 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 	list_for_each_entry_reverse(dle, &genpd->dev_list, node) {
 		ret = atomic_read(&genpd->sd_count) == 0 ?
 			__pm_genpd_save_device(dle, genpd) : -EBUSY;
-
-		if (genpd_abort_poweroff(genpd))
-			goto out;
-
 		if (ret) {
 			genpd_set_active(genpd);
 			goto out;
 		}
+
+		if (genpd_abort_poweroff(genpd))
+			goto out;
 
 		if (genpd->status == GPD_STATE_REPEAT) {
 			genpd->poweroff_task = NULL;
@@ -461,12 +432,11 @@ static int pm_genpd_runtime_resume(struct device *dev)
 	if (IS_ERR(genpd))
 		return -EINVAL;
 
-	mutex_lock(&genpd->lock);
-	ret = __pm_genpd_poweron(genpd);
-	if (ret) {
-		mutex_unlock(&genpd->lock);
+	ret = pm_genpd_poweron(genpd);
+	if (ret)
 		return ret;
-	}
+
+	mutex_lock(&genpd->lock);
 	genpd->status = GPD_STATE_BUSY;
 	genpd->resume_count++;
 	for (;;) {
