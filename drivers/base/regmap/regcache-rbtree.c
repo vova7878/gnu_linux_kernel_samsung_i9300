@@ -46,14 +46,45 @@ static unsigned int regcache_rbtree_get_register(
 	struct regcache_rbtree_node *rbnode, unsigned int idx,
 	unsigned int word_size)
 {
-	return regcache_get_val(rbnode->block, idx, word_size);
+	unsigned int val;
+
+	switch (word_size) {
+	case 1: {
+		u8 *p = rbnode->block;
+		val = p[idx];
+		return val;
+	}
+	case 2: {
+		u16 *p = rbnode->block;
+		val = p[idx];
+		return val;
+	}
+	default:
+		BUG();
+		break;
+	}
+	return -1;
 }
 
 static void regcache_rbtree_set_register(struct regcache_rbtree_node *rbnode,
 					 unsigned int idx, unsigned int val,
 					 unsigned int word_size)
 {
-	regcache_set_val(rbnode->block, idx, val, word_size);
+	switch (word_size) {
+	case 1: {
+		u8 *p = rbnode->block;
+		p[idx] = val;
+		break;
+	}
+	case 2: {
+		u16 *p = rbnode->block;
+		p[idx] = val;
+		break;
+	}
+	default:
+		BUG();
+		break;
+	}
 }
 
 static struct regcache_rbtree_node *regcache_rbtree_lookup(
