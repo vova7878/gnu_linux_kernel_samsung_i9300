@@ -82,10 +82,8 @@ int regcache_init(struct regmap *map)
 	int i;
 	void *tmp_buf;
 
-	if (map->cache_type == REGCACHE_NONE) {
-		map->cache_bypass = true;
+	if (map->cache_type == REGCACHE_NONE)
 		return 0;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(cache_types); i++)
 		if (cache_types[i]->type == map->cache_type)
