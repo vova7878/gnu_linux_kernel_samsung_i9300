@@ -34,7 +34,6 @@
 static int nocompress = 0;
 static int noresume = 0;
 static int resume_wait = 0;
-static int resume_delay = 0;
 static char resume_file[256] = CONFIG_PM_STD_PARTITION;
 dev_t swsusp_resume_device;
 sector_t swsusp_resume_block;
@@ -732,12 +731,6 @@ static int software_resume(void)
 
 	pr_debug("PM: Checking hibernation image partition %s\n", resume_file);
 
-	if (resume_delay) {
-		printk(KERN_INFO "Waiting %dsec before reading resume device...\n",
-			resume_delay);
-		ssleep(resume_delay);
-	}
-
 	/* Check if the device is there */
 	swsusp_resume_device = name_to_dev_t(resume_file);
 	if (!swsusp_resume_device) {
@@ -1087,15 +1080,8 @@ static int __init resumewait_setup(char *str)
 	return 1;
 }
 
-static int __init resumedelay_setup(char *str)
-{
-	resume_delay = simple_strtoul(str, NULL, 0);
-	return 1;
-}
-
 __setup("noresume", noresume_setup);
 __setup("resume_offset=", resume_offset_setup);
 __setup("resume=", resume_setup);
 __setup("hibernate=", hibernate_setup);
 __setup("resumewait", resumewait_setup);
-__setup("resumedelay=", resumedelay_setup);
