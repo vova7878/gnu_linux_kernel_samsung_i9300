@@ -20,14 +20,7 @@
 
 static struct dentry *regmap_debugfs_root;
 
-/* Calculate the length of a fixed format  */
-static size_t regmap_calc_reg_len(int max_val, char *buf, size_t buf_size)
-{
-	snprintf(buf, buf_size, "%x", max_val);
-	return strlen(buf);
-}
-
-static int regmap_open_file(struct inode *inode, struct file *file)
+static int regmap_map_open_file(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
 	return 0;
@@ -53,7 +46,8 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 		return -ENOMEM;
 
 	/* Calculate the length of a fixed format  */
-	reg_len = regmap_calc_reg_len(map->max_register, buf, count);
+	snprintf(buf, count, "%x", map->max_register);
+	reg_len = strlen(buf);
 	val_len = 2 * map->format.val_bytes;
 	tot_len = reg_len + val_len + 3;      /* : \n */
 
@@ -104,7 +98,7 @@ out:
 }
 
 static const struct file_operations regmap_map_fops = {
-	.open = regmap_open_file,
+	.open = regmap_map_open_file,
 	.read = regmap_map_read_file,
 	.llseek = default_llseek,
 };
