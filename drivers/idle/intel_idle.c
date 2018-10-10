@@ -82,8 +82,7 @@ static unsigned int mwait_substates;
 static unsigned int lapic_timer_reliable_states = (1 << 1);	 /* Default to only C1 */
 
 static struct cpuidle_device __percpu *intel_idle_cpuidle_devices;
-static int intel_idle(struct cpuidle_device *dev,
-			struct cpuidle_driver *drv, int index);
+static int intel_idle(struct cpuidle_device *dev, int index);
 
 static struct cpuidle_state *cpuidle_state_table;
 
@@ -197,7 +196,7 @@ static struct cpuidle_state atom_cstates[MWAIT_MAX_NUM_CSTATES] = {
 		.enter = &intel_idle },
 };
 
-static long get_driver_data(int cstate)
+static int get_driver_data(int cstate)
 {
 	int driver_data;
 	switch (cstate) {
@@ -229,16 +228,13 @@ static long get_driver_data(int cstate)
 /**
  * intel_idle
  * @dev: cpuidle_device
- * @drv: cpuidle driver
  * @index: index of cpuidle state
  *
- * Must be called under local_irq_disable().
  */
-static int intel_idle(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index)
+static int intel_idle(struct cpuidle_device *dev, int index)
 {
 	unsigned long ecx = 1; /* break on interrupt flag */
-	struct cpuidle_state *state = &drv->states[index];
+	struct cpuidle_state *state = &dev->states[index];
 	struct cpuidle_state_usage *state_usage = &dev->states_usage[index];
 	unsigned long eax = (unsigned long)cpuidle_get_statedata(state_usage);
 	unsigned int cstate;
@@ -247,6 +243,8 @@ static int intel_idle(struct cpuidle_device *dev,
 	int cpu = smp_processor_id();
 
 	cstate = (((eax) >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
+
+	local_irq_disable();
 
 	/*
 	 * leave_mm() to avoid costly and often unnecessary wakeups
@@ -347,8 +345,7 @@ static int intel_idle_probe(void)
 	cpuid(CPUID_MWAIT_LEAF, &eax, &ebx, &ecx, &mwait_substates);
 
 	if (!(ecx & CPUID5_ECX_EXTENSIONS_SUPPORTED) ||
-	    !(ecx & CPUID5_ECX_INTERRUPT_BREAK) ||
-	    !mwait_substates)
+		!(ecx & CPUID5_ECX_INTERRUPT_BREAK))
 			return -ENODEV;
 
 	pr_debug(PREFIX "MWAIT substates: 0x%x\n", mwait_substates);
@@ -394,7 +391,7 @@ static int intel_idle_probe(void)
 	if (boot_cpu_has(X86_FEATURE_ARAT))	/* Always Reliable APIC Timer */
 		lapic_timer_reliable_states = LAPIC_TIMER_ALWAYS_RELIABLE;
 	else {
-		on_each_cpu(__setup_broadcast_timer, (void *)true, 1);
+		smp_call_function(__setup_broadcast_timer, (void *)true, 1);
 		register_cpu_notifier(&setup_broadcast_notifier);
 	}
 
@@ -424,114 +421,80 @@ static void intel_idle_cpuidle_devices_uninit(void)
 	return;
 }
 /*
- * intel_idle_cpuidle_driver_init()
- * allocate, initialize cpuidle_states
- */
-static int intel_idle_cpuidle_driver_init(void)
-{
-	int cstate;
-	struct cpuidle_driver *drv = &intel_idle_driver;
-
-	drv->state_count = 1;
-
-	for (cstate = 1; cstate < MWAIT_MAX_NUM_CSTATES; ++cstate) {
-		int num_substates;
-
-		if (cstate > max_cstate) {
-			printk(PREFIX "max_cstate %d reached\n",
-				max_cstate);
-			break;
-		}
-
-		/* does the state exist in CPUID.MWAIT? */
-		num_substates = (mwait_substates >> ((cstate) * 4))
-					& MWAIT_SUBSTATE_MASK;
-		if (num_substates == 0)
-			continue;
-		/* is the state not enabled? */
-		if (cpuidle_state_table[cstate].enter == NULL) {
-			/* does the driver not know about the state? */
-			if (*cpuidle_state_table[cstate].name == '\0')
-				pr_debug(PREFIX "unaware of model 0x%x"
-					" MWAIT %d please"
-					" contact lenb@kernel.org",
-				boot_cpu_data.x86_model, cstate);
-			continue;
-		}
-
-		if ((cstate > 2) &&
-			!boot_cpu_has(X86_FEATURE_NONSTOP_TSC))
-			mark_tsc_unstable("TSC halts in idle"
-					" states deeper than C2");
-
-		drv->states[drv->state_count] =	/* structure copy */
-			cpuidle_state_table[cstate];
-
-		drv->state_count += 1;
-	}
-
-	if (auto_demotion_disable_flags)
-		on_each_cpu(auto_demotion_disable, NULL, 1);
-
-	return 0;
-}
-
-
-/*
- * intel_idle_cpu_init()
+ * intel_idle_cpuidle_devices_init()
  * allocate, initialize, register cpuidle_devices
- * @cpu: cpu/core to initialize
  */
-int intel_idle_cpu_init(int cpu)
+static int intel_idle_cpuidle_devices_init(void)
 {
-	int cstate;
+	int i, cstate;
 	struct cpuidle_device *dev;
 
-	dev = per_cpu_ptr(intel_idle_cpuidle_devices, cpu);
+	intel_idle_cpuidle_devices = alloc_percpu(struct cpuidle_device);
+	if (intel_idle_cpuidle_devices == NULL)
+		return -ENOMEM;
 
-	dev->state_count = 1;
+	for_each_online_cpu(i) {
+		dev = per_cpu_ptr(intel_idle_cpuidle_devices, i);
 
-	for (cstate = 1; cstate < MWAIT_MAX_NUM_CSTATES; ++cstate) {
-		int num_substates;
+		dev->state_count = 1;
 
-		if (cstate > max_cstate) {
-			printk(PREFIX "max_cstate %d reached\n",
-			       max_cstate);
-			break;
-		}
+		for (cstate = 1; cstate < MWAIT_MAX_NUM_CSTATES; ++cstate) {
+			int num_substates;
 
-		/* does the state exist in CPUID.MWAIT? */
-		num_substates = (mwait_substates >> ((cstate) * 4))
-			& MWAIT_SUBSTATE_MASK;
-		if (num_substates == 0)
-			continue;
-		/* is the state not enabled? */
-		if (cpuidle_state_table[cstate].enter == NULL)
-			continue;
+			if (cstate > max_cstate) {
+				printk(PREFIX "max_cstate %d reached\n",
+					max_cstate);
+				break;
+			}
 
-		dev->states_usage[dev->state_count].driver_data =
-			(void *)get_driver_data(cstate);
+			/* does the state exist in CPUID.MWAIT? */
+			num_substates = (mwait_substates >> ((cstate) * 4))
+						& MWAIT_SUBSTATE_MASK;
+			if (num_substates == 0)
+				continue;
+			/* is the state not enabled? */
+			if (cpuidle_state_table[cstate].enter == NULL) {
+				/* does the driver not know about the state? */
+				if (*cpuidle_state_table[cstate].name == '\0')
+					pr_debug(PREFIX "unaware of model 0x%x"
+						" MWAIT %d please"
+						" contact lenb@kernel.org",
+					boot_cpu_data.x86_model, cstate);
+				continue;
+			}
+
+			if ((cstate > 2) &&
+				!boot_cpu_has(X86_FEATURE_NONSTOP_TSC))
+				mark_tsc_unstable("TSC halts in idle"
+					" states deeper than C2");
+
+			dev->states[dev->state_count] =	/* structure copy */
+				cpuidle_state_table[cstate];
+
+			dev->states_usage[dev->state_count].driver_data =
+				(void *)get_driver_data(cstate);
 
 			dev->state_count += 1;
 		}
-	dev->cpu = cpu;
 
-	if (cpuidle_register_device(dev)) {
-		pr_debug(PREFIX "cpuidle_register_device %d failed!\n", cpu);
-		intel_idle_cpuidle_devices_uninit();
-		return -EIO;
+		dev->cpu = i;
+		if (cpuidle_register_device(dev)) {
+			pr_debug(PREFIX "cpuidle_register_device %d failed!\n",
+				 i);
+			intel_idle_cpuidle_devices_uninit();
+			return -EIO;
+		}
 	}
-
 	if (auto_demotion_disable_flags)
-		smp_call_function_single(cpu, auto_demotion_disable, NULL, 1);
+		smp_call_function(auto_demotion_disable, NULL, 1);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(intel_idle_cpu_init);
+
 
 static int __init intel_idle_init(void)
 {
-	int retval, i;
+	int retval;
 
 	/* Do not load intel_idle at all for now if idle= is passed */
 	if (boot_option_idle_override != IDLE_NO_OVERRIDE)
@@ -541,7 +504,6 @@ static int __init intel_idle_init(void)
 	if (retval)
 		return retval;
 
-	intel_idle_cpuidle_driver_init();
 	retval = cpuidle_register_driver(&intel_idle_driver);
 	if (retval) {
 		printk(KERN_DEBUG PREFIX "intel_idle yielding to %s",
@@ -549,16 +511,10 @@ static int __init intel_idle_init(void)
 		return retval;
 	}
 
-	intel_idle_cpuidle_devices = alloc_percpu(struct cpuidle_device);
-	if (intel_idle_cpuidle_devices == NULL)
-		return -ENOMEM;
-
-	for_each_online_cpu(i) {
-		retval = intel_idle_cpu_init(i);
-		if (retval) {
-			cpuidle_unregister_driver(&intel_idle_driver);
-			return retval;
-		}
+	retval = intel_idle_cpuidle_devices_init();
+	if (retval) {
+		cpuidle_unregister_driver(&intel_idle_driver);
+		return retval;
 	}
 
 	return 0;
@@ -570,7 +526,7 @@ static void __exit intel_idle_exit(void)
 	cpuidle_unregister_driver(&intel_idle_driver);
 
 	if (lapic_timer_reliable_states != LAPIC_TIMER_ALWAYS_RELIABLE) {
-		on_each_cpu(__setup_broadcast_timer, (void *)false, 1);
+		smp_call_function(__setup_broadcast_timer, (void *)false, 1);
 		unregister_cpu_notifier(&setup_broadcast_notifier);
 	}
 
