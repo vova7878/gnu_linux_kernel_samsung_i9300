@@ -181,18 +181,18 @@ int pm_genpd_poweron(struct generic_pm_domain *genpd)
 
 /**
  * __pm_genpd_save_device - Save the pre-suspend state of a device.
- * @pdd: Domain data of the device to save the state of.
+ * @dle: Device list entry of the device to save the state of.
  * @genpd: PM domain the device belongs to.
  */
-static int __pm_genpd_save_device(struct pm_domain_data *pdd,
+static int __pm_genpd_save_device(struct dev_list_entry *dle,
 				  struct generic_pm_domain *genpd)
 	__releases(&genpd->lock) __acquires(&genpd->lock)
 {
-	struct device *dev = pdd->dev;
+	struct device *dev = dle->dev;
 	struct device_driver *drv = dev->driver;
 	int ret = 0;
 
-	if (pdd->need_restore)
+	if (dle->need_restore)
 		return 0;
 
 	mutex_unlock(&genpd->lock);
@@ -210,24 +210,24 @@ static int __pm_genpd_save_device(struct pm_domain_data *pdd,
 	mutex_lock(&genpd->lock);
 
 	if (!ret)
-		pdd->need_restore = true;
+		dle->need_restore = true;
 
 	return ret;
 }
 
 /**
  * __pm_genpd_restore_device - Restore the pre-suspend state of a device.
- * @pdd: Domain data of the device to restore the state of.
+ * @dle: Device list entry of the device to restore the state of.
  * @genpd: PM domain the device belongs to.
  */
-static void __pm_genpd_restore_device(struct pm_domain_data *pdd,
+static void __pm_genpd_restore_device(struct dev_list_entry *dle,
 				      struct generic_pm_domain *genpd)
 	__releases(&genpd->lock) __acquires(&genpd->lock)
 {
-	struct device *dev = pdd->dev;
+	struct device *dev = dle->dev;
 	struct device_driver *drv = dev->driver;
 
-	if (!pdd->need_restore)
+	if (!dle->need_restore)
 		return;
 
 	mutex_unlock(&genpd->lock);
@@ -244,7 +244,7 @@ static void __pm_genpd_restore_device(struct pm_domain_data *pdd,
 
 	mutex_lock(&genpd->lock);
 
-	pdd->need_restore = false;
+	dle->need_restore = false;
 }
 
 /**
@@ -286,7 +286,7 @@ void genpd_queue_power_off_work(struct generic_pm_domain *genpd)
 static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 	__releases(&genpd->lock) __acquires(&genpd->lock)
 {
-	struct pm_domain_data *pdd;
+	struct dev_list_entry *dle;
 	struct gpd_link *link;
 	unsigned int not_suspended;
 	int ret = 0;
@@ -308,8 +308,8 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 		return -EBUSY;
 
 	not_suspended = 0;
-	list_for_each_entry(pdd, &genpd->dev_list, list_node)
-		if (pdd->dev->driver && !pm_runtime_suspended(pdd->dev))
+	list_for_each_entry(dle, &genpd->dev_list, node)
+		if (dle->dev->driver && !pm_runtime_suspended(dle->dev))
 			not_suspended++;
 
 	if (not_suspended > genpd->in_progress)
@@ -332,9 +332,9 @@ static int pm_genpd_poweroff(struct generic_pm_domain *genpd)
 	genpd->status = GPD_STATE_BUSY;
 	genpd->poweroff_task = current;
 
-	list_for_each_entry_reverse(pdd, &genpd->dev_list, list_node) {
+	list_for_each_entry_reverse(dle, &genpd->dev_list, node) {
 		ret = atomic_read(&genpd->sd_count) == 0 ?
-			__pm_genpd_save_device(pdd, genpd) : -EBUSY;
+			__pm_genpd_save_device(dle, genpd) : -EBUSY;
 
 		if (genpd_abort_poweroff(genpd))
 			goto out;
@@ -433,6 +433,24 @@ static int pm_genpd_runtime_suspend(struct device *dev)
 }
 
 /**
+ * __pm_genpd_runtime_resume - Resume a device belonging to I/O PM domain.
+ * @dev: Device to resume.
+ * @genpd: PM domain the device belongs to.
+ */
+static void __pm_genpd_runtime_resume(struct device *dev,
+				      struct generic_pm_domain *genpd)
+{
+	struct dev_list_entry *dle;
+
+	list_for_each_entry(dle, &genpd->dev_list, node) {
+		if (dle->dev == dev) {
+			__pm_genpd_restore_device(dle, genpd);
+			break;
+		}
+	}
+}
+
+/**
  * pm_genpd_runtime_resume - Resume a device belonging to I/O PM domain.
  * @dev: Device to resume.
  *
@@ -477,7 +495,7 @@ static int pm_genpd_runtime_resume(struct device *dev)
 		mutex_lock(&genpd->lock);
 	}
 	finish_wait(&genpd->status_wait_queue, &wait);
-	__pm_genpd_restore_device(&dev->power.subsys_data->domain_data, genpd);
+	__pm_genpd_runtime_resume(dev, genpd);
 	genpd->resume_count--;
 	genpd_set_active(genpd);
 	wake_up_all(&genpd->status_wait_queue);
@@ -507,6 +525,8 @@ void pm_genpd_poweroff_unused(void)
 #else
 
 static inline void genpd_power_off_work_fn(struct work_struct *work) {}
+static inline void __pm_genpd_runtime_resume(struct device *dev,
+					     struct generic_pm_domain *genpd) {}
 
 #define pm_genpd_runtime_suspend	NULL
 #define pm_genpd_runtime_resume		NULL
@@ -1063,7 +1083,7 @@ static void pm_genpd_complete(struct device *dev)
  */
 int pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev)
 {
-	struct pm_domain_data *pdd;
+	struct dev_list_entry *dle;
 	int ret = 0;
 
 	dev_dbg(dev, "%s()\n", __func__);
@@ -1083,20 +1103,26 @@ int pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev)
 		goto out;
 	}
 
-	list_for_each_entry(pdd, &genpd->dev_list, list_node)
-		if (pdd->dev == dev) {
+	list_for_each_entry(dle, &genpd->dev_list, node)
+		if (dle->dev == dev) {
 			ret = -EINVAL;
 			goto out;
 		}
 
+	dle = kzalloc(sizeof(*dle), GFP_KERNEL);
+	if (!dle) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	dle->dev = dev;
+	dle->need_restore = false;
+	list_add_tail(&dle->node, &genpd->dev_list);
 	genpd->device_count++;
 
+	spin_lock_irq(&dev->power.lock);
 	dev->pm_domain = &genpd->domain;
-	dev_pm_get_subsys_data(dev);
-	pdd = &dev->power.subsys_data->domain_data;
-	pdd->dev = dev;
-	pdd->need_restore = false;
-	list_add_tail(&pdd->list_node, &genpd->dev_list);
+	spin_unlock_irq(&dev->power.lock);
 
  out:
 	genpd_release_lock(genpd);
@@ -1112,7 +1138,7 @@ int pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev)
 int pm_genpd_remove_device(struct generic_pm_domain *genpd,
 			   struct device *dev)
 {
-	struct pm_domain_data *pdd;
+	struct dev_list_entry *dle;
 	int ret = -EINVAL;
 
 	dev_dbg(dev, "%s()\n", __func__);
@@ -1127,16 +1153,17 @@ int pm_genpd_remove_device(struct generic_pm_domain *genpd,
 		goto out;
 	}
 
-	list_for_each_entry(pdd, &genpd->dev_list, list_node) {
-		if (pdd->dev != dev)
+	list_for_each_entry(dle, &genpd->dev_list, node) {
+		if (dle->dev != dev)
 			continue;
 
-		list_del_init(&pdd->list_node);
-		pdd->dev = NULL;
-		dev_pm_put_subsys_data(dev);
+		spin_lock_irq(&dev->power.lock);
 		dev->pm_domain = NULL;
+		spin_unlock_irq(&dev->power.lock);
 
 		genpd->device_count--;
+		list_del(&dle->node);
+		kfree(dle);
 
 		ret = 0;
 		break;
