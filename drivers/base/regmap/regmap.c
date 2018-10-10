@@ -147,13 +147,6 @@ struct regmap *regmap_init(struct device *dev,
 	map->volatile_reg = config->volatile_reg;
 	map->precious_reg = config->precious_reg;
 
-	if (config->read_flag_mask || config->write_flag_mask) {
-		map->read_flag_mask = config->read_flag_mask;
-		map->write_flag_mask = config->write_flag_mask;
-	} else {
-		map->read_flag_mask = bus->read_flag_mask;
-	}
-
 	switch (config->reg_bits) {
 	case 4:
 		switch (config->val_bits) {
@@ -233,7 +226,6 @@ EXPORT_SYMBOL_GPL(regmap_exit);
 static int _regmap_raw_write(struct regmap *map, unsigned int reg,
 			     const void *val, size_t val_len)
 {
-	u8 *u8 = map->work_buf;
 	void *buf;
 	int ret = -ENOTSUPP;
 	size_t len;
@@ -246,8 +238,6 @@ static int _regmap_raw_write(struct regmap *map, unsigned int reg,
 				return -EINVAL;
 
 	map->format.format_reg(map->work_buf, reg);
-
-	u8[0] |= map->write_flag_mask;
 
 	trace_regmap_hw_write_start(map->dev, reg,
 				    val_len / map->format.val_bytes);
@@ -376,12 +366,13 @@ static int _regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 	map->format.format_reg(map->work_buf, reg);
 
 	/*
-	 * Some buses or devices flag reads by setting the high bits in the
+	 * Some buses flag reads by setting the high bits in the
 	 * register addresss; since it's always the high bits for all
 	 * current formats we can do this here rather than in
 	 * formatting.  This may break if we get interesting formats.
 	 */
-	u8[0] |= map->read_flag_mask;
+	if (map->bus->read_flag_mask)
+		u8[0] |= map->bus->read_flag_mask;
 
 	trace_regmap_hw_read_start(map->dev, reg,
 				   val_len / map->format.val_bytes);
