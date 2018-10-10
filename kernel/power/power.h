@@ -228,8 +228,7 @@ extern int pm_test_level;
 #ifdef CONFIG_SUSPEND_FREEZER
 static inline int suspend_freeze_processes(void)
 {
-	int error = freeze_processes();
-	return error ? : freeze_kernel_threads();
+	return freeze_processes();
 }
 
 static inline void suspend_thaw_processes(void)
