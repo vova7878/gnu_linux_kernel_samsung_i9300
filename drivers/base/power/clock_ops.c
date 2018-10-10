@@ -32,22 +32,6 @@ struct pm_clock_entry {
 };
 
 /**
- * pm_clk_acquire - Acquire a device clock.
- * @dev: Device whose clock is to be acquired.
- * @ce: PM clock entry corresponding to the clock.
- */
-static void pm_clk_acquire(struct device *dev, struct pm_clock_entry *ce)
-{
-	ce->clk = clk_get(dev, ce->con_id);
-	if (IS_ERR(ce->clk)) {
-		ce->status = PCE_STATUS_ERROR;
-	} else {
-		ce->status = PCE_STATUS_ACQUIRED;
-		dev_dbg(dev, "Clock %s managed by runtime PM.\n", ce->con_id);
-	}
-}
-
-/**
  * pm_clk_add - Start using a device clock for power management.
  * @dev: Device whose clock is going to be used for power management.
  * @con_id: Connection ID of the clock.
@@ -79,8 +63,6 @@ int pm_clk_add(struct device *dev, const char *con_id)
 		}
 	}
 
-	pm_clk_acquire(dev, ce);
-
 	spin_lock_irq(&psd->lock);
 	list_add_tail(&ce->node, &psd->clock_list);
 	spin_unlock_irq(&psd->lock);
@@ -90,11 +72,16 @@ int pm_clk_add(struct device *dev, const char *con_id)
 /**
  * __pm_clk_remove - Destroy PM clock entry.
  * @ce: PM clock entry to destroy.
+ *
+ * This routine must be called under the spinlock protecting the PM list of
+ * clocks corresponding the the @ce's device.
  */
 static void __pm_clk_remove(struct pm_clock_entry *ce)
 {
 	if (!ce)
 		return;
+
+	list_del(&ce->node);
 
 	if (ce->status < PCE_STATUS_ERROR) {
 		if (ce->status == PCE_STATUS_ENABLED)
@@ -129,22 +116,18 @@ void pm_clk_remove(struct device *dev, const char *con_id)
 	spin_lock_irq(&psd->lock);
 
 	list_for_each_entry(ce, &psd->clock_list, node) {
-		if (!con_id && !ce->con_id)
-			goto remove;
-		else if (!con_id || !ce->con_id)
+		if (!con_id && !ce->con_id) {
+			__pm_clk_remove(ce);
+			break;
+		} else if (!con_id || !ce->con_id) {
 			continue;
-		else if (!strcmp(con_id, ce->con_id))
-			goto remove;
+		} else if (!strcmp(con_id, ce->con_id)) {
+			__pm_clk_remove(ce);
+			break;
+		}
 	}
 
 	spin_unlock_irq(&psd->lock);
-	return;
-
- remove:
-	list_del(&ce->node);
-	spin_unlock_irq(&psd->lock);
-
-	__pm_clk_remove(ce);
 }
 
 /**
@@ -157,8 +140,12 @@ void pm_clk_remove(struct device *dev, const char *con_id)
 void pm_clk_init(struct device *dev)
 {
 	struct pm_subsys_data *psd = dev_to_psd(dev);
-	if (psd)
-		INIT_LIST_HEAD(&psd->clock_list);
+
+	if (!psd)
+		return;
+
+	INIT_LIST_HEAD(&psd->clock_list);
+	spin_lock_init(&psd->lock);
 }
 
 /**
@@ -170,8 +157,16 @@ void pm_clk_init(struct device *dev)
  */
 int pm_clk_create(struct device *dev)
 {
-	int ret = dev_pm_get_subsys_data(dev);
-	return ret < 0 ? ret : 0;
+	struct pm_subsys_data *psd;
+
+	psd = kzalloc(sizeof(*psd), GFP_KERNEL);
+	if (!psd) {
+		dev_err(dev, "Not enough memory for PM clock data.\n");
+		return -ENOMEM;
+	}
+	dev->power.subsys_data = psd;
+	pm_clk_init(dev);
+	return 0;
 }
 
 /**
@@ -186,31 +181,42 @@ void pm_clk_destroy(struct device *dev)
 {
 	struct pm_subsys_data *psd = dev_to_psd(dev);
 	struct pm_clock_entry *ce, *c;
-	struct list_head list;
 
 	if (!psd)
 		return;
 
-	INIT_LIST_HEAD(&list);
+	dev->power.subsys_data = NULL;
 
 	spin_lock_irq(&psd->lock);
 
 	list_for_each_entry_safe_reverse(ce, c, &psd->clock_list, node)
-		list_move(&ce->node, &list);
+		__pm_clk_remove(ce);
 
 	spin_unlock_irq(&psd->lock);
 
-	dev_pm_put_subsys_data(dev);
-
-	list_for_each_entry_safe_reverse(ce, c, &list, node) {
-		list_del(&ce->node);
-		__pm_clk_remove(ce);
-	}
+	kfree(psd);
 }
 
 #endif /* CONFIG_PM */
 
 #ifdef CONFIG_PM_RUNTIME
+
+/**
+ * pm_clk_acquire - Acquire a device clock.
+ * @dev: Device whose clock is to be acquired.
+ * @con_id: Connection ID of the clock.
+ */
+static void pm_clk_acquire(struct device *dev,
+				    struct pm_clock_entry *ce)
+{
+	ce->clk = clk_get(dev, ce->con_id);
+	if (IS_ERR(ce->clk)) {
+		ce->status = PCE_STATUS_ERROR;
+	} else {
+		ce->status = PCE_STATUS_ACQUIRED;
+		dev_dbg(dev, "Clock %s managed by runtime PM.\n", ce->con_id);
+	}
+}
 
 /**
  * pm_clk_suspend - Disable clocks in a device's PM clock list.
@@ -230,6 +236,9 @@ int pm_clk_suspend(struct device *dev)
 	spin_lock_irqsave(&psd->lock, flags);
 
 	list_for_each_entry_reverse(ce, &psd->clock_list, node) {
+		if (ce->status == PCE_STATUS_NONE)
+			pm_clk_acquire(dev, ce);
+
 		if (ce->status < PCE_STATUS_ERROR) {
 			clk_disable(ce->clk);
 			ce->status = PCE_STATUS_ACQUIRED;
@@ -259,6 +268,9 @@ int pm_clk_resume(struct device *dev)
 	spin_lock_irqsave(&psd->lock, flags);
 
 	list_for_each_entry(ce, &psd->clock_list, node) {
+		if (ce->status == PCE_STATUS_NONE)
+			pm_clk_acquire(dev, ce);
+
 		if (ce->status < PCE_STATUS_ERROR) {
 			clk_enable(ce->clk);
 			ce->status = PCE_STATUS_ENABLED;
