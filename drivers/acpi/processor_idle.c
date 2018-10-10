@@ -736,13 +736,14 @@ static inline void acpi_idle_do_entry(struct acpi_processor_cx *cx)
  *
  * This is equivalent to the HALT instruction.
  */
-static int acpi_idle_enter_c1(struct cpuidle_device *dev, int index)
+static int acpi_idle_enter_c1(struct cpuidle_device *dev,
+				int index)
 {
 	ktime_t  kt1, kt2;
 	s64 idle_time;
 	struct acpi_processor *pr;
-	struct cpuidle_state_usage *state_usage = &dev->states_usage[index];
-	struct acpi_processor_cx *cx = cpuidle_get_statedata(state_usage);
+	struct cpuidle_state *state = &dev->states[index];
+	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 
 	pr = __this_cpu_read(processors);
 	dev->last_residency = 0;
@@ -773,11 +774,12 @@ static int acpi_idle_enter_c1(struct cpuidle_device *dev, int index)
  * @dev: the target CPU
  * @index: the index of suggested state
  */
-static int acpi_idle_enter_simple(struct cpuidle_device *dev, int index)
+static int acpi_idle_enter_simple(struct cpuidle_device *dev,
+				int index)
 {
 	struct acpi_processor *pr;
-	struct cpuidle_state_usage *state_usage = &dev->states_usage[index];
-	struct acpi_processor_cx *cx = cpuidle_get_statedata(state_usage);
+	struct cpuidle_state *state = &dev->states[index];
+	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 	ktime_t  kt1, kt2;
 	s64 idle_time_ns;
 	s64 idle_time;
@@ -850,11 +852,12 @@ static DEFINE_RAW_SPINLOCK(c3_lock);
  *
  * If BM is detected, the deepest non-C3 idle state is entered instead.
  */
-static int acpi_idle_enter_bm(struct cpuidle_device *dev, int index)
+static int acpi_idle_enter_bm(struct cpuidle_device *dev,
+				int index)
 {
 	struct acpi_processor *pr;
-	struct cpuidle_state_usage *state_usage = &dev->states_usage[index];
-	struct acpi_processor_cx *cx = cpuidle_get_statedata(state_usage);
+	struct cpuidle_state *state = &dev->states[index];
+	struct acpi_processor_cx *cx = cpuidle_get_statedata(state);
 	ktime_t  kt1, kt2;
 	s64 idle_time_ns;
 	s64 idle_time;
@@ -972,7 +975,6 @@ static int acpi_processor_setup_cpuidle(struct acpi_processor *pr)
 	int i, count = CPUIDLE_DRIVER_STATE_START;
 	struct acpi_processor_cx *cx;
 	struct cpuidle_state *state;
-	struct cpuidle_state_usage *state_usage;
 	struct cpuidle_device *dev = &pr->power.dev;
 
 	if (!pr->flags.power_setup_done)
@@ -995,7 +997,6 @@ static int acpi_processor_setup_cpuidle(struct acpi_processor *pr)
 	for (i = 1; i < ACPI_PROCESSOR_MAX_POWER && i <= max_cstate; i++) {
 		cx = &pr->power.states[i];
 		state = &dev->states[count];
-		state_usage = &dev->states_usage[count];
 
 		if (!cx->valid)
 			continue;
@@ -1006,7 +1007,7 @@ static int acpi_processor_setup_cpuidle(struct acpi_processor *pr)
 		    !(acpi_gbl_FADT.flags & ACPI_FADT_C2_MP_SUPPORTED))
 			continue;
 #endif
-		cpuidle_set_statedata(state_usage, cx);
+		cpuidle_set_statedata(state, cx);
 
 		snprintf(state->name, CPUIDLE_NAME_LEN, "C%d", i);
 		strncpy(state->desc, cx->desc, CPUIDLE_DESC_LEN);
