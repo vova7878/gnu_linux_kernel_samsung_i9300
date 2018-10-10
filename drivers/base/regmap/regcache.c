@@ -230,7 +230,6 @@ int regcache_sync(struct regmap *map)
 
 	BUG_ON(!map->cache_ops);
 
-	mutex_lock(&map->lock);
 	dev_dbg(map->dev, "Syncing %s cache\n",
 		map->cache_ops->name);
 	name = map->cache_ops->name;
@@ -243,7 +242,7 @@ int regcache_sync(struct regmap *map)
 			if (ret < 0)
 				goto out;
 			map->cache_bypass = 1;
-			ret = _regmap_write(map, i, val);
+			ret = regmap_write(map, i, val);
 			map->cache_bypass = 0;
 			if (ret < 0)
 				goto out;
@@ -255,7 +254,6 @@ int regcache_sync(struct regmap *map)
 	}
 out:
 	trace_regcache_sync(map->dev, name, "stop");
-	mutex_unlock(&map->lock);
 
 	return ret;
 }
