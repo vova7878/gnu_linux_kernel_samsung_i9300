@@ -390,7 +390,8 @@ static int pm_qos_power_open(struct inode *inode, struct file *filp)
 		pm_qos_add_request(req, pm_qos_class, PM_QOS_DEFAULT_VALUE);
 		filp->private_data = req;
 
-		return 0;
+		if (filp->private_data)
+			return 0;
 	}
 	return -EPERM;
 }
