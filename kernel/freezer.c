@@ -103,8 +103,7 @@ bool freeze_task(struct task_struct *p, bool sig_only)
 
 	spin_lock_irqsave(&freezer_lock, flags);
 
-	if ((p->flags & PF_NOFREEZE) ||
-	    (sig_only && !should_send_signal(p)))
+	if (sig_only && !should_send_signal(p))
 		goto out_unlock;
 
 	if (frozen(p))
