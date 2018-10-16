@@ -74,7 +74,6 @@ struct regmap {
 	struct reg_default *reg_defaults;
 	const void *reg_defaults_raw;
 	void *cache;
-	bool cache_dirty;
 };
 
 struct regcache_ops {
