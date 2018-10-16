@@ -15,8 +15,6 @@
 
 #include "internal.h"
 
-static int regcache_lzo_exit(struct regmap *map);
-
 struct regcache_lzo_ctx {
 	void *wmem;
 	void *dst;
@@ -195,7 +193,7 @@ static int regcache_lzo_init(struct regmap *map)
 
 	return 0;
 err:
-	regcache_lzo_exit(map);
+	regcache_exit(map);
 	return ret;
 }
 
