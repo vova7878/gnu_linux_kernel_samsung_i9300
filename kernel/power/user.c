@@ -71,7 +71,7 @@ static int snapshot_open(struct inode *inode, struct file *filp)
 	struct snapshot_data *data;
 	int error;
 
-	lock_system_sleep();
+	mutex_lock(&pm_mutex);
 
 	if (!atomic_add_unless(&snapshot_device_available, -1, 0)) {
 		error = -EBUSY;
@@ -123,7 +123,7 @@ static int snapshot_open(struct inode *inode, struct file *filp)
 	data->platform_support = 0;
 
  Unlock:
-	unlock_system_sleep();
+	mutex_unlock(&pm_mutex);
 
 	return error;
 }
@@ -132,7 +132,7 @@ static int snapshot_release(struct inode *inode, struct file *filp)
 {
 	struct snapshot_data *data;
 
-	lock_system_sleep();
+	mutex_lock(&pm_mutex);
 
 	swsusp_free();
 	free_basic_memory_bitmaps();
@@ -146,7 +146,7 @@ static int snapshot_release(struct inode *inode, struct file *filp)
 			PM_POST_HIBERNATION : PM_POST_RESTORE);
 	atomic_inc(&snapshot_device_available);
 
-	unlock_system_sleep();
+	mutex_unlock(&pm_mutex);
 
 	return 0;
 }
@@ -158,7 +158,7 @@ static ssize_t snapshot_read(struct file *filp, char __user *buf,
 	ssize_t res;
 	loff_t pg_offp = *offp & ~PAGE_MASK;
 
-	lock_system_sleep();
+	mutex_lock(&pm_mutex);
 
 	data = filp->private_data;
 	if (!data->ready) {
@@ -179,7 +179,7 @@ static ssize_t snapshot_read(struct file *filp, char __user *buf,
 		*offp += res;
 
  Unlock:
-	unlock_system_sleep();
+	mutex_unlock(&pm_mutex);
 
 	return res;
 }
@@ -191,7 +191,7 @@ static ssize_t snapshot_write(struct file *filp, const char __user *buf,
 	ssize_t res;
 	loff_t pg_offp = *offp & ~PAGE_MASK;
 
-	lock_system_sleep();
+	mutex_lock(&pm_mutex);
 
 	data = filp->private_data;
 
@@ -208,7 +208,7 @@ static ssize_t snapshot_write(struct file *filp, const char __user *buf,
 	if (res > 0)
 		*offp += res;
 unlock:
-	unlock_system_sleep();
+	mutex_unlock(&pm_mutex);
 
 	return res;
 }
