@@ -145,11 +145,7 @@ static struct cgroup_subsys_state *freezer_create(struct cgroup_subsys *ss,
 static void freezer_destroy(struct cgroup_subsys *ss,
 			    struct cgroup *cgroup)
 {
-	struct freezer *freezer = cgroup_freezer(cgroup);
-
-	if (freezer->state != CGROUP_THAWED)
-		atomic_dec(&system_freezing_cnt);
-	kfree(freezer);
+	kfree(cgroup_freezer(cgroup));
 }
 
 /* task is frozen or will freeze immediately when next it gets woken */
@@ -317,14 +313,10 @@ static int freezer_change_state(struct cgroup *cgroup,
 
 	switch (goal_state) {
 	case CGROUP_THAWED:
-		if (freezer->state != CGROUP_THAWED)
-			atomic_dec(&system_freezing_cnt);
 		freezer->state = CGROUP_THAWED;
 		unfreeze_cgroup(cgroup, freezer);
 		break;
 	case CGROUP_FROZEN:
-		if (freezer->state == CGROUP_THAWED)
-			atomic_inc(&system_freezing_cnt);
 		freezer->state = CGROUP_FREEZING;
 		retval = try_to_freeze_cgroup(cgroup, freezer);
 		break;

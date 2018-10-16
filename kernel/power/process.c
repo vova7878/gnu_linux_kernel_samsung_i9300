@@ -106,7 +106,7 @@ static int try_to_freeze_tasks(bool sig_only)
 		read_lock(&tasklist_lock);
 		do_each_thread(g, p) {
 			if (!wakeup && !freezer_should_skip(p) &&
-			    p != current && freezing(p) && !frozen(p))
+			    freezing(p) && !frozen(p))
 				sched_show_task(p);
 		} while_each_thread(g, p);
 		read_unlock(&tasklist_lock);
@@ -127,11 +127,7 @@ int freeze_processes(void)
 {
 	int error;
 
-	if (!pm_freezing)
-		atomic_inc(&system_freezing_cnt);
-
 	printk("Freezing user space processes ... ");
-	pm_freezing = true;
 	error = try_to_freeze_tasks(true);
 	if (!error) {
 		printk("done.");
@@ -155,7 +151,6 @@ int freeze_kernel_threads(void)
 	int error;
 
 	printk("Freezing remaining freezable tasks ... ");
-	pm_nosig_freezing = true;
 	error = try_to_freeze_tasks(false);
 	if (!error)
 		printk("done.");
@@ -172,11 +167,6 @@ void thaw_processes(void)
 {
 	struct task_struct *g, *p;
 
-	if (pm_freezing)
-		atomic_dec(&system_freezing_cnt);
-	pm_freezing = false;
-	pm_nosig_freezing = false;
-
 	oom_killer_enable();
 
 	printk("Restarting tasks ... ");
@@ -185,6 +175,9 @@ void thaw_processes(void)
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
+		if (cgroup_freezing(p))
+			continue;
+
 		__thaw_task(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
