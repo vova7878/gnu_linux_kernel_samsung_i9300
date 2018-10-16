@@ -24,12 +24,6 @@ struct dev_power_governor {
 	bool (*power_down_ok)(struct dev_pm_domain *domain);
 };
 
-struct gpd_dev_ops {
-	int (*start)(struct device *dev);
-	int (*stop)(struct device *dev);
-	bool (*active_wakeup)(struct device *dev);
-};
-
 struct generic_pm_domain {
 	struct dev_pm_domain domain;	/* PM domain operations */
 	struct list_head gpd_list_node;	/* Node in the global PM domains list */
@@ -52,7 +46,9 @@ struct generic_pm_domain {
 	bool dev_irq_safe;	/* Device callbacks are IRQ-safe */
 	int (*power_off)(struct generic_pm_domain *domain);
 	int (*power_on)(struct generic_pm_domain *domain);
-	struct gpd_dev_ops dev_ops;
+	int (*start_device)(struct device *dev);
+	int (*stop_device)(struct device *dev);
+	bool (*active_wakeup)(struct device *dev);
 };
 
 static inline struct generic_pm_domain *pd_to_genpd(struct dev_pm_domain *pd)
@@ -69,7 +65,6 @@ struct gpd_link {
 
 struct generic_pm_domain_data {
 	struct pm_domain_data base;
-	struct gpd_dev_ops ops;
 	bool need_restore;
 };
 
@@ -79,11 +74,6 @@ static inline struct generic_pm_domain_data *to_gpd_data(struct pm_domain_data *
 }
 
 #ifdef CONFIG_PM_GENERIC_DOMAINS
-static inline struct generic_pm_domain_data *dev_gpd_data(struct device *dev)
-{
-	return to_gpd_data(dev->power.subsys_data->domain_data);
-}
-
 extern int pm_genpd_add_device(struct generic_pm_domain *genpd,
 			       struct device *dev);
 extern int pm_genpd_remove_device(struct generic_pm_domain *genpd,
@@ -92,8 +82,6 @@ extern int pm_genpd_add_subdomain(struct generic_pm_domain *genpd,
 				  struct generic_pm_domain *new_subdomain);
 extern int pm_genpd_remove_subdomain(struct generic_pm_domain *genpd,
 				     struct generic_pm_domain *target);
-extern int pm_genpd_add_callbacks(struct device *dev, struct gpd_dev_ops *ops);
-extern int pm_genpd_remove_callbacks(struct device *dev);
 extern void pm_genpd_init(struct generic_pm_domain *genpd,
 			  struct dev_power_governor *gov, bool is_off);
 extern int pm_genpd_poweron(struct generic_pm_domain *genpd);
@@ -115,15 +103,6 @@ static inline int pm_genpd_add_subdomain(struct generic_pm_domain *genpd,
 }
 static inline int pm_genpd_remove_subdomain(struct generic_pm_domain *genpd,
 					    struct generic_pm_domain *target)
-{
-	return -ENOSYS;
-}
-static inline int pm_genpd_add_callbacks(struct device *dev,
-					 struct gpd_dev_ops *ops)
-{
-	return -ENOSYS;
-}
-static inline int pm_genpd_remove_callbacks(struct device *dev)
 {
 	return -ENOSYS;
 }
