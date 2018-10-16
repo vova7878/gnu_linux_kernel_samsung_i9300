@@ -282,14 +282,14 @@ static int usermodehelper_disabled = 1;
 static atomic_t running_helpers = ATOMIC_INIT(0);
 
 /*
- * Wait queue head used by usermodehelper_disable() to wait for all running
+ * Wait queue head used by usermodehelper_pm_callback() to wait for all running
  * helpers to finish.
  */
 static DECLARE_WAIT_QUEUE_HEAD(running_helpers_waitq);
 
 /*
  * Time to wait for running_helpers to become zero before the setting of
- * usermodehelper_disabled in usermodehelper_disable() fails
+ * usermodehelper_disabled in usermodehelper_pm_callback() fails
  */
 #define RUNNING_HELPERS_TIMEOUT	(5 * HZ)
 
