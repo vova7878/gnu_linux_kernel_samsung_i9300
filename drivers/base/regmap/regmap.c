@@ -229,14 +229,12 @@ struct regmap *regmap_init(struct device *dev,
 
 	ret = regcache_init(map);
 	if (ret < 0)
-		goto err_free_workbuf;
+		goto err_map;
 
 	regmap_debugfs_init(map);
 
 	return map;
 
-err_free_workbuf:
-	kfree(map->work_buf);
 err_map:
 	kfree(map);
 err:
