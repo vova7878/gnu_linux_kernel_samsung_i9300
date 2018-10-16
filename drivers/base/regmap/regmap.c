@@ -306,10 +306,8 @@ int _regmap_write(struct regmap *map, unsigned int reg,
 		ret = regcache_write(map, reg, val);
 		if (ret != 0)
 			return ret;
-		if (map->cache_only) {
-			map->cache_dirty = true;
+		if (map->cache_only)
 			return 0;
-		}
 	}
 
 	trace_regmap_reg_write(map->dev, reg, val);
