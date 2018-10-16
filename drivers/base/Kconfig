@@ -297,10 +297,6 @@ config CMA_AREAS
 
 endif
 
-config GENERIC_CPU_DEVICES
-	bool
-	default n
-
 source "drivers/base/regmap/Kconfig"
 
 config DMA_SHARED_BUFFER
