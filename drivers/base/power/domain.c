@@ -38,7 +38,7 @@ static DEFINE_MUTEX(gpd_list_lock);
 
 #ifdef CONFIG_PM
 
-struct generic_pm_domain *dev_to_genpd(struct device *dev)
+static struct generic_pm_domain *dev_to_genpd(struct device *dev)
 {
 	if (IS_ERR_OR_NULL(dev->pm_domain))
 		return ERR_PTR(-EINVAL);
@@ -436,7 +436,6 @@ static void genpd_power_off_work_fn(struct work_struct *work)
 static int pm_genpd_runtime_suspend(struct device *dev)
 {
 	struct generic_pm_domain *genpd;
-	bool (*stop_ok)(struct device *__dev);
 	int ret;
 
 	dev_dbg(dev, "%s()\n", __func__);
@@ -447,16 +446,9 @@ static int pm_genpd_runtime_suspend(struct device *dev)
 
 	might_sleep_if(!genpd->dev_irq_safe);
 
-	stop_ok = genpd->gov ? genpd->gov->stop_ok : NULL;
-	if (stop_ok && !stop_ok(dev))
-		return -EBUSY;
-
 	ret = genpd_stop_dev(genpd, dev);
 	if (ret)
 		return ret;
-
-	pm_runtime_update_max_time_suspended(dev,
-				dev_gpd_data(dev)->td.start_latency_ns);
 
 	/*
 	 * If power.irq_safe is set, this routine will be run with interrupts
@@ -1056,13 +1048,11 @@ static void pm_genpd_complete(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 /**
- * __pm_genpd_add_device - Add a device to an I/O PM domain.
+ * pm_genpd_add_device - Add a device to an I/O PM domain.
  * @genpd: PM domain to add the device to.
  * @dev: Device to be added.
- * @td: Set of PM QoS timing parameters to attach to the device.
  */
-int __pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev,
-			  struct gpd_timing_data *td)
+int pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev)
 {
 	struct generic_pm_domain_data *gpd_data;
 	struct pm_domain_data *pdd;
@@ -1105,8 +1095,6 @@ int __pm_genpd_add_device(struct generic_pm_domain *genpd, struct device *dev,
 	gpd_data->base.dev = dev;
 	gpd_data->need_restore = false;
 	list_add_tail(&gpd_data->base.list_node, &genpd->dev_list);
-	if (td)
-		gpd_data->td = *td;
 
  out:
 	genpd_release_lock(genpd);
@@ -1267,10 +1255,8 @@ int pm_genpd_remove_subdomain(struct generic_pm_domain *genpd,
  * pm_genpd_add_callbacks - Add PM domain callbacks to a given device.
  * @dev: Device to add the callbacks to.
  * @ops: Set of callbacks to add.
- * @td: Timing data to add to the device along with the callbacks (optional).
  */
-int pm_genpd_add_callbacks(struct device *dev, struct gpd_dev_ops *ops,
-			   struct gpd_timing_data *td)
+int pm_genpd_add_callbacks(struct device *dev, struct gpd_dev_ops *ops)
 {
 	struct pm_domain_data *pdd;
 	int ret = 0;
@@ -1286,8 +1272,6 @@ int pm_genpd_add_callbacks(struct device *dev, struct gpd_dev_ops *ops,
 		struct generic_pm_domain_data *gpd_data = to_gpd_data(pdd);
 
 		gpd_data->ops = *ops;
-		if (td)
-			gpd_data->td = *td;
 	} else {
 		ret = -EINVAL;
 	}
@@ -1300,11 +1284,10 @@ int pm_genpd_add_callbacks(struct device *dev, struct gpd_dev_ops *ops,
 EXPORT_SYMBOL_GPL(pm_genpd_add_callbacks);
 
 /**
- * __pm_genpd_remove_callbacks - Remove PM domain callbacks from a given device.
+ * pm_genpd_remove_callbacks - Remove PM domain callbacks from a given device.
  * @dev: Device to remove the callbacks from.
- * @clear_td: If set, clear the device's timing data too.
  */
-int __pm_genpd_remove_callbacks(struct device *dev, bool clear_td)
+int pm_genpd_remove_callbacks(struct device *dev)
 {
 	struct pm_domain_data *pdd;
 	int ret = 0;
@@ -1320,8 +1303,6 @@ int __pm_genpd_remove_callbacks(struct device *dev, bool clear_td)
 		struct generic_pm_domain_data *gpd_data = to_gpd_data(pdd);
 
 		gpd_data->ops = (struct gpd_dev_ops){ 0 };
-		if (clear_td)
-			gpd_data->td = (struct gpd_timing_data){ 0 };
 	} else {
 		ret = -EINVAL;
 	}
@@ -1331,7 +1312,7 @@ int __pm_genpd_remove_callbacks(struct device *dev, bool clear_td)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(__pm_genpd_remove_callbacks);
+EXPORT_SYMBOL_GPL(pm_genpd_remove_callbacks);
 
 /* Default device callbacks for generic PM domains. */
 
