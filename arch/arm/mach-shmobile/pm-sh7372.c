@@ -161,6 +161,15 @@ static bool pd_active_wakeup(struct device *dev)
 	return active_wakeup ? active_wakeup(dev) : true;
 }
 
+static bool sh7372_power_down_forbidden(struct dev_pm_domain *domain)
+{
+	return false;
+}
+
+struct dev_power_governor sh7372_always_on_gov = {
+	.power_down_ok = sh7372_power_down_forbidden,
+};
+
 static int sh7372_stop_dev(struct device *dev)
 {
 	int (*stop)(struct device *dev);
@@ -193,9 +202,8 @@ static int sh7372_start_dev(struct device *dev)
 void sh7372_init_pm_domain(struct sh7372_pm_domain *sh7372_pd)
 {
 	struct generic_pm_domain *genpd = &sh7372_pd->genpd;
-	struct dev_power_governor *gov = sh7372_pd->gov;
 
-	pm_genpd_init(genpd, gov ? : &simple_qos_governor, false);
+	pm_genpd_init(genpd, sh7372_pd->gov, false);
 	genpd->dev_ops.stop = sh7372_stop_dev;
 	genpd->dev_ops.start = sh7372_start_dev;
 	genpd->dev_ops.active_wakeup = pd_active_wakeup;
