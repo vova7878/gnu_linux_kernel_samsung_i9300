@@ -295,22 +295,11 @@ static int memory_block_change_state(struct memory_block *mem,
 
 	ret = memory_block_action(mem->start_section_nr, to_state);
 
-	if (ret) {
+	if (ret)
 		mem->state = from_state_req;
-		goto out;
-	}
+	else
+		mem->state = to_state;
 
-	mem->state = to_state;
-	switch (mem->state) {
-	case MEM_OFFLINE:
-		kobject_uevent(&mem->dev.kobj, KOBJ_OFFLINE);
-		break;
-	case MEM_ONLINE:
-		kobject_uevent(&mem->dev.kobj, KOBJ_ONLINE);
-		break;
-	default:
-		break;
-	}
 out:
 	mutex_unlock(&mem->state_mutex);
 	return ret;
