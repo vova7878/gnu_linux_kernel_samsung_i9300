@@ -12,8 +12,6 @@
 #include <linux/pm_qos.h>
 #include <linux/hrtimer.h>
 
-#ifdef CONFIG_PM_RUNTIME
-
 /**
  * default_stop_ok - Default PM domain governor routine for stopping devices.
  * @dev: Device to check.
@@ -139,27 +137,15 @@ static bool default_power_down_ok(struct dev_pm_domain *pd)
 	return true;
 }
 
-static bool always_on_power_down_ok(struct dev_pm_domain *domain)
-{
-	return false;
-}
-
-#else /* !CONFIG_PM_RUNTIME */
-
-bool default_stop_ok(struct device *dev)
-{
-	return false;
-}
-
-#define default_power_down_ok	NULL
-#define always_on_power_down_ok	NULL
-
-#endif /* !CONFIG_PM_RUNTIME */
-
 struct dev_power_governor simple_qos_governor = {
 	.stop_ok = default_stop_ok,
 	.power_down_ok = default_power_down_ok,
 };
+
+static bool always_on_power_down_ok(struct dev_pm_domain *domain)
+{
+	return false;
+}
 
 /**
  * pm_genpd_gov_always_on - A governor implementing an always-on policy
