@@ -100,7 +100,6 @@ static irqreturn_t regmap_irq_thread(int irq, void *d)
 	u8 *buf8 = data->status_reg_buf;
 	u16 *buf16 = data->status_reg_buf;
 	u32 *buf32 = data->status_reg_buf;
-	bool handled = false;
 
 	ret = regmap_bulk_read(map, chip->status_base, data->status_reg_buf,
 			       chip->num_regs);
@@ -147,14 +146,10 @@ static irqreturn_t regmap_irq_thread(int irq, void *d)
 		if (data->status_buf[chip->irqs[i].reg_offset] &
 		    chip->irqs[i].mask) {
 			handle_nested_irq(data->irq_base + i);
-			handled = true;
 		}
 	}
 
-	if (handled)
-		return IRQ_HANDLED;
-	else
-		return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 /**
