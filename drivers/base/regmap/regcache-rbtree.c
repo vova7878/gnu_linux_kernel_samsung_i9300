@@ -170,15 +170,6 @@ static const struct file_operations rbtree_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-
-static void rbtree_debugfs_init(struct regmap *map)
-{
-	debugfs_create_file("rbtree", 0400, map->debugfs, map, &rbtree_fops);
-}
-#else
-static void rbtree_debugfs_init(struct regmap *map)
-{
-}
 #endif
 
 static int regcache_rbtree_init(struct regmap *map)
@@ -203,7 +194,7 @@ static int regcache_rbtree_init(struct regmap *map)
 			goto err;
 	}
 
-	rbtree_debugfs_init(map);
+	debugfs_create_file("rbtree", 0400, map->debugfs, map, &rbtree_fops);
 
 	return 0;
 
