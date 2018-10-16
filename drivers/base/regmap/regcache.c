@@ -144,18 +144,9 @@ int regcache_init(struct regmap *map)
 	if (map->cache_ops->init) {
 		dev_dbg(map->dev, "Initializing %s cache\n",
 			map->cache_ops->name);
-		ret = map->cache_ops->init(map);
-		if (ret)
-			goto err_free;
+		return map->cache_ops->init(map);
 	}
 	return 0;
-
-err_free:
-	kfree(map->reg_defaults);
-	if (map->cache_free)
-		kfree(map->reg_defaults_raw);
-
-	return ret;
 }
 
 void regcache_exit(struct regmap *map)
