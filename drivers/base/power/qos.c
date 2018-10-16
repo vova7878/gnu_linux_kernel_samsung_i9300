@@ -47,29 +47,21 @@ static DEFINE_MUTEX(dev_pm_qos_mtx);
 static BLOCKING_NOTIFIER_HEAD(dev_pm_notifiers);
 
 /**
- * __dev_pm_qos_read_value - Get PM QoS constraint for a given device.
- * @dev: Device to get the PM QoS constraint value for.
- *
- * This routine must be called with dev->power.lock held.
- */
-s32 __dev_pm_qos_read_value(struct device *dev)
-{
-	struct pm_qos_constraints *c = dev->power.constraints;
-
-	return c ? pm_qos_read_value(c) : 0;
-}
-
-/**
- * dev_pm_qos_read_value - Get PM QoS constraint for a given device (locked).
+ * dev_pm_qos_read_value - Get PM QoS constraint for a given device.
  * @dev: Device to get the PM QoS constraint value for.
  */
 s32 dev_pm_qos_read_value(struct device *dev)
 {
+	struct pm_qos_constraints *c;
 	unsigned long flags;
-	s32 ret;
+	s32 ret = 0;
 
 	spin_lock_irqsave(&dev->power.lock, flags);
-	ret = __dev_pm_qos_read_value(dev);
+
+	c = dev->power.constraints;
+	if (c)
+		ret = pm_qos_read_value(c);
+
 	spin_unlock_irqrestore(&dev->power.lock, flags);
 
 	return ret;
