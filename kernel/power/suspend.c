@@ -109,11 +109,13 @@ static int suspend_prepare(void)
 		goto Finish;
 
 	error = suspend_freeze_processes();
-	if (!error)
+	if (error) {
+		suspend_stats.failed_freeze++;
+		dpm_save_failed_step(SUSPEND_FREEZE);
+	} else
 		return 0;
 
-	suspend_stats.failed_freeze++;
-	dpm_save_failed_step(SUSPEND_FREEZE);
+	suspend_thaw_processes();
 	usermodehelper_enable();
  Finish:
 	pm_notifier_call_chain(PM_POST_SUSPEND);
