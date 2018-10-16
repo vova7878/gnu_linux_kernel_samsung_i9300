@@ -175,19 +175,16 @@ int freeze_kernel_threads(void)
 	return error;
 }
 
-void thaw_processes(void)
+static void thaw_tasks(bool nosig_only)
 {
 	struct task_struct *g, *p;
-
-	oom_killer_enable();
-
-	printk("Restarting tasks ... ");
-
-	thaw_workqueues();
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
 		if (!freezable(p))
+			continue;
+
+		if (nosig_only && should_send_signal(p))
 			continue;
 
 		if (cgroup_freezing_or_frozen(p))
@@ -196,7 +193,16 @@ void thaw_processes(void)
 		__thaw_task(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
+}
 
+void thaw_processes(void)
+{
+	oom_killer_enable();
+
+	printk("Restarting tasks ... ");
+	thaw_workqueues();
+	thaw_tasks(true);
+	thaw_tasks(false);
 	schedule();
 	printk("done.\n");
 }
