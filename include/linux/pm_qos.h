@@ -111,19 +111,7 @@ static inline void pm_qos_remove_request(struct pm_qos_request *req)
 			{ return; }
 
 static inline int pm_qos_request(int pm_qos_class)
-{
-	switch (pm_qos_class) {
-	case PM_QOS_CPU_DMA_LATENCY:
-		return PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
-	case PM_QOS_NETWORK_LATENCY:
-		return PM_QOS_NETWORK_LAT_DEFAULT_VALUE;
-	case PM_QOS_NETWORK_THROUGHPUT:
-		return PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE;
-	default:
-		return PM_QOS_DEFAULT_VALUE;
-	}
-}
-
+			{ return 0; }
 static inline int pm_qos_add_notifier(int pm_qos_class,
 				      struct notifier_block *notifier)
 			{ return 0; }

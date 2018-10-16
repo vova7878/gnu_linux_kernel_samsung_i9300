@@ -9,7 +9,6 @@
 #include <linux/export.h>
 #include <linux/syscalls.h>
 #include <linux/freezer.h>
-#include <linux/kthread.h>
 
 /*
  * freezing is complete, mark current process as frozen
@@ -24,11 +23,10 @@ static inline void frozen_process(void)
 }
 
 /* Refrigerator is place where frozen processes are stored :-). */
-bool __refrigerator(bool check_kthr_stop)
+void refrigerator(void)
 {
 	/* Hmm, should we be allowed to suspend when there are realtime
 	   processes around? */
-	bool was_frozen = false;
 	long save;
 
 	task_lock(current);
@@ -37,7 +35,7 @@ bool __refrigerator(bool check_kthr_stop)
 		task_unlock(current);
 	} else {
 		task_unlock(current);
-		return was_frozen;
+		return;
 	}
 	save = current->state;
 	pr_debug("%s entered refrigerator\n", current->comm);
@@ -46,34 +44,23 @@ bool __refrigerator(bool check_kthr_stop)
 	recalc_sigpending(); /* We sent fake signal, clean it up */
 	spin_unlock_irq(&current->sighand->siglock);
 
+	/* prevent accounting of that task to load */
+	current->flags |= PF_FREEZING;
+
 	for (;;) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
-		if (!freezing(current) ||
-		    (check_kthr_stop && kthread_should_stop()))
+		if (!frozen(current))
 			break;
-		was_frozen = true;
 		schedule();
 	}
 
-	/* leave FROZEN */
-	spin_lock_irq(&freezer_lock);
-	if (freezing(current))
-		goto repeat;
-	current->flags &= ~PF_FROZEN;
-	spin_unlock_irq(&freezer_lock);
+	/* Remove the accounting blocker */
+	current->flags &= ~PF_FREEZING;
 
 	pr_debug("%s left refrigerator\n", current->comm);
-
-	/*
-	 * Restore saved task state before returning.  The mb'd version
-	 * needs to be used; otherwise, it might silently break
-	 * synchronization which depends on ordered task state change.
-	 */
-	set_current_state(save);
-
-	return was_frozen;
+	__set_current_state(save);
 }
-EXPORT_SYMBOL(__refrigerator);
+EXPORT_SYMBOL(refrigerator);
 
 static void fake_signal_wake_up(struct task_struct *p)
 {
