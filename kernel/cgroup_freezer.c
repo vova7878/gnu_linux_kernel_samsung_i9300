@@ -48,17 +48,19 @@ static inline struct freezer *task_freezer(struct task_struct *task)
 			    struct freezer, css);
 }
 
-bool cgroup_freezing(struct task_struct *task)
+static inline int __cgroup_freezing_or_frozen(struct task_struct *task)
 {
-	enum freezer_state state;
-	bool ret;
+	enum freezer_state state = task_freezer(task)->state;
+	return (state == CGROUP_FREEZING) || (state == CGROUP_FROZEN);
+}
 
-	rcu_read_lock();
-	state = task_freezer(task)->state;
-	ret = state == CGROUP_FREEZING || state == CGROUP_FROZEN;
-	rcu_read_unlock();
-
-	return ret;
+int cgroup_freezing_or_frozen(struct task_struct *task)
+{
+	int result;
+	task_lock(task);
+	result = __cgroup_freezing_or_frozen(task);
+	task_unlock(task);
+	return result;
 }
 
 /*
@@ -99,6 +101,9 @@ struct cgroup_subsys freezer_subsys;
  *
  * freezer_can_attach():
  * cgroup_mutex (held by caller of can_attach)
+ *
+ * cgroup_freezing_or_frozen():
+ * task->alloc_lock (to get task's cgroup)
  *
  * freezer_fork() (preserving fork() performance means can't take cgroup_mutex):
  * freezer->lock
@@ -274,6 +279,7 @@ static int try_to_freeze_cgroup(struct cgroup *cgroup, struct freezer *freezer)
 	struct task_struct *task;
 	unsigned int num_cant_freeze_now = 0;
 
+	freezer->state = CGROUP_FREEZING;
 	cgroup_iter_start(cgroup, &it);
 	while ((task = cgroup_iter_next(cgroup, &it))) {
 		if (!freeze_task(task, true))
@@ -297,6 +303,8 @@ static void unfreeze_cgroup(struct cgroup *cgroup, struct freezer *freezer)
 	while ((task = cgroup_iter_next(cgroup, &it)))
 		__thaw_task(task);
 	cgroup_iter_end(cgroup, &it);
+
+	freezer->state = CGROUP_THAWED;
 }
 
 static int freezer_change_state(struct cgroup *cgroup,
@@ -310,20 +318,20 @@ static int freezer_change_state(struct cgroup *cgroup,
 	spin_lock_irq(&freezer->lock);
 
 	update_if_frozen(cgroup, freezer);
+	if (goal_state == freezer->state)
+		goto out;
 
 	switch (goal_state) {
 	case CGROUP_THAWED:
-		freezer->state = CGROUP_THAWED;
 		unfreeze_cgroup(cgroup, freezer);
 		break;
 	case CGROUP_FROZEN:
-		freezer->state = CGROUP_FREEZING;
 		retval = try_to_freeze_cgroup(cgroup, freezer);
 		break;
 	default:
 		BUG();
 	}
-
+out:
 	spin_unlock_irq(&freezer->lock);
 
 	return retval;
