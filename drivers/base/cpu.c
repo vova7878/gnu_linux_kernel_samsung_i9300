@@ -267,13 +267,6 @@ static const struct attribute_group *cpu_root_attr_groups[] = {
 	NULL,
 };
 
-bool cpu_is_hotpluggable(unsigned cpu)
-{
-	struct device *dev = get_cpu_device(cpu);
-	return dev && container_of(dev, struct cpu, dev)->hotpluggable;
-}
-EXPORT_SYMBOL_GPL(cpu_is_hotpluggable);
-
 int __init cpu_dev_init(void)
 {
 	int err;
