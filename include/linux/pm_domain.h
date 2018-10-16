@@ -140,7 +140,6 @@ extern int pm_genpd_poweron(struct generic_pm_domain *genpd);
 
 extern bool default_stop_ok(struct device *dev);
 
-extern struct dev_power_governor pm_domain_always_on_gov;
 #else
 
 static inline struct generic_pm_domain *dev_to_genpd(struct device *dev)
@@ -194,7 +193,6 @@ static inline bool default_stop_ok(struct device *dev)
 {
 	return false;
 }
-#define pm_domain_always_on_gov NULL
 #endif
 
 static inline int pm_genpd_remove_callbacks(struct device *dev)
