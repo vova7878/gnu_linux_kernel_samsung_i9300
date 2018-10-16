@@ -2,7 +2,6 @@
  * CPU subsystem support
  */
 
-#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -275,12 +274,16 @@ bool cpu_is_hotpluggable(unsigned cpu)
 }
 EXPORT_SYMBOL_GPL(cpu_is_hotpluggable);
 
-void __init cpu_dev_init(void)
+int __init cpu_dev_init(void)
 {
-	if (subsys_system_register(&cpu_subsys, cpu_root_attr_groups))
-		panic("Failed to register CPU subsystem");
+	int err;
+
+	err = subsys_system_register(&cpu_subsys, cpu_root_attr_groups);
+	if (err)
+		return err;
 
 #if defined(CONFIG_SCHED_MC) || defined(CONFIG_SCHED_SMT)
-	sched_create_sysfs_power_savings_entries(cpu_subsys.dev_root);
+	err = sched_create_sysfs_power_savings_entries(cpu_subsys.dev_root);
 #endif
+	return err;
 }
