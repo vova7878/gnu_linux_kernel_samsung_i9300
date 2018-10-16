@@ -212,7 +212,7 @@ static void freezer_fork(struct cgroup_subsys *ss, struct task_struct *task)
 
 	/* Locking avoids race with FREEZING -> THAWED transitions. */
 	if (freezer->state == CGROUP_FREEZING)
-		freeze_task(task);
+		freeze_task(task, true);
 	spin_unlock_irq(&freezer->lock);
 }
 
@@ -280,7 +280,7 @@ static int try_to_freeze_cgroup(struct cgroup *cgroup, struct freezer *freezer)
 
 	cgroup_iter_start(cgroup, &it);
 	while ((task = cgroup_iter_next(cgroup, &it))) {
-		if (!freeze_task(task))
+		if (!freeze_task(task, true))
 			continue;
 		if (is_task_frozen_enough(task))
 			continue;
