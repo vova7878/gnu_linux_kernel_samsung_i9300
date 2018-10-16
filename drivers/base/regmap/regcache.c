@@ -61,10 +61,8 @@ static int regcache_hw_init(struct regmap *map)
 
 	map->reg_defaults = kmalloc(count * sizeof(struct reg_default),
 				      GFP_KERNEL);
-	if (!map->reg_defaults) {
-		ret = -ENOMEM;
-		goto err_free;
-	}
+	if (!map->reg_defaults)
+		return -ENOMEM;
 
 	/* fill the reg_defaults */
 	map->num_reg_defaults = count;
@@ -79,12 +77,6 @@ static int regcache_hw_init(struct regmap *map)
 	}
 
 	return 0;
-
-err_free:
-	if (map->cache_free)
-		kfree(map->reg_defaults_raw);
-
-	return ret;
 }
 
 int regcache_init(struct regmap *map)
