@@ -53,7 +53,7 @@ static int regcache_hw_init(struct regmap *map)
 	for (count = 0, i = 0; i < map->num_reg_defaults_raw; i++) {
 		val = regcache_get_val(map->reg_defaults_raw,
 				       i, map->cache_word_size);
-		if (regmap_volatile(map, i))
+		if (!val)
 			continue;
 		count++;
 	}
@@ -70,7 +70,7 @@ static int regcache_hw_init(struct regmap *map)
 	for (i = 0, j = 0; i < map->num_reg_defaults_raw; i++) {
 		val = regcache_get_val(map->reg_defaults_raw,
 				       i, map->cache_word_size);
-		if (regmap_volatile(map, i))
+		if (!val)
 			continue;
 		map->reg_defaults[j].reg = i;
 		map->reg_defaults[j].def = val;
