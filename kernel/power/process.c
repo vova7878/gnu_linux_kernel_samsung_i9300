@@ -25,7 +25,8 @@
 static inline int freezable(struct task_struct * p)
 {
 	if ((p == current) ||
-	    (p->flags & PF_NOFREEZE))
+	    (p->flags & PF_NOFREEZE) ||
+	    (p->exit_state != 0))
 		return 0;
 	return 1;
 }
