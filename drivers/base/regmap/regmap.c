@@ -64,18 +64,6 @@ bool regmap_precious(struct regmap *map, unsigned int reg)
 	return false;
 }
 
-static bool regmap_volatile_range(struct regmap *map, unsigned int reg,
-	unsigned int num)
-{
-	unsigned int i;
-
-	for (i = 0; i < num; i++)
-		if (!regmap_volatile(map, reg + i))
-			return false;
-
-	return true;
-}
-
 static void regmap_format_4_12_write(struct regmap *map,
 				     unsigned int reg, unsigned int val)
 {
@@ -495,11 +483,15 @@ EXPORT_SYMBOL_GPL(regmap_read);
 int regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 		    size_t val_len)
 {
-	size_t val_count = val_len / map->format.val_bytes;
 	int ret;
+	int i;
+	bool vol = true;
 
-	WARN_ON(!regmap_volatile_range(map, reg, val_count) &&
-		map->cache_type != REGCACHE_NONE);
+	for (i = 0; i < val_len / map->format.val_bytes; i++)
+		if (!regmap_volatile(map, reg + i))
+			vol = false;
+
+	WARN_ON(!vol && map->cache_type != REGCACHE_NONE);
 
 	mutex_lock(&map->lock);
 
@@ -527,10 +519,15 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg, void *val,
 {
 	int ret, i;
 	size_t val_bytes = map->format.val_bytes;
-	bool vol = regmap_volatile_range(map, reg, val_count);
+	bool vol = true;
 
 	if (!map->format.parse_val)
 		return -EINVAL;
+
+	/* Is this a block of volatile registers? */
+	for (i = 0; i < val_count; i++)
+		if (!regmap_volatile(map, reg + i))
+			vol = false;
 
 	if (vol || map->cache_type == REGCACHE_NONE) {
 		ret = regmap_raw_read(map, reg, val, val_bytes * val_count);
