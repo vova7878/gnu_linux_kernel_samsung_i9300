@@ -11,8 +11,17 @@
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 
-/* protects freezing and frozen transitions */
-static DEFINE_SPINLOCK(freezer_lock);
+/*
+ * freezing is complete, mark current process as frozen
+ */
+static inline void frozen_process(void)
+{
+	if (!unlikely(current->flags & PF_NOFREEZE)) {
+		current->flags |= PF_FROZEN;
+		smp_wmb();
+	}
+	clear_freeze_flag(current);
+}
 
 /* Refrigerator is place where frozen processes are stored :-). */
 bool __refrigerator(bool check_kthr_stop)
@@ -22,21 +31,14 @@ bool __refrigerator(bool check_kthr_stop)
 	bool was_frozen = false;
 	long save;
 
-	/*
-	 * Enter FROZEN.  If NOFREEZE, schedule immediate thawing by
-	 * clearing freezing.
-	 */
-	spin_lock_irq(&freezer_lock);
-repeat:
-	if (!freezing(current)) {
-		spin_unlock_irq(&freezer_lock);
+	task_lock(current);
+	if (freezing(current)) {
+		frozen_process();
+		task_unlock(current);
+	} else {
+		task_unlock(current);
 		return was_frozen;
 	}
-	if (current->flags & PF_NOFREEZE)
-		clear_freeze_flag(current);
-	current->flags |= PF_FROZEN;
-	spin_unlock_irq(&freezer_lock);
-
 	save = current->state;
 	pr_debug("%s entered refrigerator\n", current->comm);
 
@@ -98,18 +100,21 @@ static void fake_signal_wake_up(struct task_struct *p)
  */
 bool freeze_task(struct task_struct *p, bool sig_only)
 {
-	unsigned long flags;
-	bool ret = false;
+	/*
+	 * We first check if the task is freezing and next if it has already
+	 * been frozen to avoid the race with frozen_process() which first marks
+	 * the task as frozen and next clears its TIF_FREEZE.
+	 */
+	if (!freezing(p)) {
+		smp_rmb();
+		if (frozen(p))
+			return false;
 
-	spin_lock_irqsave(&freezer_lock, flags);
-
-	if (sig_only && !should_send_signal(p))
-		goto out_unlock;
-
-	if (frozen(p))
-		goto out_unlock;
-
-	set_freeze_flag(p);
+		if (!sig_only || should_send_signal(p))
+			set_freeze_flag(p);
+		else
+			return false;
+	}
 
 	if (should_send_signal(p)) {
 		fake_signal_wake_up(p);
@@ -119,43 +124,40 @@ bool freeze_task(struct task_struct *p, bool sig_only)
 		 * TASK_RUNNING transition can't race with task state
 		 * testing in try_to_freeze_tasks().
 		 */
+	} else if (sig_only) {
+		return false;
 	} else {
 		wake_up_state(p, TASK_INTERRUPTIBLE);
 	}
-	ret = true;
-out_unlock:
-	spin_unlock_irqrestore(&freezer_lock, flags);
-	return ret;
+
+	return true;
 }
 
 void cancel_freezing(struct task_struct *p)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&freezer_lock, flags);
 	if (freezing(p)) {
 		pr_debug("  clean up: %s\n", p->comm);
 		clear_freeze_flag(p);
-		spin_lock(&p->sighand->siglock);
+		spin_lock_irqsave(&p->sighand->siglock, flags);
 		recalc_sigpending_and_wake(p);
-		spin_unlock(&p->sighand->siglock);
+		spin_unlock_irqrestore(&p->sighand->siglock, flags);
 	}
-	spin_unlock_irqrestore(&freezer_lock, flags);
 }
 
 void __thaw_task(struct task_struct *p)
 {
-	unsigned long flags;
+	bool was_frozen;
 
-	/*
-	 * Clear freezing and kick @p if FROZEN.  Clearing is guaranteed to
-	 * be visible to @p as waking up implies wmb.  Waking up inside
-	 * freezer_lock also prevents wakeups from leaking outside
-	 * refrigerator.
-	 */
-	spin_lock_irqsave(&freezer_lock, flags);
-	clear_freeze_flag(p);
-	if (frozen(p))
+	task_lock(p);
+	was_frozen = frozen(p);
+	if (was_frozen)
+		p->flags &= ~PF_FROZEN;
+	else
+		clear_freeze_flag(p);
+	task_unlock(p);
+
+	if (was_frozen)
 		wake_up_process(p);
-	spin_unlock_irqrestore(&freezer_lock, flags);
 }
