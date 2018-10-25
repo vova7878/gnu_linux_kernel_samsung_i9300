@@ -202,7 +202,6 @@ extern int __cpufreq_driver_getavg(struct cpufreq_policy *policy,
 int cpufreq_register_governor(struct cpufreq_governor *governor);
 void cpufreq_unregister_governor(struct cpufreq_governor *governor);
 
-
 /*********************************************************************
  *                      CPUFREQ DRIVER INTERFACE                     *
  *********************************************************************/
@@ -289,7 +288,7 @@ __ATTR(_name, _perm, show_##_name, NULL)
 
 #define cpufreq_freq_attr_rw(_name)		\
 static struct freq_attr _name =			\
-__ATTR(_name, 0644, show_##_name, store_##_name)
+__ATTR(_name, 0666, show_##_name, store_##_name)
 
 struct global_attr {
 	struct attribute attr;
@@ -305,7 +304,7 @@ __ATTR(_name, 0444, show_##_name, NULL)
 
 #define define_one_global_rw(_name)		\
 static struct global_attr _name =		\
-__ATTR(_name, 0644, show_##_name, store_##_name)
+__ATTR(_name, 0666, show_##_name, store_##_name)
 
 
 /*********************************************************************
@@ -369,12 +368,15 @@ extern struct cpufreq_governor cpufreq_gov_userspace;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND)
 extern struct cpufreq_governor cpufreq_gov_ondemand;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_ondemand)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMANDPLUS)
+extern struct cpufreq_governor cpufreq_gov_ondemandplus;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_ondemandplus)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_DYNAMIC)
+extern struct cpufreq_governor cpufreq_gov_dynamic;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_dynamic)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE)
 extern struct cpufreq_governor cpufreq_gov_conservative;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_conservative)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ZZMOOVE)
-extern struct cpufreq_governor cpufreq_gov_zzmoove;
-#define CPUFREQ_DEFAULT_GOVERNOR       (&cpufreq_gov_zzmoove)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE)
 extern struct cpufreq_governor cpufreq_gov_interactive;
 #define CPUFREQ_DEFAULT_GOVERNOR       (&cpufreq_gov_interactive)
@@ -393,6 +395,28 @@ extern struct cpufreq_governor cpufreq_gov_intelliactive;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_WHEATLEY)
 extern struct cpufreq_governor cpufreq_gov_wheatley;
 #define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_wheatley)
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_interactive)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVEQ)
+extern struct cpufreq_governor cpufreq_gov_interactiveq;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_interactiveq)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ABYSSPLUG)
+extern struct cpufreq_governor cpufreq_gov_abyssplug;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_abyssplug)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LIONHEART)
+extern struct cpufreq_governor cpufreq_gov_lionheart;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lionheart)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVEPLUS)
+extern struct cpufreq_governor cpufreq_gov_interactiveplus;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_interactiveplus)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LAGFREE)
+extern struct cpufreq_governor cpufreq_gov_lagfree;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lagfree)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SMARTASS2)
+extern struct cpufreq_governor cpufreq_gov_smartass2;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartass2)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ZENX)
+extern struct cpufreq_governor cpufreq_gov_zenx;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_zenx)
 #endif
 
 
