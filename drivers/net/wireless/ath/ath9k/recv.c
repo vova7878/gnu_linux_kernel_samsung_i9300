@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <linux/dma-mapping.h>
 #include "ath9k.h"
 #include "ar9003_mac.h"
 
@@ -40,7 +39,6 @@ static inline bool ath_ant_div_comb_alt_check(u8 div_group, int alt_ratio,
 			result = true;
 		break;
 	case 1:
-	case 2:
 		if ((((curr_main_set == ATH_ANT_DIV_COMB_LNA2) &&
 			(curr_alt_set == ATH_ANT_DIV_COMB_LNA1) &&
 				(alt_rssi_avg >= (main_rssi_avg - 5))) ||
@@ -205,22 +203,14 @@ static void ath_rx_remove_buffer(struct ath_softc *sc,
 
 static void ath_rx_edma_cleanup(struct ath_softc *sc)
 {
-	struct ath_hw *ah = sc->sc_ah;
-	struct ath_common *common = ath9k_hw_common(ah);
 	struct ath_buf *bf;
 
 	ath_rx_remove_buffer(sc, ATH9K_RX_QUEUE_LP);
 	ath_rx_remove_buffer(sc, ATH9K_RX_QUEUE_HP);
 
 	list_for_each_entry(bf, &sc->rx.rxbuf, list) {
-		if (bf->bf_mpdu) {
-			dma_unmap_single(sc->dev, bf->bf_buf_addr,
-					common->rx_bufsize,
-					DMA_BIDIRECTIONAL);
+		if (bf->bf_mpdu)
 			dev_kfree_skb_any(bf->bf_mpdu);
-			bf->bf_buf_addr = 0;
-			bf->bf_mpdu = NULL;
-		}
 	}
 
 	INIT_LIST_HEAD(&sc->rx.rxbuf);
@@ -583,10 +573,21 @@ static bool ath_beacon_dtim_pending_cab(struct sk_buff *skb)
 
 static void ath_rx_ps_beacon(struct ath_softc *sc, struct sk_buff *skb)
 {
+	struct ieee80211_mgmt *mgmt;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 
 	if (skb->len < 24 + 8 + 2 + 2)
 		return;
+
+	mgmt = (struct ieee80211_mgmt *)skb->data;
+	if (memcmp(common->curbssid, mgmt->bssid, ETH_ALEN) != 0) {
+		/* TODO:  This doesn't work well if you have stations
+		 * associated to two different APs because curbssid
+		 * is just the last AP that any of the stations associated
+		 * with.
+		 */
+		return; /* not from our current AP */
+	}
 
 	sc->ps_flags &= ~PS_WAIT_FOR_BEACON;
 
@@ -595,6 +596,7 @@ static void ath_rx_ps_beacon(struct ath_softc *sc, struct sk_buff *skb)
 		ath_dbg(common, ATH_DBG_PS,
 			"Reconfigure Beacon timers based on timestamp from the AP\n");
 		ath_set_beacon(sc);
+		sc->ps_flags &= ~PS_TSFOOR_SYNC;
 	}
 
 	if (ath_beacon_dtim_pending_cab(skb)) {
@@ -623,7 +625,7 @@ static void ath_rx_ps_beacon(struct ath_softc *sc, struct sk_buff *skb)
 	}
 }
 
-static void ath_rx_ps(struct ath_softc *sc, struct sk_buff *skb, bool mybeacon)
+static void ath_rx_ps(struct ath_softc *sc, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
@@ -632,7 +634,7 @@ static void ath_rx_ps(struct ath_softc *sc, struct sk_buff *skb, bool mybeacon)
 
 	/* Process Beacon and CAB receive in PS state */
 	if (((sc->ps_flags & PS_WAIT_FOR_BEACON) || ath9k_check_auto_sleep(sc))
-	    && mybeacon)
+	    && ieee80211_is_beacon(hdr->frame_control))
 		ath_rx_ps_beacon(sc, skb);
 	else if ((sc->ps_flags & PS_WAIT_FOR_CAB) &&
 		 (ieee80211_is_data(hdr->frame_control) ||
@@ -755,7 +757,7 @@ static struct ath_buf *ath_get_next_rx_buf(struct ath_softc *sc,
 	 * on.  All this is necessary because of our use of
 	 * a self-linked list to avoid rx overruns.
 	 */
-	ret = ath9k_hw_rxprocdesc(ah, ds, rs);
+	ret = ath9k_hw_rxprocdesc(ah, ds, rs, 0);
 	if (ret == -EINPROGRESS) {
 		struct ath_rx_status trs;
 		struct ath_buf *tbf;
@@ -781,7 +783,7 @@ static struct ath_buf *ath_get_next_rx_buf(struct ath_softc *sc,
 		 */
 
 		tds = tbf->bf_desc;
-		ret = ath9k_hw_rxprocdesc(ah, tds, &trs);
+		ret = ath9k_hw_rxprocdesc(ah, tds, &trs, 0);
 		if (ret == -EINPROGRESS)
 			return NULL;
 	}
@@ -808,21 +810,15 @@ static bool ath9k_rx_accept(struct ath_common *common,
 			    struct ath_rx_status *rx_stats,
 			    bool *decrypt_error)
 {
-	struct ath_softc *sc = (struct ath_softc *) common->priv;
-	bool is_mc, is_valid_tkip, strip_mic, mic_error;
+#define is_mc_or_valid_tkip_keyix ((is_mc ||			\
+		(rx_stats->rs_keyix != ATH9K_RXKEYIX_INVALID && \
+		test_bit(rx_stats->rs_keyix, common->tkip_keymap))))
+
 	struct ath_hw *ah = common->ah;
 	__le16 fc;
 	u8 rx_status_len = ah->caps.rx_status_len;
 
 	fc = hdr->frame_control;
-
-	is_mc = !!is_multicast_ether_addr(hdr->addr1);
-	is_valid_tkip = rx_stats->rs_keyix != ATH9K_RXKEYIX_INVALID &&
-		test_bit(rx_stats->rs_keyix, common->tkip_keymap);
-	strip_mic = is_valid_tkip && ieee80211_is_data(fc) &&
-		!(rx_stats->rs_status &
-		(ATH9K_RXERR_DECRYPT | ATH9K_RXERR_CRC | ATH9K_RXERR_MIC |
-		 ATH9K_RXERR_KEYMISS));
 
 	if (!rx_stats->rs_datalen)
 		return false;
@@ -838,11 +834,6 @@ static bool ath9k_rx_accept(struct ath_common *common,
 	if (rx_stats->rs_more)
 		return true;
 
-	mic_error = is_valid_tkip && !ieee80211_is_ctl(fc) &&
-		!ieee80211_has_morefrags(fc) &&
-		!(le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG) &&
-		(rx_stats->rs_status & ATH9K_RXERR_MIC);
-
 	/*
 	 * The rx_stats->rs_status will not be set until the end of the
 	 * chained descriptors so it can be ignored if rs_more is set. The
@@ -850,47 +841,47 @@ static bool ath9k_rx_accept(struct ath_common *common,
 	 * descriptors.
 	 */
 	if (rx_stats->rs_status != 0) {
-		u8 status_mask;
-
-		if (rx_stats->rs_status & ATH9K_RXERR_CRC) {
+		if (rx_stats->rs_status & ATH9K_RXERR_CRC)
 			rxs->flag |= RX_FLAG_FAILED_FCS_CRC;
-			mic_error = false;
-		}
 		if (rx_stats->rs_status & ATH9K_RXERR_PHY)
 			return false;
 
-		if ((rx_stats->rs_status & ATH9K_RXERR_DECRYPT) ||
-		    (!is_mc && (rx_stats->rs_status & ATH9K_RXERR_KEYMISS))) {
+		if (rx_stats->rs_status & ATH9K_RXERR_DECRYPT) {
 			*decrypt_error = true;
-			mic_error = false;
-		}
+		} else if (rx_stats->rs_status & ATH9K_RXERR_MIC) {
+			bool is_mc;
+			/*
+			 * The MIC error bit is only valid if the frame
+			 * is not a control frame or fragment, and it was
+			 * decrypted using a valid TKIP key.
+			 */
+			is_mc = !!is_multicast_ether_addr(hdr->addr1);
 
+			if (!ieee80211_is_ctl(fc) &&
+			    !ieee80211_has_morefrags(fc) &&
+			    !(le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG) &&
+			    is_mc_or_valid_tkip_keyix)
+				rxs->flag |= RX_FLAG_MMIC_ERROR;
+			else
+				rx_stats->rs_status &= ~ATH9K_RXERR_MIC;
+		}
 		/*
 		 * Reject error frames with the exception of
 		 * decryption and MIC failures. For monitor mode,
 		 * we also ignore the CRC error.
 		 */
-		status_mask = ATH9K_RXERR_DECRYPT | ATH9K_RXERR_MIC |
-			      ATH9K_RXERR_KEYMISS;
-
-		if (ah->is_monitoring && (sc->rx.rxfilter & FIF_FCSFAIL))
-			status_mask |= ATH9K_RXERR_CRC;
-
-		if (rx_stats->rs_status & ~status_mask)
-			return false;
+		if (ah->is_monitoring) {
+			if (rx_stats->rs_status &
+			    ~(ATH9K_RXERR_DECRYPT | ATH9K_RXERR_MIC |
+			      ATH9K_RXERR_CRC))
+				return false;
+		} else {
+			if (rx_stats->rs_status &
+			    ~(ATH9K_RXERR_DECRYPT | ATH9K_RXERR_MIC)) {
+				return false;
+			}
+		}
 	}
-
-	/*
-	 * For unicast frames the MIC error bit can have false positives,
-	 * so all MIC error reports need to be validated in software.
-	 * False negatives are not common, so skip software verification
-	 * if the hardware considers the MIC valid.
-	 */
-	if (strip_mic)
-		rxs->flag |= RX_FLAG_MMIC_STRIPPED;
-	else if (is_mc && mic_error)
-		rxs->flag |= RX_FLAG_MMIC_ERROR;
-
 	return true;
 }
 
@@ -933,7 +924,7 @@ static int ath9k_process_rate(struct ath_common *common,
 	 * No valid hardware bitrate found -- we should not get here
 	 * because hardware has already validated this frame as OK.
 	 */
-	ath_dbg(common, ATH_DBG_ANY,
+	ath_dbg(common, ATH_DBG_XMIT,
 		"unsupported hw bitrate detected 0x%02x using 1 Mbit\n",
 		rx_stats->rs_rate);
 
@@ -948,11 +939,22 @@ static void ath9k_process_rssi(struct ath_common *common,
 	struct ath_softc *sc = hw->priv;
 	struct ath_hw *ah = common->ah;
 	int last_rssi;
+	__le16 fc;
 
-	if (!rx_stats->is_mybeacon ||
-	    ((ah->opmode != NL80211_IFTYPE_STATION) &&
-	     (ah->opmode != NL80211_IFTYPE_ADHOC)))
+	if ((ah->opmode != NL80211_IFTYPE_STATION) &&
+	    (ah->opmode != NL80211_IFTYPE_ADHOC))
 		return;
+
+	fc = hdr->frame_control;
+	if (!ieee80211_is_beacon(fc) ||
+	    compare_ether_addr(hdr->addr3, common->curbssid)) {
+		/* TODO:  This doesn't work well if you have stations
+		 * associated to two different APs because curbssid
+		 * is just the last AP that any of the stations associated
+		 * with.
+		 */
+		return;
+	}
 
 	if (rx_stats->rs_rssi != ATH9K_RSSI_BAD && !rx_stats->rs_moreaggr)
 		ATH_RSSI_LPF(sc->last_rssi, rx_stats->rs_rssi);
@@ -980,8 +982,6 @@ static int ath9k_rx_skb_preprocess(struct ath_common *common,
 				   struct ieee80211_rx_status *rx_status,
 				   bool *decrypt_error)
 {
-	struct ath_hw *ah = common->ah;
-
 	memset(rx_status, 0, sizeof(struct ieee80211_rx_status));
 
 	/*
@@ -1002,7 +1002,7 @@ static int ath9k_rx_skb_preprocess(struct ath_common *common,
 
 	rx_status->band = hw->conf.channel->band;
 	rx_status->freq = hw->conf.channel->center_freq;
-	rx_status->signal = ah->noise + rx_stats->rs_rssi;
+	rx_status->signal = ATH_DEFAULT_NOISE_FLOOR + rx_stats->rs_rssi;
 	rx_status->antenna = rx_stats->rs_antenna;
 	rx_status->flag |= RX_FLAG_MACTIME_MPDU;
 
@@ -1072,39 +1072,39 @@ static void ath_lnaconf_alt_good_scan(struct ath_ant_comb *antcomb,
 		antcomb->rssi_lna1 = main_rssi_avg;
 
 	switch ((ant_conf.main_lna_conf << 4) | ant_conf.alt_lna_conf) {
-	case 0x10: /* LNA2 A-B */
+	case (0x10): /* LNA2 A-B */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		antcomb->second_quick_scan_conf = ATH_ANT_DIV_COMB_LNA1;
 		break;
-	case 0x20: /* LNA1 A-B */
+	case (0x20): /* LNA1 A-B */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		antcomb->second_quick_scan_conf = ATH_ANT_DIV_COMB_LNA2;
 		break;
-	case 0x21: /* LNA1 LNA2 */
+	case (0x21): /* LNA1 LNA2 */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA2;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
 		antcomb->second_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		break;
-	case 0x12: /* LNA2 LNA1 */
+	case (0x12): /* LNA2 LNA1 */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA1;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
 		antcomb->second_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		break;
-	case 0x13: /* LNA2 A+B */
+	case (0x13): /* LNA2 A+B */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
 		antcomb->second_quick_scan_conf = ATH_ANT_DIV_COMB_LNA1;
 		break;
-	case 0x23: /* LNA1 A+B */
+	case (0x23): /* LNA1 A+B */
 		antcomb->main_conf = ATH_ANT_DIV_COMB_LNA1_PLUS_LNA2;
 		antcomb->first_quick_scan_conf =
 			ATH_ANT_DIV_COMB_LNA1_MINUS_LNA2;
@@ -1321,124 +1321,41 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 		/* Adjust the fast_div_bias based on main and alt lna conf */
 		switch ((ant_conf->main_lna_conf << 4) |
 				ant_conf->alt_lna_conf) {
-		case 0x01: /* A-B LNA2 */
+		case (0x01): /* A-B LNA2 */
 			ant_conf->fast_div_bias = 0x3b;
 			break;
-		case 0x02: /* A-B LNA1 */
+		case (0x02): /* A-B LNA1 */
 			ant_conf->fast_div_bias = 0x3d;
 			break;
-		case 0x03: /* A-B A+B */
+		case (0x03): /* A-B A+B */
 			ant_conf->fast_div_bias = 0x1;
 			break;
-		case 0x10: /* LNA2 A-B */
+		case (0x10): /* LNA2 A-B */
 			ant_conf->fast_div_bias = 0x7;
 			break;
-		case 0x12: /* LNA2 LNA1 */
+		case (0x12): /* LNA2 LNA1 */
 			ant_conf->fast_div_bias = 0x2;
 			break;
-		case 0x13: /* LNA2 A+B */
+		case (0x13): /* LNA2 A+B */
 			ant_conf->fast_div_bias = 0x7;
 			break;
-		case 0x20: /* LNA1 A-B */
+		case (0x20): /* LNA1 A-B */
 			ant_conf->fast_div_bias = 0x6;
 			break;
-		case 0x21: /* LNA1 LNA2 */
+		case (0x21): /* LNA1 LNA2 */
 			ant_conf->fast_div_bias = 0x0;
 			break;
-		case 0x23: /* LNA1 A+B */
+		case (0x23): /* LNA1 A+B */
 			ant_conf->fast_div_bias = 0x6;
 			break;
-		case 0x30: /* A+B A-B */
+		case (0x30): /* A+B A-B */
 			ant_conf->fast_div_bias = 0x1;
 			break;
-		case 0x31: /* A+B LNA2 */
+		case (0x31): /* A+B LNA2 */
 			ant_conf->fast_div_bias = 0x3b;
 			break;
-		case 0x32: /* A+B LNA1 */
+		case (0x32): /* A+B LNA1 */
 			ant_conf->fast_div_bias = 0x3d;
-			break;
-		default:
-			break;
-		}
-	} else if (ant_conf->div_group == 1) {
-		/* Adjust the fast_div_bias based on main and alt_lna_conf */
-		switch ((ant_conf->main_lna_conf << 4) |
-			ant_conf->alt_lna_conf) {
-		case 0x01: /* A-B LNA2 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x02: /* A-B LNA1 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x03: /* A-B A+B */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x10: /* LNA2 A-B */
-			if (!(antcomb->scan) &&
-			    (alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
-				ant_conf->fast_div_bias = 0x3f;
-			else
-				ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x12: /* LNA2 LNA1 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x13: /* LNA2 A+B */
-			if (!(antcomb->scan) &&
-			    (alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
-				ant_conf->fast_div_bias = 0x3f;
-			else
-				ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x20: /* LNA1 A-B */
-			if (!(antcomb->scan) &&
-			    (alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
-				ant_conf->fast_div_bias = 0x3f;
-			else
-				ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x21: /* LNA1 LNA2 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x23: /* LNA1 A+B */
-			if (!(antcomb->scan) &&
-			    (alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
-				ant_conf->fast_div_bias = 0x3f;
-			else
-				ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x30: /* A+B A-B */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x31: /* A+B LNA2 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
-			break;
-		case 0x32: /* A+B LNA1 */
-			ant_conf->fast_div_bias = 0x1;
-			ant_conf->main_gaintb = 0;
-			ant_conf->alt_gaintb = 0;
 			break;
 		default:
 			break;
@@ -1447,22 +1364,22 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 		/* Adjust the fast_div_bias based on main and alt_lna_conf */
 		switch ((ant_conf->main_lna_conf << 4) |
 				ant_conf->alt_lna_conf) {
-		case 0x01: /* A-B LNA2 */
+		case (0x01): /* A-B LNA2 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x02: /* A-B LNA1 */
+		case (0x02): /* A-B LNA1 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x03: /* A-B A+B */
+		case (0x03): /* A-B A+B */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x10: /* LNA2 A-B */
+		case (0x10): /* LNA2 A-B */
 			if (!(antcomb->scan) &&
 				(alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
 				ant_conf->fast_div_bias = 0x1;
@@ -1471,12 +1388,12 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x12: /* LNA2 LNA1 */
+		case (0x12): /* LNA2 LNA1 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x13: /* LNA2 A+B */
+		case (0x13): /* LNA2 A+B */
 			if (!(antcomb->scan) &&
 				(alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
 				ant_conf->fast_div_bias = 0x1;
@@ -1485,7 +1402,7 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x20: /* LNA1 A-B */
+		case (0x20): /* LNA1 A-B */
 			if (!(antcomb->scan) &&
 				(alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
 				ant_conf->fast_div_bias = 0x1;
@@ -1494,12 +1411,12 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x21: /* LNA1 LNA2 */
+		case (0x21): /* LNA1 LNA2 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x23: /* LNA1 A+B */
+		case (0x23): /* LNA1 A+B */
 			if (!(antcomb->scan) &&
 				(alt_ratio > ATH_ANT_DIV_COMB_ALT_ANT_RATIO))
 				ant_conf->fast_div_bias = 0x1;
@@ -1508,17 +1425,17 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x30: /* A+B A-B */
+		case (0x30): /* A+B A-B */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x31: /* A+B LNA2 */
+		case (0x31): /* A+B LNA2 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
 			break;
-		case 0x32: /* A+B LNA1 */
+		case (0x32): /* A+B LNA1 */
 			ant_conf->fast_div_bias = 0x1;
 			ant_conf->main_gaintb = 0;
 			ant_conf->alt_gaintb = 0;
@@ -1526,7 +1443,9 @@ static void ath_ant_div_conf_fast_divbias(struct ath_hw_antcomb_conf *ant_conf,
 		default:
 			break;
 		}
+
 	}
+
 }
 
 /* Antenna diversity and combining */
@@ -1770,10 +1689,14 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 	struct ieee80211_rx_status *rxs;
 	struct ath_hw *ah = sc->sc_ah;
 	struct ath_common *common = ath9k_hw_common(ah);
+	/*
+	 * The hw can technically differ from common->hw when using ath9k
+	 * virtual wiphy so to account for that we iterate over the active
+	 * wiphys and find the appropriate wiphy and therefore hw.
+	 */
 	struct ieee80211_hw *hw = sc->hw;
 	struct ieee80211_hdr *hdr;
 	int retval;
-	bool decrypt_error = false;
 	struct ath_rx_status rs;
 	enum ath9k_rx_qtype qtype;
 	bool edma = !!(ah->caps.hw_caps & ATH9K_HW_CAP_EDMA);
@@ -1795,6 +1718,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 	tsf_lower = tsf & 0xffffffff;
 
 	do {
+		bool decrypt_error = false;
 		/* If handling rx interrupt and flush is in progress => exit */
 		if ((sc->sc_flags & SC_OP_RXFLUSH) && (flush == 0))
 			break;
@@ -1823,11 +1747,6 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 
 		hdr = (struct ieee80211_hdr *) (hdr_skb->data + rx_status_len);
 		rxs = IEEE80211_SKB_RXCB(hdr_skb);
-		if (ieee80211_is_beacon(hdr->frame_control) &&
-		    !compare_ether_addr(hdr->addr3, common->curbssid))
-			rs.is_mybeacon = true;
-		else
-			rs.is_mybeacon = false;
 
 		ath_debug_stat_rx(sc, &rs);
 
@@ -1835,7 +1754,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		 * If we're asked to flush receive queue, directly
 		 * chain it back at the queue without processing it.
 		 */
-		if (sc->sc_flags & SC_OP_RXFLUSH)
+		if (flush)
 			goto requeue_drop_frag;
 
 		retval = ath9k_rx_skb_preprocess(common, hw, hdr, &rs,
@@ -1934,19 +1853,16 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 			sc->rx.rxotherant = 0;
 		}
 
-		if (rxs->flag & RX_FLAG_MMIC_STRIPPED)
-			skb_trim(skb, skb->len - 8);
-
 		spin_lock_irqsave(&sc->sc_pm_lock, flags);
 
 		if ((sc->ps_flags & (PS_WAIT_FOR_BEACON |
-				     PS_WAIT_FOR_CAB |
-				     PS_WAIT_FOR_PSPOLL_DATA)) ||
-		    ath9k_check_auto_sleep(sc))
-			ath_rx_ps(sc, skb, rs.is_mybeacon);
+					      PS_WAIT_FOR_CAB |
+					      PS_WAIT_FOR_PSPOLL_DATA)) ||
+						ath9k_check_auto_sleep(sc))
+			ath_rx_ps(sc, skb);
 		spin_unlock_irqrestore(&sc->sc_pm_lock, flags);
 
-		if ((ah->caps.hw_caps & ATH9K_HW_CAP_ANT_DIV_COMB) && sc->ant_rx == 3)
+		if (ah->caps.hw_caps & ATH9K_HW_CAP_ANT_DIV_COMB)
 			ath_ant_comb_scan(sc, &rs);
 
 		ieee80211_rx(hw, skb);
@@ -1963,17 +1879,11 @@ requeue:
 		} else {
 			list_move_tail(&bf->list, &sc->rx.rxbuf);
 			ath_rx_buf_link(sc, bf);
-			if (!flush)
-				ath9k_hw_rxena(ah);
+			ath9k_hw_rxena(ah);
 		}
 	} while (1);
 
 	spin_unlock_bh(&sc->rx.rxbuflock);
-
-	if (!(ah->imask & ATH9K_INT_RXEOL)) {
-		ah->imask |= (ATH9K_INT_RXEOL | ATH9K_INT_RXORN);
-		ath9k_hw_set_interrupts(ah);
-	}
 
 	return 0;
 }

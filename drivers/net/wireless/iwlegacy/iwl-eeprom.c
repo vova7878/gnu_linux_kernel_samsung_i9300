@@ -316,6 +316,7 @@ static void iwl_legacy_init_band_reference(const struct iwl_priv *priv,
 		break;
 	default:
 		BUG();
+		return;
 	}
 }
 
