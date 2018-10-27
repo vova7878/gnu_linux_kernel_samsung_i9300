@@ -15,7 +15,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/export.h>
 #include "hw.h"
 #include "hw-ops.h"
 
@@ -273,8 +272,7 @@ static void ath9k_hw_set_ofdm_nil(struct ath_hw *ah, u8 immunityLevel)
 		immunityLevel, aniState->noiseFloor,
 		aniState->rssiThrLow, aniState->rssiThrHigh);
 
-	if (aniState->update_ani)
-		aniState->ofdmNoiseImmunityLevel = immunityLevel;
+	aniState->ofdmNoiseImmunityLevel = immunityLevel;
 
 	entry_ofdm = &ofdm_level_table[aniState->ofdmNoiseImmunityLevel];
 	entry_cck = &cck_level_table[aniState->cckNoiseImmunityLevel];
@@ -346,8 +344,7 @@ static void ath9k_hw_set_cck_nil(struct ath_hw *ah, u_int8_t immunityLevel)
 	    immunityLevel > ATH9K_ANI_CCK_MAX_LEVEL_LOW_RSSI)
 		immunityLevel = ATH9K_ANI_CCK_MAX_LEVEL_LOW_RSSI;
 
-	if (aniState->update_ani)
-		aniState->cckNoiseImmunityLevel = immunityLevel;
+	aniState->cckNoiseImmunityLevel = immunityLevel;
 
 	entry_ofdm = &ofdm_level_table[aniState->ofdmNoiseImmunityLevel];
 	entry_cck = &cck_level_table[aniState->cckNoiseImmunityLevel];
@@ -588,7 +585,6 @@ void ath9k_ani_reset(struct ath_hw *ah, bool is_scanning)
 				aniState->ofdmNoiseImmunityLevel,
 				aniState->cckNoiseImmunityLevel);
 
-			aniState->update_ani = false;
 			ath9k_hw_set_ofdm_nil(ah, ATH9K_ANI_OFDM_DEF_LEVEL);
 			ath9k_hw_set_cck_nil(ah, ATH9K_ANI_CCK_DEF_LEVEL);
 		}
@@ -605,7 +601,6 @@ void ath9k_ani_reset(struct ath_hw *ah, bool is_scanning)
 			aniState->ofdmNoiseImmunityLevel,
 			aniState->cckNoiseImmunityLevel);
 
-			aniState->update_ani = true;
 			ath9k_hw_set_ofdm_nil(ah,
 					      aniState->ofdmNoiseImmunityLevel);
 			ath9k_hw_set_cck_nil(ah,
@@ -640,7 +635,7 @@ static bool ath9k_hw_ani_read_counters(struct ath_hw *ah)
 	listenTime = ath_hw_get_listen_time(common);
 
 	if (listenTime <= 0) {
-		ah->stats.ast_ani_lneg_or_lzero++;
+		ah->stats.ast_ani_lneg++;
 		ath9k_ani_restart(ah);
 		return false;
 	}
@@ -889,8 +884,6 @@ void ath9k_hw_ani_init(struct ath_hw *ah)
 		ani->ofdmWeakSigDetectOff =
 			!ATH9K_ANI_USE_OFDM_WEAK_SIG;
 		ani->cckNoiseImmunityLevel = ATH9K_ANI_CCK_DEF_LEVEL;
-		ani->ofdmNoiseImmunityLevel = ATH9K_ANI_OFDM_DEF_LEVEL;
-		ani->update_ani = false;
 	}
 
 	/*

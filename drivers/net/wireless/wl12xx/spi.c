@@ -21,7 +21,6 @@
  *
  */
 
-#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/crc7.h>
@@ -384,6 +383,8 @@ static int __devinit wl1271_probe(struct spi_device *spi)
 		goto out_dev_put;
 	}
 
+	wl1271_notice("initialized");
+
 	return 0;
 
 out_dev_put:
@@ -419,12 +420,23 @@ static struct spi_driver wl1271_spi_driver = {
 
 static int __init wl1271_init(void)
 {
-	return spi_register_driver(&wl1271_spi_driver);
+	int ret;
+
+	ret = spi_register_driver(&wl1271_spi_driver);
+	if (ret < 0) {
+		wl1271_error("failed to register spi driver: %d", ret);
+		goto out;
+	}
+
+out:
+	return ret;
 }
 
 static void __exit wl1271_exit(void)
 {
 	spi_unregister_driver(&wl1271_spi_driver);
+
+	wl1271_notice("unloaded");
 }
 
 module_init(wl1271_init);
@@ -433,6 +445,8 @@ module_exit(wl1271_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
 MODULE_AUTHOR("Juuso Oikarinen <juuso.oikarinen@nokia.com>");
-MODULE_FIRMWARE(WL127X_FW_NAME);
+MODULE_FIRMWARE(WL1271_FW_NAME);
 MODULE_FIRMWARE(WL128X_FW_NAME);
+MODULE_FIRMWARE(WL127X_AP_FW_NAME);
+MODULE_FIRMWARE(WL128X_AP_FW_NAME);
 MODULE_ALIAS("spi:wl1271");

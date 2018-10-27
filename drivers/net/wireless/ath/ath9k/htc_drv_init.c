@@ -507,8 +507,8 @@ static void setup_ht_cap(struct ath9k_htc_priv *priv,
 	memset(&ht_info->mcs, 0, sizeof(ht_info->mcs));
 
 	/* ath9k_htc supports only 1 or 2 stream devices */
-	tx_streams = ath9k_cmn_count_streams(priv->ah->txchainmask, 2);
-	rx_streams = ath9k_cmn_count_streams(priv->ah->rxchainmask, 2);
+	tx_streams = ath9k_cmn_count_streams(common->tx_chainmask, 2);
+	rx_streams = ath9k_cmn_count_streams(common->rx_chainmask, 2);
 
 	ath_dbg(common, CONFIG, "TX streams %d, RX streams: %d\n",
 		tx_streams, rx_streams);
@@ -569,6 +569,25 @@ err:
 	return -EINVAL;
 }
 
+static void ath9k_init_crypto(struct ath9k_htc_priv *priv)
+{
+	struct ath_common *common = ath9k_hw_common(priv->ah);
+	int i = 0;
+
+	/* Get the hardware key cache size. */
+	common->keymax = AR_KEYTABLE_SIZE;
+
+	if (priv->ah->misc_mode & AR_PCU_MIC_NEW_LOC_ENA)
+		common->crypt_caps |= ATH_CRYPT_CAP_MIC_COMBINED;
+
+	/*
+	 * Reset the key cache since some parts do not
+	 * reset the contents on initial power up.
+	 */
+	for (i = 0; i < common->keymax; i++)
+		ath_hw_keyreset(common, (u16) i);
+}
+
 static void ath9k_init_channels_rates(struct ath9k_htc_priv *priv)
 {
 	if (priv->ah->caps.hw_caps & ATH9K_HW_CAP_2GHZ) {
@@ -597,6 +616,9 @@ static void ath9k_init_channels_rates(struct ath9k_htc_priv *priv)
 static void ath9k_init_misc(struct ath9k_htc_priv *priv)
 {
 	struct ath_common *common = ath9k_hw_common(priv->ah);
+
+	common->tx_chainmask = priv->ah->caps.tx_chainmask;
+	common->rx_chainmask = priv->ah->caps.rx_chainmask;
 
 	memcpy(common->bssidmask, ath_bcast_mac, ETH_ALEN);
 
@@ -641,6 +663,7 @@ static int ath9k_init_priv(struct ath9k_htc_priv *priv,
 		return -ENOMEM;
 
 	ah->hw_version.devid = devid;
+	ah->hw_version.subsysid = 0; /* FIXME */
 	ah->hw_version.usbdev = drv_info;
 	ah->ah_flags |= AH_USE_EEPROM;
 	ah->reg_ops.read = ath9k_regread;
@@ -695,7 +718,7 @@ static int ath9k_init_priv(struct ath9k_htc_priv *priv,
 	for (i = 0; i < ATH9K_HTC_MAX_BCN_VIF; i++)
 		priv->cur_beacon_conf.bslot[i] = NULL;
 
-	ath9k_cmn_init_crypto(ah);
+	ath9k_init_crypto(priv);
 	ath9k_init_channels_rates(priv);
 	ath9k_init_misc(priv);
 
@@ -729,7 +752,6 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
 		IEEE80211_HW_RX_INCLUDES_FCS |
 		IEEE80211_HW_SUPPORTS_PS |
 		IEEE80211_HW_PS_NULLFUNC_STACK |
-		IEEE80211_HW_REPORTS_TX_ACK_STATUS |
 		IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING;
 
 	hw->wiphy->interface_modes =
@@ -799,7 +821,7 @@ static int ath9k_init_firmware_version(struct ath9k_htc_priv *priv)
 	 * required version.
 	 */
 	if (priv->fw_version_major != MAJOR_VERSION_REQ ||
-	    priv->fw_version_minor != MINOR_VERSION_REQ) {
+	    priv->fw_version_minor < MINOR_VERSION_REQ) {
 		dev_err(priv->dev, "ath9k_htc: Please upgrade to FW version %d.%d\n",
 			MAJOR_VERSION_REQ, MINOR_VERSION_REQ);
 		return -EINVAL;
@@ -849,6 +871,7 @@ static int ath9k_init_device(struct ath9k_htc_priv *priv,
 	if (error != 0)
 		goto err_rx;
 
+	ath9k_hw_disable(priv->ah);
 #ifdef CONFIG_MAC80211_LEDS
 	/* must be initialized before ieee80211_register_hw */
 	priv->led_cdev.default_trigger = ieee80211_create_tpt_led_trigger(priv->hw,

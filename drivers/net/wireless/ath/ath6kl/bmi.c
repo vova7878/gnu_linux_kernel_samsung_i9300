@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2011 Atheros Communications Inc.
+ * Copyright (c) 2011-2012 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -57,8 +58,14 @@ int ath6kl_bmi_get_target_info(struct ath6kl *ar,
 		return ret;
 	}
 
-	ret = ath6kl_hif_bmi_read(ar, (u8 *)&targ_info->version,
-				  sizeof(targ_info->version));
+	if (ar->hif_type == ATH6KL_HIF_TYPE_USB) {
+		ret = ath6kl_hif_bmi_read(ar, (u8 *)targ_info,
+					  sizeof(*targ_info));
+	} else {
+		ret = ath6kl_hif_bmi_read(ar, (u8 *)&targ_info->version,
+				sizeof(targ_info->version));
+	}
+
 	if (ret) {
 		ath6kl_err("Unable to recv target info: %d\n", ret);
 		return ret;

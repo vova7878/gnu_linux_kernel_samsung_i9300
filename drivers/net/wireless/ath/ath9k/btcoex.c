@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <linux/export.h>
 #include "hw.h"
 
 enum ath_bt_mode {
@@ -65,7 +64,7 @@ void ath9k_hw_init_btcoex_hw(struct ath_hw *ah, int qnum)
 		.bt_first_slot_time = 5,
 		.bt_hold_rx_clear = true,
 	};
-	u32 i, idx;
+	u32 i;
 	bool rxclear_polarity = ath_bt_config.bt_rxclear_polarity;
 
 	if (ath9k_hw_get_btcoex_scheme(ah) == ATH_BTCOEX_CFG_NONE)
@@ -91,10 +90,8 @@ void ath9k_hw_init_btcoex_hw(struct ath_hw *ah, int qnum)
 		SM(ATH_BTCOEX_BMISS_THRESH, AR_BT_BCN_MISS_THRESH) |
 		AR_BT_DISABLE_BT_ANT;
 
-	for (i = 0; i < 32; i++) {
-		idx = (debruijn32 << i) >> 27;
-		ah->hw_gen_timers.gen_timer_index[idx] = i;
-	}
+	for (i = 0; i < 32; i++)
+		ah->hw_gen_timers.gen_timer_index[(debruijn32 << i) >> 27] = i;
 }
 EXPORT_SYMBOL(ath9k_hw_init_btcoex_hw);
 

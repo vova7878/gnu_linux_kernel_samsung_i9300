@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2011 Atheros Communications Inc.
+ * Copyright (c) 2011 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -83,6 +84,7 @@ static inline void ath6kl_hif_cleanup_scatter(struct ath6kl *ar)
 	return ar->hif_ops->cleanup_scatter(ar);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 static inline int ath6kl_hif_suspend(struct ath6kl *ar,
 				     struct cfg80211_wowlan *wow)
 {
@@ -90,6 +92,7 @@ static inline int ath6kl_hif_suspend(struct ath6kl *ar,
 
 	return ar->hif_ops->suspend(ar, wow);
 }
+#endif
 
 /*
  * Read from the ATH6KL through its diagnostic window. No cooperation from
@@ -121,12 +124,14 @@ static inline int ath6kl_hif_bmi_write(struct ath6kl *ar, u8 *buf, u32 len)
 	return ar->hif_ops->bmi_write(ar, buf, len);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 static inline int ath6kl_hif_resume(struct ath6kl *ar)
 {
 	ath6kl_dbg(ATH6KL_DBG_HIF, "hif resume\n");
 
 	return ar->hif_ops->resume(ar);
 }
+#endif
 
 static inline int ath6kl_hif_power_on(struct ath6kl *ar)
 {

@@ -406,6 +406,8 @@ mwifiex_wmm_init(struct mwifiex_adapter *adapter)
 		priv->add_ba_param.tx_win_size = MWIFIEX_AMPDU_DEF_TXWINSIZE;
 		priv->add_ba_param.rx_win_size = MWIFIEX_AMPDU_DEF_RXWINSIZE;
 
+		mwifiex_reset_11n_rx_seq_num(priv);
+
 		atomic_set(&priv->wmm.tx_pkts_queued, 0);
 		atomic_set(&priv->wmm.highest_queued_prio, HIGH_PRIO_TID);
 	}
@@ -633,8 +635,6 @@ mwifiex_wmm_add_buf_txqueue(struct mwifiex_adapter *adapter,
 			ra_list = NULL;
 	} else {
 		memcpy(ra, skb->data, ETH_ALEN);
-		if (ra[0] & 0x01)
-			memset(ra, 0xff, ETH_ALEN);
 		ra_list = mwifiex_wmm_get_queue_raptr(priv, tid_down, ra);
 	}
 
@@ -973,25 +973,25 @@ mwifiex_wmm_get_highest_priolist_ptr(struct mwifiex_adapter *adapter,
 }
 
 /*
- * This function checks if 11n aggregation is possible.
+ * This function gets the number of packets in the Tx queue of a
+ * particular RA list.
  */
 static int
-mwifiex_is_11n_aggragation_possible(struct mwifiex_private *priv,
-				    struct mwifiex_ra_list_tbl *ptr,
-				    int max_buf_size)
+mwifiex_num_pkts_in_txq(struct mwifiex_private *priv,
+			struct mwifiex_ra_list_tbl *ptr, int max_buf_size)
 {
 	int count = 0, total_size = 0;
 	struct sk_buff *skb, *tmp;
 
 	skb_queue_walk_safe(&ptr->skb_head, skb, tmp) {
 		total_size += skb->len;
-		if (total_size >= max_buf_size)
+		if (total_size < max_buf_size)
+			++count;
+		else
 			break;
-		if (++count >= MIN_NUM_AMSDU)
-			return true;
 	}
 
-	return false;
+	return count;
 }
 
 /*
@@ -1125,8 +1125,8 @@ mwifiex_send_processed_packet(struct mwifiex_private *priv,
 	tx_param.next_pkt_len =
 		((skb_next) ? skb_next->len +
 		 sizeof(struct txpd) : 0);
-	ret = adapter->if_ops.host_to_card(adapter, MWIFIEX_TYPE_DATA, skb,
-					   &tx_param);
+	ret = adapter->if_ops.host_to_card(adapter, MWIFIEX_TYPE_DATA,
+					   skb->data, skb->len, &tx_param);
 	switch (ret) {
 	case -EBUSY:
 		dev_dbg(adapter->dev, "data: -EBUSY is returned\n");
@@ -1231,9 +1231,11 @@ mwifiex_dequeue_tx_packet(struct mwifiex_adapter *adapter)
 				mwifiex_send_delba(priv, tid_del, ra, 1);
 			}
 		}
+/* Minimum number of AMSDU */
+#define MIN_NUM_AMSDU 2
 		if (mwifiex_is_amsdu_allowed(priv, tid) &&
-		    mwifiex_is_11n_aggragation_possible(priv, ptr,
-							adapter->tx_buf_size))
+		    (mwifiex_num_pkts_in_txq(priv, ptr, adapter->tx_buf_size) >=
+		     MIN_NUM_AMSDU))
 			mwifiex_11n_aggregate_pkt(priv, ptr, INTF_HEADER_LEN,
 						  ptr_index, flags);
 			/* ra_list_spinlock has been freed in
