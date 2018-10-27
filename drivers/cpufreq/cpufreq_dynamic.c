@@ -307,12 +307,13 @@ static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 	u64 busy_time;
 
 	cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
+	busy_time = kcpustat_cpu(cpu).cpustat[CPUTIME_USER] +
+		    kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
 
-	busy_time = cputime64_add(kstat_cpu(cpu).cpustat.user, kstat_cpu(cpu).cpustat.system);
-	busy_time = cputime64_add(busy_time, kstat_cpu(cpu).cpustat.irq);
-	busy_time = cputime64_add(busy_time, kstat_cpu(cpu).cpustat.softirq);
-	busy_time = cputime64_add(busy_time, kstat_cpu(cpu).cpustat.steal);
-	busy_time = cputime64_add(busy_time, kstat_cpu(cpu).cpustat.nice);
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 
 	idle_time = cur_wall_time - busy_time;
 	if (wall)
@@ -754,11 +755,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				|| (standby && dbs_tuners_ins.ignore_nice >= IGNORE_NICE_STANDBY)
 				|| (suspend && !boosted)
 				) {
-			cputime64_t cur_nice;
+			u64 cur_nice;
 			unsigned long cur_nice_jiffies;
 
-			cur_nice = cputime64_sub(kstat_cpu(j).cpustat.nice,
-					 j_dbs_info->prev_cpu_nice);
+			cur_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE] -
+					j_dbs_info->prev_cpu_nice;
 			/*
 			 * Assumption: nice time between sampling periods will
 			 * be less than 2^32 jiffies for 32 bit sys
@@ -768,7 +769,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 			idle_time += jiffies_to_usecs(cur_nice_jiffies);
 		}
-		j_dbs_info->prev_cpu_nice = kstat_cpu(j).cpustat.nice;
+		j_dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
@@ -1158,7 +1159,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 						&j_dbs_info->prev_cpu_wall, &j_dbs_info->prev_cpu_io);
 			if (dbs_tuners_ins.ignore_nice) {
 				j_dbs_info->prev_cpu_nice =
-						kstat_cpu(j).cpustat.nice;
+						kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 			}
 			recalculate_down_threshold(j_dbs_info);
 		}
