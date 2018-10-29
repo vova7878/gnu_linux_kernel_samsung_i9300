@@ -537,8 +537,8 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device)
 		return -ENOMEM;
 
 	if (!zalloc_cpumask_var(&pr->throttling.shared_cpu_map, GFP_KERNEL)) {
-		result = -ENOMEM;
-		goto err_free_pr;
+		kfree(pr);
+		return -ENOMEM;
 	}
 
 	pr->handle = device->handle;
@@ -578,7 +578,7 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device)
 	dev = get_cpu_device(pr->id);
 	if (sysfs_create_link(&device->dev.kobj, &dev->kobj, "sysdev")) {
 		result = -EFAULT;
-		goto err_clear_processor;
+		goto err_free_cpumask;
 	}
 
 	/*
@@ -596,15 +596,9 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device)
 
 err_remove_sysfs:
 	sysfs_remove_link(&device->dev.kobj, "sysdev");
-err_clear_processor:
-	/*
-	 * processor_device_array is not cleared to allow checks for buggy BIOS
-	 */ 
-	per_cpu(processors, pr->id) = NULL;
 err_free_cpumask:
 	free_cpumask_var(pr->throttling.shared_cpu_map);
-err_free_pr:
-	kfree(pr);
+
 	return result;
 }
 
