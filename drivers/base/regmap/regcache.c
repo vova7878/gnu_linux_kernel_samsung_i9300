@@ -12,7 +12,6 @@
 
 #include <linux/slab.h>
 #include <linux/export.h>
-#include <linux/device.h>
 #include <trace/events/regmap.h>
 #include <linux/bsearch.h>
 #include <linux/sort.h>
@@ -36,17 +35,12 @@ static int regcache_hw_init(struct regmap *map)
 		return -EINVAL;
 
 	if (!map->reg_defaults_raw) {
-		u32 cache_bypass = map->cache_bypass;
 		dev_warn(map->dev, "No cache defaults, reading back from HW\n");
-
-		/* Bypass the cache access till data read from HW*/
-		map->cache_bypass = 1;
 		tmp_buf = kmalloc(map->cache_size_raw, GFP_KERNEL);
 		if (!tmp_buf)
 			return -EINVAL;
 		ret = regmap_bulk_read(map, 0, tmp_buf,
 				       map->num_reg_defaults_raw);
-		map->cache_bypass = cache_bypass;
 		if (ret < 0) {
 			kfree(tmp_buf);
 			return ret;
@@ -59,7 +53,7 @@ static int regcache_hw_init(struct regmap *map)
 	for (count = 0, i = 0; i < map->num_reg_defaults_raw; i++) {
 		val = regcache_get_val(map->reg_defaults_raw,
 				       i, map->cache_word_size);
-		if (regmap_volatile(map, i))
+		if (!val)
 			continue;
 		count++;
 	}
@@ -76,7 +70,7 @@ static int regcache_hw_init(struct regmap *map)
 	for (i = 0, j = 0; i < map->num_reg_defaults_raw; i++) {
 		val = regcache_get_val(map->reg_defaults_raw,
 				       i, map->cache_word_size);
-		if (regmap_volatile(map, i))
+		if (!val)
 			continue;
 		map->reg_defaults[j].reg = i;
 		map->reg_defaults[j].def = val;
@@ -217,6 +211,7 @@ int regcache_read(struct regmap *map,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL_GPL(regcache_read);
 
 /**
  * regcache_write: Set the value of a given register in the cache.
@@ -243,6 +238,7 @@ int regcache_write(struct regmap *map,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(regcache_write);
 
 /**
  * regcache_sync: Sync the register cache with the hardware.
@@ -258,12 +254,11 @@ int regcache_write(struct regmap *map,
 int regcache_sync(struct regmap *map)
 {
 	int ret = 0;
-	unsigned int val;
 	unsigned int i;
 	const char *name;
 	unsigned int bypass;
 
-	BUG_ON(!map->cache_ops);
+	BUG_ON(!map->cache_ops || !map->cache_ops->sync);
 
 	mutex_lock(&map->lock);
 	/* Remember the initial bypass state */
@@ -288,24 +283,8 @@ int regcache_sync(struct regmap *map)
 	}
 	map->cache_bypass = 0;
 
-	if (map->cache_ops->sync) {
-		ret = map->cache_ops->sync(map);
-	} else {
-		for (i = 0; i < map->num_reg_defaults; i++) {
-			ret = regcache_read(map, i, &val);
-			if (ret < 0)
-				goto out;
-			map->cache_bypass = 1;
-			ret = _regmap_write(map, i, val);
-			map->cache_bypass = 0;
-			if (ret < 0)
-				goto out;
-			dev_dbg(map->dev, "Synced register %#x, value %#x\n",
-				map->reg_defaults[i].reg,
-				map->reg_defaults[i].def);
-		}
+	ret = map->cache_ops->sync(map);
 
-	}
 out:
 	trace_regcache_sync(map->dev, name, "stop");
 	/* Restore the bypass state */
@@ -392,16 +371,10 @@ bool regcache_set_val(void *base, unsigned int idx,
 		cache[idx] = val;
 		break;
 	}
-	case 4: {
-		u32 *cache = base;
-		if (cache[idx] == val)
-			return true;
-		cache[idx] = val;
-		break;
-	}
 	default:
 		BUG();
 	}
+	/* unreachable */
 	return false;
 }
 
@@ -418,10 +391,6 @@ unsigned int regcache_get_val(const void *base, unsigned int idx,
 	}
 	case 2: {
 		const u16 *cache = base;
-		return cache[idx];
-	}
-	case 4: {
-		const u32 *cache = base;
 		return cache[idx];
 	}
 	default:
