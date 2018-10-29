@@ -764,10 +764,8 @@ static int pm_genpd_prepare(struct device *dev)
 
 	genpd_acquire_lock(genpd);
 
-	if (genpd->prepared_count++ == 0) {
-		genpd->suspended_count = 0;
+	if (genpd->prepared_count++ == 0)
 		genpd->suspend_power_off = genpd->status == GPD_STATE_POWER_OFF;
-	}
 
 	genpd_release_lock(genpd);
 
@@ -1099,30 +1097,20 @@ static int pm_genpd_restore_noirq(struct device *dev)
 	 * Since all of the "noirq" callbacks are executed sequentially, it is
 	 * guaranteed that this function will never run twice in parallel for
 	 * the same PM domain, so it is not necessary to use locking here.
-	 *
-	 * At this point suspended_count == 0 means we are being run for the
-	 * first time for the given domain in the present cycle.
 	 */
-	if (genpd->suspended_count++ == 0) {
+	genpd->status = GPD_STATE_POWER_OFF;
+	if (genpd->suspend_power_off) {
 		/*
-		 * The boot kernel might put the domain into arbitrary state,
-		 * so make it appear as powered off to pm_genpd_poweron(), so
-		 * that it tries to power it on in case it was really off.
+		 * The boot kernel might put the domain into the power on state,
+		 * so make sure it really is powered off.
 		 */
-		genpd->status = GPD_STATE_POWER_OFF;
-		if (genpd->suspend_power_off) {
-			/*
-			 * If the domain was off before the hibernation, make
-			 * sure it will be off going forward.
-			 */
-			if (genpd->power_off)
-				genpd->power_off(genpd);
-
-			return 0;
-		}
+		if (genpd->power_off)
+			genpd->power_off(genpd);
+		return 0;
 	}
 
 	pm_genpd_poweron(genpd);
+	genpd->suspended_count--;
 
 	return genpd_start_dev(genpd, dev);
 }
@@ -1661,6 +1649,7 @@ void pm_genpd_init(struct generic_pm_domain *genpd,
 	genpd->poweroff_task = NULL;
 	genpd->resume_count = 0;
 	genpd->device_count = 0;
+	genpd->suspended_count = 0;
 	genpd->max_off_time_ns = -1;
 	genpd->domain.ops.runtime_suspend = pm_genpd_runtime_suspend;
 	genpd->domain.ops.runtime_resume = pm_genpd_runtime_resume;
