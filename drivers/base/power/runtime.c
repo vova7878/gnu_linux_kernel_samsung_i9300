@@ -1091,9 +1091,6 @@ int pm_runtime_barrier(struct device *dev)
 {
 	int retval = 0;
 
-#ifdef CONFIG_MDM_HSIC_PM
-	wake_up_all(&dev->power.wait_queue);
-#endif
 	pm_runtime_get_noresume(dev);
 	spin_lock_irq(&dev->power.lock);
 
@@ -1128,7 +1125,6 @@ EXPORT_SYMBOL_GPL(pm_runtime_barrier);
  */
 void __pm_runtime_disable(struct device *dev, bool check_resume)
 {
-	might_sleep();
 	spin_lock_irq(&dev->power.lock);
 
 	if (dev->power.disable_depth > 0) {
@@ -1334,8 +1330,6 @@ EXPORT_SYMBOL_GPL(pm_runtime_set_autosuspend_delay);
 void __pm_runtime_use_autosuspend(struct device *dev, bool use)
 {
 	int old_delay, old_use;
-
-	might_sleep();
 
 	spin_lock_irq(&dev->power.lock);
 	old_delay = dev->power.autosuspend_delay;

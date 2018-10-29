@@ -4,6 +4,7 @@
 #include <asm/assembler.h>
 #include <asm/glue-cache.h>
 #include <asm/glue-proc.h>
+#include <asm/system.h>
 	.text
 
 /*
