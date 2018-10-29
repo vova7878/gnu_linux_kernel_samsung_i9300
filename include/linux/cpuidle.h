@@ -120,7 +120,7 @@ static inline int cpuidle_get_last_residency(struct cpuidle_device *dev)
  ****************************/
 
 struct cpuidle_driver {
-	const char		*name;
+	char			name[CPUIDLE_NAME_LEN];
 	struct module 		*owner;
 
 	unsigned int		power_specified:1;
