@@ -15,6 +15,7 @@
 #define __LINUX_OPP_H__
 
 #include <linux/err.h>
+#include <linux/device.h>
 #include <linux/cpufreq.h>
 
 struct opp;
