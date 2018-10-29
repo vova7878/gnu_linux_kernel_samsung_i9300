@@ -74,7 +74,7 @@ static cpuidle_enter_t cpuidle_enter_ops;
 /**
  * cpuidle_play_dead - cpu off-lining
  *
- * Returns in case of an error or no driver
+ * Only returns in case of an error
  */
 int cpuidle_play_dead(void)
 {
@@ -82,9 +82,6 @@ int cpuidle_play_dead(void)
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 	int i, dead_state = -1;
 	int power_usage = -1;
-
-	if (!drv)
-		return -ENODEV;
 
 	/* Find lowest-power state that supports long-term idle */
 	for (i = CPUIDLE_DRIVER_STATE_START; i < drv->state_count; i++) {
