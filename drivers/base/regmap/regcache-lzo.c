@@ -332,8 +332,7 @@ out:
 	return ret;
 }
 
-static int regcache_lzo_sync(struct regmap *map, unsigned int min,
-			     unsigned int max)
+static int regcache_lzo_sync(struct regmap *map)
 {
 	struct regcache_lzo_ctx **lzo_blocks;
 	unsigned int val;
@@ -341,12 +340,7 @@ static int regcache_lzo_sync(struct regmap *map, unsigned int min,
 	int ret;
 
 	lzo_blocks = map->cache;
-	i = min;
-	for_each_set_bit_from(i, lzo_blocks[0]->sync_bmp,
-			      lzo_blocks[0]->sync_bmp_nbits) {
-		if (i > max)
-			continue;
-
+	for_each_set_bit(i, lzo_blocks[0]->sync_bmp, lzo_blocks[0]->sync_bmp_nbits) {
 		ret = regcache_read(map, i, &val);
 		if (ret)
 			return ret;
