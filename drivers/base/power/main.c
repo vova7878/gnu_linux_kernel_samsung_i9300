@@ -47,7 +47,6 @@ typedef int (*pm_callback_t)(struct device *);
 LIST_HEAD(dpm_list);
 LIST_HEAD(dpm_prepared_list);
 LIST_HEAD(dpm_suspended_list);
-LIST_HEAD(dpm_late_early_list);
 LIST_HEAD(dpm_noirq_list);
 
 struct suspend_stats suspend_stats;
@@ -247,40 +246,6 @@ static pm_callback_t pm_op(const struct dev_pm_ops *ops, pm_message_t state)
 }
 
 /**
- * pm_late_early_op - Return the PM operation appropriate for given PM event.
- * @ops: PM operations to choose from.
- * @state: PM transition of the system being carried out.
- *
- * Runtime PM is disabled for @dev while this function is being executed.
- */
-static pm_callback_t pm_late_early_op(const struct dev_pm_ops *ops,
-				      pm_message_t state)
-{
-	switch (state.event) {
-#ifdef CONFIG_SUSPEND
-	case PM_EVENT_SUSPEND:
-		return ops->suspend_late;
-	case PM_EVENT_RESUME:
-		return ops->resume_early;
-#endif /* CONFIG_SUSPEND */
-#ifdef CONFIG_HIBERNATE_CALLBACKS
-	case PM_EVENT_FREEZE:
-	case PM_EVENT_QUIESCE:
-		return ops->freeze_late;
-	case PM_EVENT_HIBERNATE:
-		return ops->poweroff_late;
-	case PM_EVENT_THAW:
-	case PM_EVENT_RECOVER:
-		return ops->thaw_early;
-	case PM_EVENT_RESTORE:
-		return ops->restore_early;
-#endif /* CONFIG_HIBERNATE_CALLBACKS */
-	}
-
-	return NULL;
-}
-
-/**
  * pm_noirq_op - Return the PM operation appropriate for given PM event.
  * @ops: PM operations to choose from.
  * @state: PM transition of the system being carried out.
@@ -409,21 +374,21 @@ static int device_resume_noirq(struct device *dev, pm_message_t state)
 	TRACE_RESUME(0);
 
 	if (dev->pm_domain) {
-		info = "noirq power domain ";
+		info = "EARLY power domain ";
 		callback = pm_noirq_op(&dev->pm_domain->ops, state);
 	} else if (dev->type && dev->type->pm) {
-		info = "noirq type ";
+		info = "EARLY type ";
 		callback = pm_noirq_op(dev->type->pm, state);
 	} else if (dev->class && dev->class->pm) {
-		info = "noirq class ";
+		info = "EARLY class ";
 		callback = pm_noirq_op(dev->class->pm, state);
 	} else if (dev->bus && dev->bus->pm) {
-		info = "noirq bus ";
+		info = "EARLY bus ";
 		callback = pm_noirq_op(dev->bus->pm, state);
 	}
 
 	if (!callback && dev->driver && dev->driver->pm) {
-		info = "noirq driver ";
+		info = "EARLY driver ";
 		callback = pm_noirq_op(dev->driver->pm, state);
 	}
 
@@ -434,13 +399,13 @@ static int device_resume_noirq(struct device *dev, pm_message_t state)
 }
 
 /**
- * dpm_resume_noirq - Execute "noirq resume" callbacks for all devices.
+ * dpm_resume_noirq - Execute "early resume" callbacks for non-sysdev devices.
  * @state: PM transition of the system being carried out.
  *
- * Call the "noirq" resume handlers for all devices in dpm_noirq_list and
+ * Call the "noirq" resume handlers for all devices marked as DPM_OFF_IRQ and
  * enable device drivers to receive interrupts.
  */
-static void dpm_resume_noirq(pm_message_t state)
+void dpm_resume_noirq(pm_message_t state)
 {
 	ktime_t starttime = ktime_get();
 
@@ -450,87 +415,13 @@ static void dpm_resume_noirq(pm_message_t state)
 		int error;
 
 		get_device(dev);
-		list_move_tail(&dev->power.entry, &dpm_late_early_list);
+		list_move_tail(&dev->power.entry, &dpm_suspended_list);
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_resume_noirq(dev, state);
 		if (error) {
 			suspend_stats.failed_resume_noirq++;
 			dpm_save_failed_step(SUSPEND_RESUME_NOIRQ);
-			dpm_save_failed_dev(dev_name(dev));
-			pm_dev_err(dev, state, " noirq", error);
-		}
-
-		mutex_lock(&dpm_list_mtx);
-		put_device(dev);
-	}
-	mutex_unlock(&dpm_list_mtx);
-	dpm_show_time(starttime, state, "noirq");
-	resume_device_irqs();
-}
-
-/**
- * device_resume_early - Execute an "early resume" callback for given device.
- * @dev: Device to handle.
- * @state: PM transition of the system being carried out.
- *
- * Runtime PM is disabled for @dev while this function is being executed.
- */
-static int device_resume_early(struct device *dev, pm_message_t state)
-{
-	pm_callback_t callback = NULL;
-	char *info = NULL;
-	int error = 0;
-
-	TRACE_DEVICE(dev);
-	TRACE_RESUME(0);
-
-	if (dev->pm_domain) {
-		info = "early power domain ";
-		callback = pm_late_early_op(&dev->pm_domain->ops, state);
-	} else if (dev->type && dev->type->pm) {
-		info = "early type ";
-		callback = pm_late_early_op(dev->type->pm, state);
-	} else if (dev->class && dev->class->pm) {
-		info = "early class ";
-		callback = pm_late_early_op(dev->class->pm, state);
-	} else if (dev->bus && dev->bus->pm) {
-		info = "early bus ";
-		callback = pm_late_early_op(dev->bus->pm, state);
-	}
-
-	if (!callback && dev->driver && dev->driver->pm) {
-		info = "early driver ";
-		callback = pm_late_early_op(dev->driver->pm, state);
-	}
-
-	error = dpm_run_callback(callback, dev, state, info);
-
-	TRACE_RESUME(error);
-	return error;
-}
-
-/**
- * dpm_resume_early - Execute "early resume" callbacks for all devices.
- * @state: PM transition of the system being carried out.
- */
-static void dpm_resume_early(pm_message_t state)
-{
-	ktime_t starttime = ktime_get();
-
-	mutex_lock(&dpm_list_mtx);
-	while (!list_empty(&dpm_late_early_list)) {
-		struct device *dev = to_device(dpm_late_early_list.next);
-		int error;
-
-		get_device(dev);
-		list_move_tail(&dev->power.entry, &dpm_suspended_list);
-		mutex_unlock(&dpm_list_mtx);
-
-		error = device_resume_early(dev, state);
-		if (error) {
-			suspend_stats.failed_resume_early++;
-			dpm_save_failed_step(SUSPEND_RESUME_EARLY);
 			dpm_save_failed_dev(dev_name(dev));
 			pm_dev_err(dev, state, " early", error);
 		}
@@ -540,18 +431,9 @@ static void dpm_resume_early(pm_message_t state)
 	}
 	mutex_unlock(&dpm_list_mtx);
 	dpm_show_time(starttime, state, "early");
+	resume_device_irqs();
 }
-
-/**
- * dpm_resume_start - Execute "noirq" and "early" device callbacks.
- * @state: PM transition of the system being carried out.
- */
-void dpm_resume_start(pm_message_t state)
-{
-	dpm_resume_noirq(state);
-	dpm_resume_early(state);
-}
-EXPORT_SYMBOL_GPL(dpm_resume_start);
+EXPORT_SYMBOL_GPL(dpm_resume_noirq);
 
 /**
  * device_resume - Execute "resume" callbacks for given device.
@@ -834,21 +716,21 @@ static int device_suspend_noirq(struct device *dev, pm_message_t state)
 	char *info = NULL;
 
 	if (dev->pm_domain) {
-		info = "noirq power domain ";
+		info = "LATE power domain ";
 		callback = pm_noirq_op(&dev->pm_domain->ops, state);
 	} else if (dev->type && dev->type->pm) {
-		info = "noirq type ";
+		info = "LATE type ";
 		callback = pm_noirq_op(dev->type->pm, state);
 	} else if (dev->class && dev->class->pm) {
-		info = "noirq class ";
+		info = "LATE class ";
 		callback = pm_noirq_op(dev->class->pm, state);
 	} else if (dev->bus && dev->bus->pm) {
-		info = "noirq bus ";
+		info = "LATE bus ";
 		callback = pm_noirq_op(dev->bus->pm, state);
 	}
 
 	if (!callback && dev->driver && dev->driver->pm) {
-		info = "noirq driver ";
+		info = "LATE driver ";
 		callback = pm_noirq_op(dev->driver->pm, state);
 	}
 
@@ -856,21 +738,21 @@ static int device_suspend_noirq(struct device *dev, pm_message_t state)
 }
 
 /**
- * dpm_suspend_noirq - Execute "noirq suspend" callbacks for all devices.
+ * dpm_suspend_noirq - Execute "late suspend" callbacks for non-sysdev devices.
  * @state: PM transition of the system being carried out.
  *
  * Prevent device drivers from receiving interrupts and call the "noirq" suspend
  * handlers for all non-sysdev devices.
  */
-static int dpm_suspend_noirq(pm_message_t state)
+int dpm_suspend_noirq(pm_message_t state)
 {
 	ktime_t starttime = ktime_get();
 	int error = 0;
 
 	suspend_device_irqs();
 	mutex_lock(&dpm_list_mtx);
-	while (!list_empty(&dpm_late_early_list)) {
-		struct device *dev = to_device(dpm_late_early_list.prev);
+	while (!list_empty(&dpm_suspended_list)) {
+		struct device *dev = to_device(dpm_suspended_list.prev);
 
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
@@ -879,7 +761,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
-			pm_dev_err(dev, state, " noirq", error);
+			pm_dev_err(dev, state, " late", error);
 			suspend_stats.failed_suspend_noirq++;
 			dpm_save_failed_step(SUSPEND_SUSPEND_NOIRQ);
 			dpm_save_failed_dev(dev_name(dev));
@@ -894,95 +776,10 @@ static int dpm_suspend_noirq(pm_message_t state)
 	if (error)
 		dpm_resume_noirq(resume_event(state));
 	else
-		dpm_show_time(starttime, state, "noirq");
-	return error;
-}
-
-/**
- * device_suspend_late - Execute a "late suspend" callback for given device.
- * @dev: Device to handle.
- * @state: PM transition of the system being carried out.
- *
- * Runtime PM is disabled for @dev while this function is being executed.
- */
-static int device_suspend_late(struct device *dev, pm_message_t state)
-{
-	pm_callback_t callback = NULL;
-	char *info = NULL;
-
-	if (dev->pm_domain) {
-		info = "late power domain ";
-		callback = pm_late_early_op(&dev->pm_domain->ops, state);
-	} else if (dev->type && dev->type->pm) {
-		info = "late type ";
-		callback = pm_late_early_op(dev->type->pm, state);
-	} else if (dev->class && dev->class->pm) {
-		info = "late class ";
-		callback = pm_late_early_op(dev->class->pm, state);
-	} else if (dev->bus && dev->bus->pm) {
-		info = "late bus ";
-		callback = pm_late_early_op(dev->bus->pm, state);
-	}
-
-	if (!callback && dev->driver && dev->driver->pm) {
-		info = "late driver ";
-		callback = pm_late_early_op(dev->driver->pm, state);
-	}
-
-	return dpm_run_callback(callback, dev, state, info);
-}
-
-/**
- * dpm_suspend_late - Execute "late suspend" callbacks for all devices.
- * @state: PM transition of the system being carried out.
- */
-static int dpm_suspend_late(pm_message_t state)
-{
-	ktime_t starttime = ktime_get();
-	int error = 0;
-
-	mutex_lock(&dpm_list_mtx);
-	while (!list_empty(&dpm_suspended_list)) {
-		struct device *dev = to_device(dpm_suspended_list.prev);
-
-		get_device(dev);
-		mutex_unlock(&dpm_list_mtx);
-
-		error = device_suspend_late(dev, state);
-
-		mutex_lock(&dpm_list_mtx);
-		if (error) {
-			pm_dev_err(dev, state, " late", error);
-			suspend_stats.failed_suspend_late++;
-			dpm_save_failed_step(SUSPEND_SUSPEND_LATE);
-			dpm_save_failed_dev(dev_name(dev));
-			put_device(dev);
-			break;
-		}
-		if (!list_empty(&dev->power.entry))
-			list_move(&dev->power.entry, &dpm_late_early_list);
-		put_device(dev);
-	}
-	mutex_unlock(&dpm_list_mtx);
-	if (error)
-		dpm_resume_early(resume_event(state));
-	else
 		dpm_show_time(starttime, state, "late");
-
 	return error;
 }
-
-/**
- * dpm_suspend_end - Execute "late" and "noirq" device suspend callbacks.
- * @state: PM transition of the system being carried out.
- */
-int dpm_suspend_end(pm_message_t state)
-{
-	int error = dpm_suspend_late(state);
-
-	return error ? : dpm_suspend_noirq(state);
-}
-EXPORT_SYMBOL_GPL(dpm_suspend_end);
+EXPORT_SYMBOL_GPL(dpm_suspend_noirq);
 
 /**
  * legacy_suspend - Execute a legacy (bus or class) suspend callback for device.
