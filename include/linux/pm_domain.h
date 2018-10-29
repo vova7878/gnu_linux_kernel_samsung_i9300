@@ -103,12 +103,12 @@ struct generic_pm_domain_data {
 	bool need_restore;
 };
 
-#ifdef CONFIG_PM_GENERIC_DOMAINS
 static inline struct generic_pm_domain_data *to_gpd_data(struct pm_domain_data *pdd)
 {
 	return container_of(pdd, struct generic_pm_domain_data, base);
 }
 
+#ifdef CONFIG_PM_GENERIC_DOMAINS
 static inline struct generic_pm_domain_data *dev_gpd_data(struct device *dev)
 {
 	return to_gpd_data(dev->power.subsys_data->domain_data);
@@ -209,10 +209,6 @@ static inline bool default_stop_ok(struct device *dev)
 	return false;
 }
 #define pm_domain_always_on_gov NULL
-static inline struct generic_pm_domain_data *dev_gpd_data(struct device *dev)
-{
-	return NULL;
-}
 #endif
 
 static inline int pm_genpd_remove_callbacks(struct device *dev)
