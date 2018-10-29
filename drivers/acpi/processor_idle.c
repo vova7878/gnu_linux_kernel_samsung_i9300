@@ -1193,7 +1193,8 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr)
 	 * to make the code that updates C-States be called once.
 	 */
 
-	if (pr->id == 0 && cpuidle_get_driver() == &acpi_idle_driver) {
+	if (smp_processor_id() == 0 &&
+			cpuidle_get_driver() == &acpi_idle_driver) {
 
 		cpuidle_pause_and_lock();
 		/* Protect against cpu-hotplug */
