@@ -254,11 +254,12 @@ EXPORT_SYMBOL_GPL(regcache_write);
 int regcache_sync(struct regmap *map)
 {
 	int ret = 0;
+	unsigned int val;
 	unsigned int i;
 	const char *name;
 	unsigned int bypass;
 
-	BUG_ON(!map->cache_ops || !map->cache_ops->sync);
+	BUG_ON(!map->cache_ops);
 
 	mutex_lock(&map->lock);
 	/* Remember the initial bypass state */
@@ -283,8 +284,24 @@ int regcache_sync(struct regmap *map)
 	}
 	map->cache_bypass = 0;
 
-	ret = map->cache_ops->sync(map);
+	if (map->cache_ops->sync) {
+		ret = map->cache_ops->sync(map);
+	} else {
+		for (i = 0; i < map->num_reg_defaults; i++) {
+			ret = regcache_read(map, i, &val);
+			if (ret < 0)
+				goto out;
+			map->cache_bypass = 1;
+			ret = _regmap_write(map, i, val);
+			map->cache_bypass = 0;
+			if (ret < 0)
+				goto out;
+			dev_dbg(map->dev, "Synced register %#x, value %#x\n",
+				map->reg_defaults[i].reg,
+				map->reg_defaults[i].def);
+		}
 
+	}
 out:
 	trace_regcache_sync(map->dev, name, "stop");
 	/* Restore the bypass state */
