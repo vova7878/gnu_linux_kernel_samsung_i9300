@@ -15,7 +15,6 @@
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
-#include <linux/device.h>
 
 #include "internal.h"
 
@@ -28,34 +27,11 @@ static size_t regmap_calc_reg_len(int max_val, char *buf, size_t buf_size)
 	return strlen(buf);
 }
 
-static ssize_t regmap_name_read_file(struct file *file,
-				     char __user *user_buf, size_t count,
-				     loff_t *ppos)
+static int regmap_open_file(struct inode *inode, struct file *file)
 {
-	struct regmap *map = file->private_data;
-	int ret;
-	char *buf;
-
-	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	ret = snprintf(buf, PAGE_SIZE, "%s\n", map->dev->driver->name);
-	if (ret < 0) {
-		kfree(buf);
-		return ret;
-	}
-
-	ret = simple_read_from_buffer(user_buf, count, ppos, buf, ret);
-	kfree(buf);
-	return ret;
+	file->private_data = inode->i_private;
+	return 0;
 }
-
-static const struct file_operations regmap_name_fops = {
-	.open = simple_open,
-	.read = regmap_name_read_file,
-	.llseek = default_llseek,
-};
 
 static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 				    size_t count, loff_t *ppos)
@@ -91,7 +67,7 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 		/* If we're in the region the user is trying to read */
 		if (p >= *ppos) {
 			/* ...but not beyond it */
-			if (buf_pos + 1 + tot_len >= count)
+			if (buf_pos >= count - 1 - tot_len)
 				break;
 
 			/* Format the register */
@@ -169,7 +145,7 @@ static ssize_t regmap_map_write_file(struct file *file,
 #endif
 
 static const struct file_operations regmap_map_fops = {
-	.open = simple_open,
+	.open = regmap_open_file,
 	.read = regmap_map_read_file,
 	.write = regmap_map_write_file,
 	.llseek = default_llseek,
@@ -238,7 +214,7 @@ out:
 }
 
 static const struct file_operations regmap_access_fops = {
-	.open = simple_open,
+	.open = regmap_open_file,
 	.read = regmap_access_read_file,
 	.llseek = default_llseek,
 };
@@ -251,9 +227,6 @@ void regmap_debugfs_init(struct regmap *map)
 		dev_warn(map->dev, "Failed to create debugfs directory\n");
 		return;
 	}
-
-	debugfs_create_file("name", 0400, map->debugfs,
-			    map, &regmap_name_fops);
 
 	if (map->max_register) {
 		debugfs_create_file("registers", 0400, map->debugfs,
