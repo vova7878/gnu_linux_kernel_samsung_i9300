@@ -457,8 +457,9 @@ static inline int ping_supported(int family, int type, int code)
 void ping_err(struct sk_buff *skb, int offset, u32 info)
 {
 	int family;
-	struct icmphdr *icmph;
 	struct inet_sock *inet_sock;
+	struct iphdr *iph = (struct iphdr *)skb->data;
+	struct icmphdr *icmph = (struct icmphdr *)(skb->data+(iph->ihl<<2));
 	int type = icmph->type;
 	int code = icmph->code;
 	struct net *net = dev_net(skb->dev);
