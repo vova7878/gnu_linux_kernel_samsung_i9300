@@ -245,7 +245,7 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt, bool *ecn_ok)
 	if (!sysctl_tcp_timestamps)
 		return false;
 
-	tcp_opt->sack_ok = (options & (1 << 4)) ? TCP_SACK_SEEN : 0;
+	tcp_opt->sack_ok = (options >> 4) & 0x1;
 	*ecn_ok = (options >> 5) & 1;
 	if (*ecn_ok && !sysctl_tcp_ecn)
 		return false;
@@ -278,7 +278,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
 	struct rtable *rt;
 	__u8 rcv_wscale;
 	bool ecn_ok = false;
-	struct flowi4 fl4;
 
 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
 		goto out;
@@ -351,7 +350,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
 			   inet_sk_flowi_flags(sk),
 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-			   ireq->loc_addr, th->source, th->dest);
+			   ireq->loc_addr, th->source, th->dest,
+			   sock_i_uid(sk));
 	security_req_classify_flow(req, flowi4_to_flowi(&fl4));
 	rt = ip_route_output_key(sock_net(sk), &fl4);
 	if (IS_ERR(rt)) {
@@ -370,10 +370,5 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
 	ireq->rcv_wscale  = rcv_wscale;
 
 	ret = get_cookie_sock(sk, skb, req, &rt->dst);
-	/* ip_queue_xmit() depends on our flow being setup
-	 * Normal sockets get it right from inet_csk_route_child_sock()
-	 */
-	if (ret)
-		inet_sk(ret)->cork.fl.u.ip4 = fl4;
 out:	return ret;
 }
