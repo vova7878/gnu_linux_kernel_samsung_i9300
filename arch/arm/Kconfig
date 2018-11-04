@@ -243,6 +243,9 @@ config ARCH_MMAP_RND_BITS_MAX
 	default 15 if PAGE_OFFSET=0x80000000
 	default 16
 
+config ARCH_USES_LEGACY_MMAP
+        bool
+
 #
 # The "ARM system type" choice list is ordered alphabetically by option
 # text.  Please add new entries in the option alphabetic order.
