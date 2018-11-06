@@ -162,10 +162,6 @@ struct s3cfb_extdsp_lcd {
 #include <linux/i2c/touchkey_i2c.h>
 #endif
 
-#ifdef CONFIG_KEXEC_HARDBOOT
-#include <asm/kexec.h>
-#endif
-
 #if defined(CONFIG_MACH_GC1)
 #include <mach/gc1-jack.h>
 #endif
@@ -950,7 +946,8 @@ static void motor_en(bool enable)
 	       gpio_get_value(EXYNOS4_GPD0(0)));
 }
 #endif
-#if defined(CONFIG_MACH_T0) && defined(CONFIG_TARGET_LOCALE_KOR)
+// Special VIB_ON GPIO needed for t0ltekor
+#if defined(CONFIG_MACH_T0_LTE)
 static void motor_en(bool enable)
 {
 	gpio_direction_output(EXYNOS4_GPC0(3), enable);
@@ -1503,10 +1500,6 @@ static int __init setup_ram_console_mem(char *str)
 		pr_err("%s: %x at %llx\n", __func__, size, base);
 	}
 	return 0;
-
-#ifdef CONFIG_KEXEC_HARDBOOT
-	memblock_remove(KEXEC_HB_PAGE_ADDR, SZ_4K);
-#endif
 }
 
 __setup("ram_console=", setup_ram_console_mem);
@@ -2387,19 +2380,19 @@ static struct platform_device *midas_devices[] __initdata = {
 /* below temperature base on the celcius degree */
 struct s5p_platform_tmu midas_tmu_data __initdata = {
 	.ts = {
-		.stop_1st_throttle  = 85,
-		.start_1st_throttle = 90,
-		.stop_2nd_throttle  = 95,
+		.stop_1st_throttle  = 78,
+		.start_1st_throttle = 80,
+		.stop_2nd_throttle  = 87,
 		.start_2nd_throttle = 103,
 		.start_tripping	    = 110, /* temp to do tripping */
 		.start_emergency    = 120, /* To protect chip,forcely kernel panic */
-		.stop_mem_throttle  = 83,
-		.start_mem_throttle = 88,
+		.stop_mem_throttle  = 80,
+		.start_mem_throttle = 85,
 		.stop_tc  = 13,
 		.start_tc = 10,
 	},
 	.cpufreq = {
-		.limit_1st_throttle  = 1200000, /* 1.200MHz in KHz order */
+		.limit_1st_throttle  = 800000, /* 800MHz in KHz order */
 		.limit_2nd_throttle  = 200000, /* 200MHz in KHz order */
 	},
 	.temp_compensate = {
@@ -3046,7 +3039,8 @@ static void __init midas_machine_init(void)
 	defined(CONFIG_MACH_M0) || \
 	defined(CONFIG_MACH_GC1) || defined(CONFIG_MACH_T0) ||\
 	defined(CONFIG_MACH_BAFFIN)
-#if defined(CONFIG_MACH_T0) && defined(CONFIG_TARGET_LOCALE_KOR)
+// Special VIB_ON GPIO needed for t0ltekor
+#if defined(CONFIG_MACH_T0_LTE)
 	if (system_rev >= 9)
 		max77693_haptic_pdata.motor_en = motor_en;
 #endif
