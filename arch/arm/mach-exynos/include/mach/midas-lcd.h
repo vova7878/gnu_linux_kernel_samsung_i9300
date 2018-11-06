@@ -1,5 +1,5 @@
 /*
- * tab3-jack.h - Jack Management of GalxyTab3 Project
+ * midas-lcd.h - lcd Driver of MIDAS Project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,10 +16,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __P4NOTE_JACK_H__
-#define __P4NOTE_JACK_H__ __FILE__
+#ifndef __MIDAS_LCD_H
+#define __MIDAS_LCD_H __FILE__
 
-void tab3_jack_init(void);
-void sec_set_jack_micbias(bool);
+extern struct s3c_platform_fb fb_platform_data;
+extern struct platform_device mdnie_device;
+#ifdef CONFIG_FB_S5P_S6C1372
+extern struct platform_device lcd_s6c1372;
+#endif
+extern struct ld9040_panel_data s2plus_panel_data;
+extern struct samsung_bl_gpio_info smdk4212_bl_gpio_info;
+extern struct platform_pwm_backlight_data smdk4212_bl_data;
+extern unsigned int lcdtype;
 
-#endif /* __TAB3_JACK_H__ */
+void mipi_fb_init(void);
+
+#endif /* __MIDAS_LCD_H */
