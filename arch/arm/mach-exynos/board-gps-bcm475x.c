@@ -4,7 +4,7 @@
 #include <linux/platform_device.h>
 #include <mach/gpio.h>
 #include <plat/gpio-cfg.h>
-#include <mach/sec_gps.h>
+#include <mach/board-gps.h>
 
 #if !defined(CONFIG_MACH_M0_GRANDECTC) && !defined(CONFIG_MACH_M0_DUOSCTC)
 
