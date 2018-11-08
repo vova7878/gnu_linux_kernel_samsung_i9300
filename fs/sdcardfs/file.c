@@ -285,7 +285,7 @@ static int sdcardfs_file_release(struct inode *inode, struct file *file)
 }
 
 static int
-sdcardfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
+sdcardfs_fsync(struct file *file, int datasync)
 {
 	int err;
 	struct file *lower_file;
@@ -294,7 +294,7 @@ sdcardfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 
 	lower_file = sdcardfs_lower_file(file);
 	sdcardfs_get_lower_path(dentry, &lower_path);
-	err = vfs_fsync_range(lower_file, start, end, datasync);
+	err = vfs_fsync(lower_file, datasync);
 	sdcardfs_put_lower_path(dentry, &lower_path);
 
 	return err;

@@ -49,7 +49,7 @@ void revert_fsids(const struct cred * old_cred)
 }
 
 static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
-			 umode_t mode, struct nameidata *nd)
+			 int mode, struct nameidata *nd)
 {
 	int err = 0;
 	struct dentry *lower_dentry;
@@ -246,7 +246,7 @@ static int touch(char *abs_path, mode_t mode) {
 	return 0;
 }
 
-static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 {
 	int err = 0;
 	int make_nomedia_in_obb = 0;
@@ -419,7 +419,7 @@ out_unlock:
 }
 
 #if 0
-static int sdcardfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
+static int sdcardfs_mknod(struct inode *dir, struct dentry *dentry, int mode,
 			dev_t dev)
 {
 	int err = 0;
@@ -613,15 +613,18 @@ static void sdcardfs_put_link(struct dentry *dentry, struct nameidata *nd,
 }
 #endif
 
-static int sdcardfs_permission(struct inode *inode, int mask)
+static int sdcardfs_permission(struct inode *inode, int mask, unsigned int flags)
 {
 	int err;
+
+	if (flags & IPERM_FLAG_RCU)
+		return -ECHILD;
 
 	/*
 	 * Permission check on sdcardfs inode.
 	 * Calling process should have AID_SDCARD_RW permission
 	 */
-	err = generic_permission(inode, mask);
+	err = generic_permission(inode, mask, 0, inode->i_op->check_acl);
 
 	/* XXX
 	 * Original sdcardfs code calls inode_permission(lower_inode,.. )
