@@ -780,7 +780,6 @@ struct inode {
 	};
 	unsigned long		i_ino;
 	atomic_t		i_count;
-	unsigned int		i_nlink;
 	dev_t			i_rdev;
 	unsigned int		i_blkbits;
 	u64			i_version;
