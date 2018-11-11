@@ -6,17 +6,8 @@
 
 static char new_command_line[COMMAND_LINE_SIZE];
 
-#ifdef CONFIG_BATTERY_SEC_U1
-extern int poweroff_charging;
-#endif
-
 static int cmdline_proc_show(struct seq_file *m, void *v)
 {
-	if (poweroff_charging) {
-		seq_printf(m, "%s %s\n", new_command_line,
-				"androidboot.mode=charger");
-		return 0;
-	}
 	seq_printf(m, "%s\n", new_command_line);
 	return 0;
 }
