@@ -20,7 +20,7 @@
  * tunables
  */
 /* max queue in one round of service */
-static const int cfq_quantum = 4;
+static const int cfq_quantum = 8;
 static const int cfq_fifo_expire[2] = { HZ / 4, HZ / 8 };
 /* maximum backwards seek, in KiB */
 static const int cfq_back_max = 16 * 1024;
@@ -29,7 +29,7 @@ static const int cfq_back_penalty = 2;
 static const int cfq_slice_sync = HZ / 10;
 static int cfq_slice_async = HZ / 25;
 static const int cfq_slice_async_rq = 2;
-static int cfq_slice_idle = 0;
+static int cfq_slice_idle = HZ / 125;
 static int cfq_group_idle = HZ / 125;
 static const int cfq_target_latency = HZ * 3/10; /* 300 ms */
 static const int cfq_hist_divisor = 4;
@@ -2920,6 +2920,7 @@ static void changed_ioprio(struct io_context *ioc, struct cfq_io_context *cic)
 static void cfq_ioc_set_ioprio(struct io_context *ioc)
 {
 	call_for_each_cic(ioc, changed_ioprio);
+	ioc->ioprio_changed = 0;
 }
 
 static void cfq_init_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq,
@@ -3211,13 +3212,8 @@ retry:
 		goto err_free;
 
 out:
-	/*
-	 * test_and_clear_bit() implies a memory barrier, paired with
-	 * the wmb() in fs/ioprio.c, so the value seen for ioprio is the
-	 * new one.
-	 */
-	if (unlikely(test_and_clear_bit(IOC_CFQ_IOPRIO_CHANGED,
-					ioc->ioprio_changed)))
+	smp_read_barrier_depends();
+	if (unlikely(ioc->ioprio_changed))
 		cfq_ioc_set_ioprio(ioc);
 
 #ifdef CONFIG_CFQ_GROUP_IOSCHED
@@ -3387,7 +3383,7 @@ cfq_should_preempt(struct cfq_data *cfqd, struct cfq_queue *new_cfqq,
  */
 static void cfq_preempt_queue(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 {
-	enum wl_type_t old_type = cfqq_type(cfqd->active_queue);
+	struct cfq_queue *old_cfqq = cfqd->active_queue;
 
 	cfq_log_cfqq(cfqd, cfqq, "preempt");
 	cfq_slice_expired(cfqd, 1);
@@ -3396,7 +3392,7 @@ static void cfq_preempt_queue(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 	 * workload type is changed, don't save slice, otherwise preempt
 	 * doesn't happen
 	 */
-	if (old_type != cfqq_type(cfqq))
+	if (cfqq_type(old_cfqq) != cfqq_type(cfqq))
 		cfqq->cfqg->saved_workload_slice = 0;
 
 	/*
@@ -4255,13 +4251,13 @@ static int __init cfq_init(void)
 	/*
 	 * could be 0 on HZ < 1000 setups
 	 */
-	if (CONFIG_HZ >= 1000 && !cfq_slice_async)
+	if (!cfq_slice_async)
 		cfq_slice_async = 1;
-	if (CONFIG_HZ >= 1000 && !cfq_slice_idle)
+	if (!cfq_slice_idle)
 		cfq_slice_idle = 1;
 
 #ifdef CONFIG_CFQ_GROUP_IOSCHED
-	if (CONFIG_HZ >= 1000 && !cfq_group_idle)
+	if (!cfq_group_idle)
 		cfq_group_idle = 1;
 #else
 		cfq_group_idle = 0;
