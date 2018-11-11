@@ -261,8 +261,8 @@ static void __ieee80211_key_replace(struct ieee80211_sub_if_data *sdata,
 			old == key_mtx_dereference(sdata->local,
 						sdata->default_unicast_key);
 		defmultikey = old &&
-			old == key_mtx_dereference(sdata->local,
-						sdata->default_multicast_key);
+ 			old == key_mtx_dereference(sdata->local,
+ 						sdata->default_multicast_key);
 		defmgmtkey = old &&
 			old == key_mtx_dereference(sdata->local,
 						sdata->default_mgmt_key);
@@ -451,6 +451,8 @@ int ieee80211_key_link(struct ieee80211_key *key,
 		old_key = key_mtx_dereference(sdata->local, sta->gtk[idx]);
 	else
 		old_key = key_mtx_dereference(sdata->local, sdata->keys[idx]);
+
+
 
 	__ieee80211_key_replace(sdata, sta, pairwise, old_key, key);
 	__ieee80211_key_destroy(old_key);
