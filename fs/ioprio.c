@@ -30,7 +30,7 @@
 
 int set_task_ioprio(struct task_struct *task, int ioprio)
 {
-	int err, i;
+	int err;
 	struct io_context *ioc;
 	const struct cred *cred = current_cred(), *tcred;
 
@@ -60,17 +60,12 @@ int set_task_ioprio(struct task_struct *task, int ioprio)
 			err = -ENOMEM;
 			break;
 		}
-		/* let other ioc users see the new values */
-		smp_wmb();
 		task->io_context = ioc;
 	} while (1);
 
 	if (!err) {
 		ioc->ioprio = ioprio;
-		/* make sure schedulers see the new ioprio value */
-		wmb();
-		for (i = 0; i < IOC_IOPRIO_CHANGED_BITS; i++)
-			set_bit(i, ioc->ioprio_changed);
+		ioc->ioprio_changed = 1;
 	}
 
 	task_unlock(task);
@@ -165,10 +160,8 @@ static int get_task_ioprio(struct task_struct *p)
 	if (ret)
 		goto out;
 	ret = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, IOPRIO_NORM);
-	task_lock(p);
 	if (p->io_context)
 		ret = p->io_context->ioprio;
-	task_unlock(p);
 out:
 	return ret;
 }
