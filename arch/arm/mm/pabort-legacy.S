@@ -16,5 +16,5 @@
 ENTRY(legacy_pabort)
 	mov	r0, r4
 	mov	r1, #5
-	ret	lr
+	mov	pc, lr
 ENDPROC(legacy_pabort)
