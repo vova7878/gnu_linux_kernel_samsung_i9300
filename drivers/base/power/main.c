@@ -639,7 +639,7 @@ static void dpm_drv_timeout(unsigned long data)
 	printk(KERN_EMERG "dpm suspend stack:\n");
 	show_stack(tsk, NULL);
 
-	BUG();
+	// BUG();
 }
 
 /**
@@ -719,7 +719,6 @@ static void device_complete(struct device *dev, pm_message_t state)
 	}
 
 	device_unlock(dev);
-	pm_runtime_put_sync(dev);
 }
 
 /**
@@ -1084,8 +1083,6 @@ static int device_prepare(struct device *dev, pm_message_t state)
 {
 	int error = 0;
 
-	pm_runtime_get_noresume(dev);
-
 	device_lock(dev);
 
 	if (dev->pwr_domain) {
@@ -1118,13 +1115,6 @@ static int device_prepare(struct device *dev, pm_message_t state)
 
  End:
 	device_unlock(dev);
-
-	/*
-	* If failed prepare, should allow runtime suspend again because
-	* the complete phase of this device is never invoked
-	*/
-	if (error)
-	pm_runtime_put_sync(dev);
 
 	return error;
 }
