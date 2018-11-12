@@ -1114,7 +1114,7 @@ static int __init cpufreq_pyramid_init(void)
 
 	/* No rescuer thread, bind to CPU queuing the work for possibly
 	   warm cache (probably doesn't matter much). */
-	down_wq = alloc_workqueue("pyramid_down", WQ_POWER_EFFICIENT, 1);
+	down_wq = alloc_workqueue("pyramid_down", WQ_HIGHPRI, 1);
 
 	if (!down_wq)
 		goto err_freeuptask;
