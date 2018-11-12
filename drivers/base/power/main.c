@@ -644,7 +644,7 @@ static void dpm_drv_timeout(unsigned long data)
 	printk(KERN_EMERG "dpm suspend stack:\n");
 	show_stack(tsk, NULL);
 
-	// BUG();
+	BUG();
 }
 
 /**
