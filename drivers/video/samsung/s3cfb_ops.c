@@ -61,9 +61,8 @@
 #include <plat/s5p-sysmmu.h>
 #endif
 
-#if defined(CONFIG_MACH_KONA) || defined(CONFIG_MACH_TAB3) || defined(CONFIG_MACH_T0)
-extern unsigned int lpcharge;
-#endif
+//extern unsigned int lpcharge;
+int g_enabled_win;
 
 #if defined(CONFIG_S6D7AA0_LSL080AL02)
 static unsigned int fb_busfreq_table[S3C_FB_MAX_WIN + 1] = {
@@ -230,9 +229,6 @@ void s3cfb_busfreq_lock(struct s3cfb_global *fbdev, unsigned int lock)
 int s3cfb_enable_window(struct s3cfb_global *fbdev, int id)
 {
 	struct s3cfb_window *win = fbdev->fb[id]->par;
-#ifdef FEATURE_BUSFREQ_LOCK
-	int enabled_win = 0;
-#endif
 #if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
 #ifdef CONFIG_BUSFREQ_OPP
 	if (CONFIG_FB_S5P_DEFAULT_WINDOW == 3 &&
@@ -253,8 +249,8 @@ int s3cfb_enable_window(struct s3cfb_global *fbdev, int id)
 		atomic_inc(&fbdev->enabled_win);
 
 #ifdef FEATURE_BUSFREQ_LOCK
-	enabled_win = atomic_read(&fbdev->enabled_win);
-	if (enabled_win >= 2)
+	g_enabled_win = atomic_read(&fbdev->enabled_win);
+	if (g_enabled_win >= 2)
 		s3cfb_busfreq_lock(fbdev, 1);
 #endif
 
@@ -270,9 +266,6 @@ int s3cfb_enable_window(struct s3cfb_global *fbdev, int id)
 int s3cfb_disable_window(struct s3cfb_global *fbdev, int id)
 {
 	struct s3cfb_window *win = fbdev->fb[id]->par;
-#ifdef FEATURE_BUSFREQ_LOCK
-	int enabled_win = 0;
-#endif
 #if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
 #ifdef CONFIG_BUSFREQ_OPP
 	int win_status;
@@ -287,8 +280,8 @@ int s3cfb_disable_window(struct s3cfb_global *fbdev, int id)
 		return -EFAULT;
 	} else {
 #ifdef FEATURE_BUSFREQ_LOCK
-		enabled_win = atomic_read(&fbdev->enabled_win);
-		if (enabled_win < 2)
+		g_enabled_win = atomic_read(&fbdev->enabled_win);
+		if (g_enabled_win < 2)
 			s3cfb_busfreq_lock(fbdev, 0);
 #endif
 		win->enabled = 0;
@@ -945,7 +938,6 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 	struct s3cfb_global *fbdev = get_fimd_global(win->id);
 	struct platform_device *pdev = to_platform_device(fbdev->dev);
 	struct s3c_platform_fb *pdata = to_fb_plat(fbdev->dev);
-	int enabled_win = 0;
 	int i;
 #if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412) || defined(CONFIG_CPU_EXYNOS4210)
 	int win_status;
@@ -981,8 +973,8 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 						FB_BLANK_UNBLANK);
 		}
 
-		enabled_win = atomic_read(&fbdev->enabled_win);
-		if (enabled_win == 0) {
+		g_enabled_win = atomic_read(&fbdev->enabled_win);
+		if (g_enabled_win == 0) {
 			/* temporarily nonuse for recovery, will modify code */
 			/* pdata->clk_on(pdev, &fbdev->clock); */
 			s3cfb_init_global(fbdev);
@@ -1003,7 +995,7 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 				s3cfb_window_off(fbdev, win->id);
 		}
 
-		if (enabled_win == 0) {
+		if (g_enabled_win == 0) {
 			s3cfb_display_on(fbdev);
 
 			if (pdata->backlight_on)
@@ -1033,8 +1025,8 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 						FB_BLANK_NORMAL);
 		}
 
-		enabled_win = atomic_read(&fbdev->enabled_win);
-		if (enabled_win == 0) {
+		g_enabled_win = atomic_read(&fbdev->enabled_win);
+		if (g_enabled_win == 0) {
 			pdata->clk_on(pdev, &fbdev->clock);
 			s3cfb_init_global(fbdev);
 			s3cfb_set_clock(fbdev);
@@ -1052,7 +1044,7 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 		if (!win->enabled)	/* from FB_BLANK_POWERDOWN */
 			s3cfb_enable_window(fbdev, win->id);
 
-		if (enabled_win == 0) {
+		if (g_enabled_win == 0) {
 			s3cfb_display_on(fbdev);
 
 			if (pdata->backlight_on)
@@ -1116,6 +1108,11 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 	return 0;
 }
 
+extern int check_bootmode(void);
+
+extern int s6e8ax0_suspended;
+extern int s6e8ax0_fix_fence;
+
 int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	struct s3cfb_window *win = fb->par;
@@ -1134,14 +1131,16 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	}
 #endif
 
-#if defined(CONFIG_MACH_KONA) || defined(CONFIG_MACH_TAB3) || defined(CONFIG_MACH_T0)
-	if (lpcharge) {
+	pr_err("[FB] s6e8ax0_fix_fence = %d", s6e8ax0_fix_fence);
+	//if (check_bootmode() || get_suspend_state() & SUSPEND_REQUESTED) {
+	if (s6e8ax0_fix_fence) {
 		/* support LPM (off charging mode) display based on FBIOPAN_DISPLAY */
 		s3cfb_check_var(var, fb);
 		s3cfb_set_par(fb);
 		s3cfb_enable_window(fbdev, win->id);
+		s6e8ax0_fix_fence = 0;
 	}
-#endif
+	//}
 
 	if (var->yoffset + var->yres > var->yres_virtual) {
 		dev_err(fbdev->dev, "invalid yoffset value\n");
