@@ -1559,19 +1559,13 @@ int pl330_update(const struct pl330_info *pi)
 
 	/* Now that we are in no hurry, do the callbacks */
 	while (!list_empty(&pl330->req_done)) {
-		struct pl330_req *r;
-
 		rqdone = container_of(pl330->req_done.next,
 					struct _pl330_req, rqd);
 
 		list_del_init(&rqdone->rqd);
 
-		/* Detach the req */
-		r = rqdone->r;
-		rqdone->r = NULL;
-
 		spin_unlock_irqrestore(&pl330->lock, flags);
-		_callback(r, PL330_ERR_NONE);
+		_callback(rqdone->r, PL330_ERR_NONE);
 		spin_lock_irqsave(&pl330->lock, flags);
 	}
 
@@ -1600,7 +1594,6 @@ int pl330_chan_ctrl(void *ch_id, enum pl330_chan_op op)
 		return -EINVAL;
 
 	pl330 = thrd->dmac;
-	active = thrd->req_running;
 
 	spin_lock_irqsave(&pl330->lock, flags);
 
