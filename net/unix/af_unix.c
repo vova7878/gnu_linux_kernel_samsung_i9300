@@ -2068,6 +2068,9 @@ static int unix_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	long amount = 0;
 	int err;
 
+	if (cmd == SIOCSIFFLAGS)
+		pr_err("%s, cmd=%d", __func__, cmd);
+
 	switch (cmd) {
 	case SIOCOUTQ:
 		amount = sk_wmem_alloc_get(sk);

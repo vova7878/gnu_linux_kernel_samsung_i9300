@@ -978,12 +978,22 @@ static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	sock = file->private_data;
 	sk = sock->sk;
 	net = sock_net(sk);
+
+	if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("%s: cmd=%d", __func__, cmd);
+
 	if (cmd >= SIOCDEVPRIVATE && cmd <= (SIOCDEVPRIVATE + 15)) {
 		err = dev_ioctl(net, cmd, argp);
+		if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("dev_ioctl: SOCDEVPRIVATE: cmd=%d, err=%d", cmd, err);
+
 	} else
 #ifdef CONFIG_WEXT_CORE
 	if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) {
 		err = dev_ioctl(net, cmd, argp);
+		if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("dev_ioctl: SIOCIWFIRST: cmd=%d, err=%d", cmd, err);
+
 	} else
 #endif
 		switch (cmd) {
@@ -1038,6 +1048,10 @@ static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			err = sock_do_ioctl(net, sock, cmd, arg);
 			break;
 		}
+
+		if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("sock_ioctl: ret: cmd=%d, err=%d", cmd, err);
+
 	return err;
 }
 
@@ -3238,15 +3252,29 @@ static long compat_sock_ioctl(struct file *file, unsigned cmd,
 	sk = sock->sk;
 	net = sock_net(sk);
 
+	if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("%s: cmd=%d, error = %d", __func__, cmd, error);
+
 	if (sock->ops->compat_ioctl)
 		ret = sock->ops->compat_ioctl(sock, cmd, arg);
 
-	if (ret == -ENOIOCTLCMD &&
-	    (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST))
-		ret = compat_wext_handle_ioctl(net, cmd, arg);
+	if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+	pr_err("compat_ioctl: ret = %d", __func__, ret);
 
-	if (ret == -ENOIOCTLCMD)
+
+	if (ret == -ENOIOCTLCMD &&
+	    (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)) {
+		ret = compat_wext_handle_ioctl(net, cmd, arg);
+		if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("compat_wext_handle_ioctl: ret = %d", __func__, ret);
+	}
+
+
+	if (ret == -ENOIOCTLCMD) {
 		ret = compat_sock_ioctl_trans(file, sock, cmd, arg);
+		if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("compat_sock_ioctl_trans: ret = %d", __func__, ret);
+	}
 
 	return ret;
 }

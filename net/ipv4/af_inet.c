@@ -868,6 +868,9 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	int err = 0;
 	struct net *net = sock_net(sk);
 
+	if (cmd == SIOCSIFFLAGS)
+		pr_err("%s: cmd=%d", __func__, cmd);
+
 	switch (cmd) {
 	case SIOCGSTAMP:
 		err = sock_get_timestamp(sk, (struct timeval __user *)arg);
@@ -915,6 +918,8 @@ static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned lon
 {
 	struct sock *sk = sock->sk;
 	int err = -ENOIOCTLCMD;
+
+	pr_err("%s", __func__);
 
 	if (sk->sk_prot->compat_ioctl)
 		err = sk->sk_prot->compat_ioctl(sk, cmd, arg);

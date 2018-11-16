@@ -460,6 +460,9 @@ static int file_ioctl(struct file *filp, unsigned int cmd,
 	struct inode *inode = filp->f_path.dentry->d_inode;
 	int __user *p = (int __user *)arg;
 
+	if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("ioctl: cmd=%d", cmd);
+
 	switch (cmd) {
 	case FIBMAP:
 		return ioctl_fibmap(filp, p);

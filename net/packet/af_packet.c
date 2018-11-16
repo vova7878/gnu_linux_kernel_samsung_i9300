@@ -3377,6 +3377,9 @@ static int packet_ioctl(struct socket *sock, unsigned int cmd,
 {
 	struct sock *sk = sock->sk;
 
+	if (cmd == SIOCSIFFLAGS)
+	pr_err("packet_ioctl, cmd = %d", cmd);
+
 	switch (cmd) {
 	case SIOCOUTQ:
 	{
