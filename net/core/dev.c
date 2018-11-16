@@ -4969,7 +4969,7 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
  */
 static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
 {
-	int err;
+	int err, ret;
 	struct net_device *dev = __dev_get_by_name(net, ifr->ifr_name);
 	const struct net_device_ops *ops;
 
@@ -4980,7 +4980,9 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
 
 	switch (cmd) {
 	case SIOCSIFFLAGS:	/* Set interface flags */
-		return dev_change_flags(dev, ifr->ifr_flags);
+		ret = dev_change_flags(dev, ifr->ifr_flags);
+		pr_err("%s: cmd = SIOCSIFFLAGS, ret = %d", __func__, ret);
+		return ret;
 
 	case SIOCSIFMETRIC:	/* Set the metric on the interface
 				   (currently unused) */
