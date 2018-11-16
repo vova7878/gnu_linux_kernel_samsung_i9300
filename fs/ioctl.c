@@ -44,6 +44,10 @@ static long vfs_ioctl(struct file *filp, unsigned int cmd,
 	if (error == -ENOIOCTLCMD)
 		error = -EINVAL;
  out:
+
+	if (cmd == 0x8914 /*SIOCSIFFLAGS*/)
+		pr_err("%s: cmd=%d, error = %d", __func__, cmd, error);
+
 	return error;
 }
 
@@ -59,9 +63,13 @@ static int ioctl_fibmap(struct file *filp, int __user *p)
 	//	return -EPERM;
 	res = get_user(block, p);
 	if (res)
-		return res;
+		goto out;
 	res = mapping->a_ops->bmap(mapping, block);
-	return put_user(res, p);
+	res = put_user(res, p);
+out:
+	pr_err("%s: res = %d", __func__, res);
+
+	return res;
 }
 
 /**
