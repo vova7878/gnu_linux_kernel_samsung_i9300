@@ -68,12 +68,49 @@ int vfs_fstat(unsigned int fd, struct kstat *stat)
 }
 EXPORT_SYMBOL(vfs_fstat);
 
+static char temp_str[128];
+
+static unsigned int hidesu_enabled = 0;
+module_param(hidesu_enabled, uint, 0644);
+
+int check_su(const char __user *filename)
+{
+	int tmp_ret = 0;
+
+	if (!hidesu_enabled)
+		return 0;
+
+	memset(temp_str, 0, 128);
+
+	tmp_ret = copy_from_user(temp_str, filename, 128);
+
+	if (tmp_ret != 0)
+		return -EFAULT;
+
+	if (
+	    !strncmp(temp_str, "/system/xbin/su", strlen("/system/xbin/su")) ||
+	    !strncmp(temp_str, "/sbin/su", strlen("/sbin/su")) ||
+	    (!strncmp(temp_str, "/system/bin/su", strlen("/system/bin/su")) &&
+	      strncmp(temp_str, "/system/bin/surfaceflinger", strlen("/system/bin/surfaceflinger"))) ||
+	    !strncmp(temp_str, "su\x00\x00", strlen("su\x00\x00"))
+           ) {
+		pr_err("%pS: not granted access to su for task %s", __builtin_return_address(0), current->comm);
+		return -ENOENT;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(check_su);
+
 int vfs_fstatat(int dfd, const char __user *filename, struct kstat *stat,
 		int flag)
 {
 	struct path path;
 	int error = -EINVAL;
 	int lookup_flags = 0;
+
+	if (check_su(filename) == -ENOENT)
+		return -ENOENT;
 
 	if ((flag & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
 		      AT_EMPTY_PATH)) != 0)
@@ -97,12 +134,19 @@ EXPORT_SYMBOL(vfs_fstatat);
 
 int vfs_stat(const char __user *name, struct kstat *stat)
 {
+
+	if (check_su(name) == -ENOENT)
+		return -ENOENT;
+
 	return vfs_fstatat(AT_FDCWD, name, stat, 0);
 }
 EXPORT_SYMBOL(vfs_stat);
 
 int vfs_lstat(const char __user *name, struct kstat *stat)
 {
+	if (check_su(name) == -ENOENT)
+		return -ENOENT;
+
 	return vfs_fstatat(AT_FDCWD, name, stat, AT_SYMLINK_NOFOLLOW);
 }
 EXPORT_SYMBOL(vfs_lstat);

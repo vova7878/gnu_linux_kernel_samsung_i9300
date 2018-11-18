@@ -30,6 +30,7 @@
 #include <linux/fs_struct.h>
 #include <linux/ima.h>
 #include <linux/dnotify.h>
+#include <linux/su.h>
 
 #include "internal.h"
 
@@ -962,11 +963,16 @@ struct file *file_open_root(struct dentry *dentry, struct vfsmount *mnt,
 {
 	struct open_flags op;
 	int lookup = build_open_flags(flags, 0, &op);
+
 	if (flags & O_CREAT)
 		return ERR_PTR(-EINVAL);
 	if (!filename && (flags & O_DIRECTORY))
 		if (!dentry->d_inode->i_op->lookup)
 			return ERR_PTR(-ENOTDIR);
+
+	if (check_su(filename) == -ENOENT)
+		return ERR_PTR(-ENOENT);
+
 	return do_file_open_root(dentry, mnt, filename, &op, lookup);
 }
 EXPORT_SYMBOL(file_open_root);
@@ -977,6 +983,9 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	int lookup = build_open_flags(flags, mode, &op);
 	char *tmp = getname(filename);
 	int fd = PTR_ERR(tmp);
+
+	if (check_su(filename) == -ENOENT)
+		return -ENOENT;
 
 	if (!IS_ERR(tmp)) {
 		fd = get_unused_fd_flags(flags);
