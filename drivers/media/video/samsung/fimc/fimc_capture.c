@@ -28,11 +28,11 @@
 #include <linux/delay.h>
 
 #include <asm/cacheflush.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 
 #include "fimc.h"
 
-static struct pm_qos_request_list bus_qos_pm_qos_req;
+static struct pm_qos_request bus_qos_pm_qos_req;
 
 static const struct v4l2_fmtdesc capture_fmts[] = {
 	{
@@ -847,8 +847,6 @@ static struct v4l2_subdev *exynos_flite_get_subdev(int id)
 
 	ret = driver_for_each_device(drv, NULL, &sd[0],
 				     flite_register_callback);
-	put_driver(drv);
-
 	return ret ? NULL : sd[id];
 }
 
@@ -938,7 +936,6 @@ static struct v4l2_subdev *fimc_is_get_subdev(int id)
 
 	ret = driver_for_each_device(drv, NULL, &sd,
 				     fimc_is_register_callback);
-	put_driver(drv);
 	return ret ? NULL : sd;
 }
 
