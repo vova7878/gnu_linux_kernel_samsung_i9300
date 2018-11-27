@@ -34,7 +34,7 @@
 #include <plat/media.h>
 #include <mach/media.h>
 #include <mach/map.h>
-//#include <mach/board-lcd.h>
+#include <mach/board-lcd.h>
 #include "s3cfb.h"
 
 #ifdef CONFIG_BUSFREQ_OPP

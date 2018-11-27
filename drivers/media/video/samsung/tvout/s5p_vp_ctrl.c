@@ -556,9 +556,9 @@ void s5p_vp_ctrl_stop(void)
 
 		s5p_vp_ctrl_private.running = false;
 #ifdef CLOCK_GATING_ON_EARLY_SUSPEND
-	if (suspend_status) {
-		tvout_dbg("driver is suspend_status\n");
-	} else
+		if (suspend_status) {
+			tvout_dbg("driver is suspend_status\n");
+		} else
 #endif
 		{
 			s5p_vp_ctrl_clock(0);
