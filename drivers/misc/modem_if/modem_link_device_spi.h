@@ -18,7 +18,7 @@
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
 #include <linux/timer.h>
-#include "modem.h"
+#include <linux/platform_data/modem.h>
 
 
 #define SPI_TIMER_TX_WAIT_TIME 60 /* ms */
@@ -214,7 +214,7 @@ struct spi_v_buff {
 	void __iomem *mmio;
 };
 
-extern unsigned int poweroff_charging;
+extern unsigned int lpcharge;
 extern int get_console_suspended(void);
 static void spi_work(struct work_struct *work);
 
