@@ -17,8 +17,6 @@
 #include <linux/io.h>
 
 #include <asm/cacheflush.h>
-#include <asm/cp15.h>
-#include <asm/smp_plat.h>
 
 #include <plat/cpu.h>
 #include <mach/regs-pmu.h>
@@ -107,7 +105,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		    :
 		    : "memory", "cc");
 
-		if (pen_release == cpu_logical_map(cpu)) {
+		if (pen_release == cpu) {
 			/*
 			 * OK, proper wakeup, we're done
 			 */

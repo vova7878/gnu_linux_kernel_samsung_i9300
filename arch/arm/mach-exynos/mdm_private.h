@@ -59,7 +59,6 @@ struct mdm_modem_drv {
 
 	bool sim_shutdown_req;
 	bool sim_irq;
-	bool shutdown;
 };
 
 int mdm_common_create(struct platform_device  *pdev,
@@ -76,7 +75,7 @@ bool mdm_check_main_connect(const char *);
 #ifdef CONFIG_SIM_DETECT
 void get_sim_state_at_boot(void);
 #endif
-extern unsigned int poweroff_charging;
+extern unsigned int lpcharge;
 extern void ctrl_bridge_stop_all(void);
 extern void rmnet_usb_ctrl_stop_all(void);
 extern void silent_log_panic_handler(void);

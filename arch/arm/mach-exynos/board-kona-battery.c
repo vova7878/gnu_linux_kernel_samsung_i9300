@@ -50,7 +50,7 @@ static bool is_jig_on;
 
 
 /* cable state */
-bool is_cable_attached;
+extern bool is_cable_attached;
 
 static void sec_bat_initial_check(void)
 {
@@ -84,19 +84,19 @@ static bool sec_chg_gpio_init(void)
 }
 
 /* Get LP charging mode state */
-unsigned int poweroff_charging;
+unsigned int lpcharge;
 static int battery_get_lpm_state(char *str)
 {
-	get_option(&str, &poweroff_charging);
-	pr_info("%s: Low power charging mode: %d\n", __func__, poweroff_charging);
+	get_option(&str, &lpcharge);
+	pr_info("%s: Low power charging mode: %d\n", __func__, lpcharge);
 
-	return poweroff_charging;
+	return lpcharge;
 }
-__setup("poweroff_charging=", battery_get_lpm_state);
+__setup("lpcharge=", battery_get_lpm_state);
 
 static bool sec_bat_is_lpm(void)
 {
-	return poweroff_charging == 1 ? true : false;
+	return lpcharge == 1 ? true : false;
 }
 
 void check_jig_status(int status)
@@ -438,10 +438,6 @@ static sec_battery_platform_data_t sec_battery_pdata = {
 	.chg_polarity_status = 0,
 	.chg_irq_attr = IRQF_TRIGGER_RISING,
 	.chg_float_voltage = 4300,
-
-	.chg_curr_siop_lv1 = 1500,
-	.chg_curr_siop_lv2 = 1000,
-	.chg_curr_siop_lv3 = 500,
 };
 
 /* set NCP1851 Charger gpio i2c */

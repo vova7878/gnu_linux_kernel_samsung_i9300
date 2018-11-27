@@ -24,7 +24,6 @@
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
 #include <asm/smp_scu.h>
-#include <asm/smp_plat.h>
 #include <asm/unified.h>
 
 #include <mach/hardware.h>
@@ -93,7 +92,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 * core (e.g. timer irq), then they will not have been enabled
 	 * for us: do so
 	 */
-	gic_secondary_init(0);
+	gic_secondary_init_base(0, dist_base, cpu_base);
 
 	/*
 	 * let the primary processor know we're out of the
@@ -171,7 +170,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * Note that "pen_release" is the hardware CPU ID, whereas
 	 * "cpu" is Linux's internal ID.
 	 */
-	write_pen_release(cpu_logical_map(cpu));
+	write_pen_release(cpu);
 
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing

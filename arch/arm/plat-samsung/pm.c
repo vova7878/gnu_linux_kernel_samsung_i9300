@@ -31,6 +31,16 @@
 
 #include <plat/pm.h>
 #include <mach/pm-core.h>
+#ifdef CONFIG_EXYNOS_C2C
+#include <mach/c2c.h>
+#endif
+#ifdef CONFIG_FAST_BOOT
+#include <linux/fake_shut_down.h>
+#endif
+
+#if defined(CONFIG_SEC_GPIO_DVS)
+#include <linux/secgpio_dvs.h>
+#endif
 
 /* for external use */
 unsigned long s3c_suspend_wakeup_stat;
@@ -52,7 +62,7 @@ void s3c_pm_dbg(const char *fmt, ...)
 	char buff[256];
 
 	va_start(va, fmt);
-	vsnprintf(buff, sizeof(buff), fmt, va);
+	vsprintf(buff, fmt, va);
 	va_end(va);
 
 #ifdef CONFIG_DEBUG_LL
@@ -255,9 +265,7 @@ unsigned int (*pm_check_eint_pend)(void);
  *
  * central control for sleep/resume process
 */
-#ifdef CONFIG_FAST_BOOT
-extern bool fake_shut_down;
-#endif
+
 static int s3c_pm_enter(suspend_state_t state)
 {
 	/* ensure the debug is initialised (if enabled) */
@@ -291,6 +299,13 @@ static int s3c_pm_enter(suspend_state_t state)
 			return -EBUSY;
 		}
 	}
+
+#ifdef CONFIG_EXYNOS_C2C
+	if (c2c_suspend() < 0) {
+		printk(KERN_ALERT "PM: c2c_suspend fail\n");
+		return -EBUSY;
+	}
+#endif
 
 	/* save all necessary core registers not covered by the drivers */
 
@@ -366,6 +381,16 @@ static int s3c_pm_enter(suspend_state_t state)
 
 	cpu_init();
 
+#if defined(CONFIG_SEC_GPIO_DVS) && defined(SECGPIO_SLEEP_DEBUGGING)
+	/************************ Caution !!! ****************************/
+	/* This function must be located in an appropriate position
+	 * to undo gpio SLEEP debugging setting when DUT wakes up.
+	 * It should be implemented in accordance with the specification of each BB vendor.
+	 */
+	/************************ Caution !!! ****************************/
+	gpio_dvs_undo_sleepgpio();
+#endif
+
 	s3c_pm_restore_core();
 	s3c_pm_restore_uarts();
 	s3c_pm_restore_gpios();
@@ -388,6 +413,10 @@ static int s3c_pm_enter(suspend_state_t state)
 	s3c_pm_debug_smdkled(1 << 1, 0);
 
 	s3c_pm_check_restore();
+
+#ifdef CONFIG_EXYNOS_C2C
+	c2c_resume();
+#endif
 
 	/* ok, let's return from sleep */
 

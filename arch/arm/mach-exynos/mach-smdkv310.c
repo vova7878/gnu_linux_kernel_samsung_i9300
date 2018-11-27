@@ -33,9 +33,7 @@
 #include <linux/cma.h>
 #endif
 
-#include <asm/io.h>
 #include <asm/mach/arch.h>
-#include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
 
 #include <video/platform_lcd.h>
@@ -85,6 +83,7 @@
 #ifdef CONFIG_S3C64XX_DEV_SPI
 #include <plat/s3c64xx-spi.h>
 #endif
+#include <plat/fb-s5p.h>
 
 #include <mach/map.h>
 #include <mach/media.h>
@@ -114,7 +113,6 @@
 #if defined(CONFIG_FB_S5P_MIPI_DSIM)
 #include <mach/mipi_ddi.h>
 #include <mach/dsim.h>
-#include <../../../drivers/video/samsung/s3cfb.h>
 #endif
 
 /* Following are default values for UCON, ULCON and UFCON UART registers */
@@ -2667,7 +2665,6 @@ MACHINE_START(SMDKC210, "SMDKC210")
 	.boot_params	= S5P_PA_SDRAM + 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= smdkv310_map_io,
-	.handle_irq	= gic_handle_irq,
 	.init_machine	= smdkv310_machine_init,
 	.timer		= &exynos4_timer,
 MACHINE_END
@@ -2675,10 +2672,9 @@ MACHINE_END
 MACHINE_START(SMDKV310, "SMDKV310")
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	/* Maintainer: Changhwan Youn <chaos.youn@samsung.com> */
-        .atag_offset	= S5P_PA_SDRAM + 0x100,
+	.boot_params	= S5P_PA_SDRAM + 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= smdkv310_map_io,
-	.handle_irq	= gic_handle_irq,
 	.init_machine	= smdkv310_machine_init,
 	.timer		= &exynos4_timer,
 MACHINE_END

@@ -39,6 +39,7 @@ enum cpufreq_lock_ID {
 	DVFS_LOCK_ID_MFC,	/* MFC */
 	DVFS_LOCK_ID_USB,	/* USB */
 	DVFS_LOCK_ID_USB_IF,	/* USB_IF */
+	DVFS_LOCK_ID_DPRAM_IF,	/* DPRAM_IF */
 	DVFS_LOCK_ID_CAM,	/* CAM */
 	DVFS_LOCK_ID_PM,	/* PM */
 	DVFS_LOCK_ID_USER,	/* USER */
@@ -63,13 +64,11 @@ enum cpufreq_lock_ID {
 	 * implementation in CPUFREQ framework of QoS.
 	 */
 	DVFS_LOCK_ID_QOS_DMA_LATENCY,
-	DVFS_LOCK_ID_INCALL,
 	DVFS_LOCK_ID_END,
 };
 
 int exynos_cpufreq_get_level(unsigned int freq,
 			unsigned int *level);
-int exynos_cpufreq_get_level_ret(unsigned int freq);
 int exynos_find_cpufreq_level_by_volt(unsigned int arm_volt,
 			unsigned int *level);
 int exynos_cpufreq_lock(unsigned int nId,

@@ -11,7 +11,6 @@
  */
 
 #include <linux/gpio.h>
-#include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/pwm_backlight.h>
