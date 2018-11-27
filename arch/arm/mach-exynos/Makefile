@@ -393,7 +393,6 @@ obj-$(CONFIG_SEC_MODEM_P8LTE)		+= board-p8ltevzw-modems.o
 obj-$(CONFIG_SEC_MODEM_GODIVA2)		+= board-godiva2-modems.o
 obj-$(CONFIG_SEC_MODEM_ZEST)		+= board-zest-modems.o
 obj-$(CONFIG_SEC_MODEM_GC2_ATT)		+= board-gc2att-modems.o
-obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_getlog.o sec_gaf.o
 obj-$(CONFIG_SEC_WATCHDOG_RESET)	+= sec_watchdog.o
 obj-$(CONFIG_SEC_LOG)			+= sec_log.o
 obj-$(CONFIG_EXYNOS5_DEV_BTS)		+= bts.o

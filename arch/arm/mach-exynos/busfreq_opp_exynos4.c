@@ -65,7 +65,7 @@ void update_busfreq_stat(struct busfreq_data *data, unsigned int index)
 {
 #ifdef BUSFREQ_DEBUG
 	unsigned long long cur_time = get_jiffies_64();
-	data->time_in_state[index] = cputime64_add(data->time_in_state[index], cputime_sub(cur_time, data->last_time));
+	data->time_in_state[index] = data->time_in_state[index] + (cur_time - data->last_time);
 	data->last_time = cur_time;
 #endif
 }
@@ -717,7 +717,7 @@ static __devinit int exynos_busfreq_probe(struct platform_device *pdev)
 	data->last_time = get_jiffies_64();
 
 	data->busfreq_kobject = kobject_create_and_add("busfreq",
-				&cpu_sysdev_class.kset.kobj);
+				&cpu_subsys.dev_root->kobj);
 	if (!data->busfreq_kobject)
 		pr_err("Failed to create busfreq kobject.!\n");
 

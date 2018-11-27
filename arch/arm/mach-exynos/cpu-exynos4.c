@@ -9,7 +9,6 @@
 */
 
 #include <linux/sched.h>
-#include <linux/sysdev.h>
 #include <linux/delay.h>
 
 #include <asm/mach/map.h>
@@ -319,7 +318,7 @@ void __init exynos4_init_irq(void)
 
 	gic_bank_offset = soc_is_exynos4412() ? 0x4000 : 0x8000;
 
-	gic_init(0, IRQ_PPI_MCT_L, S5P_VA_GIC_DIST, S5P_VA_GIC_CPU);
+	gic_init_bases(0, IRQ_PPI_MCT_L, S5P_VA_GIC_DIST, S5P_VA_GIC_CPU, gic_bank_offset, NULL);
 	gic_arch_extn.irq_set_wake = s3c_irq_wake;
 
 	for (irq = 0; irq < COMMON_COMBINER_NR; irq++) {
@@ -351,17 +350,18 @@ void __init exynos4_init_irq(void)
 	s5p_init_irq(NULL, 0);
 }
 
-struct sysdev_class exynos4_sysclass = {
+struct bus_type exynos4_subsys = {
 	.name	= "exynos4-core",
+	.dev_name	= "exynos4-core",
 };
 
-static struct sys_device exynos4_sysdev = {
-	.cls	= &exynos4_sysclass,
+static struct device exynos4_dev = {
+	.bus	= &exynos4_subsys,
 };
 
 static int __init exynos4_core_init(void)
 {
-	return sysdev_class_register(&exynos4_sysclass);
+	return subsys_system_register(&exynos4_subsys, NULL);
 }
 
 core_initcall(exynos4_core_init);
@@ -470,5 +470,5 @@ int __init exynos4_init(void)
 		__raw_writel(value, S5P_MASK_WDT_RESET_REQUEST);
 	}
 
-	return sysdev_register(&exynos4_sysdev);
+	return device_register(&exynos4_dev);
 }

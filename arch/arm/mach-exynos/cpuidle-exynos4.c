@@ -16,10 +16,13 @@
 #include <linux/suspend.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/module.h>
+#include <asm/cp15.h>
 
 #include <asm/proc-fns.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
+#include <asm/system_misc.h>
 
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>
@@ -57,17 +60,9 @@
 #include <plat/map-base.h>
 #include <plat/map-s5p.h>
 
-#ifdef CONFIG_EXYNOS_C2C
-#include <mach/c2c.h>
-#endif
-
 extern unsigned long sys_pwr_conf_addr;
 extern unsigned int l2x0_save[3];
 extern unsigned int scu_save[2];
-
-#ifdef CONFIG_FAST_RESUME
-static void exynos4_init_cpuidle_post_hib(void);
-#endif
 
 enum hc_type {
 	HC_SDHC,
@@ -88,7 +83,7 @@ struct check_device_op {
 };
 
 #ifdef CONFIG_MACH_MIDAS
-unsigned int log_en = 0;
+unsigned int log_en = 1;
 #else
 unsigned int log_en;
 #endif
@@ -495,11 +490,6 @@ static int exynos4_check_operation(void)
 	if (check_sromc_access())
 		return 1;
 
-#ifdef CONFIG_EXYNOS_C2C
-	if (c2c_connected())
-		return 1;
-#endif
-
 #ifdef CONFIG_INTERNAL_MODEM_IF
 	if (check_idpram_op())
 		return 1;
@@ -550,40 +540,6 @@ static struct sleep_save exynos4_set_clksrc[] = {
 static struct sleep_save exynos4210_set_clksrc[] = {
 	{ .reg = EXYNOS4_CLKSRC_MASK_LCD1		, .val = 0x00001111, },
 };
-
-
-static DEFINE_SPINLOCK(online_lock);
-static int n_onlining_cpus_impl;
-
-static void add_onlininig_cpu(void)
-{
-	spin_lock(&online_lock);
-	++n_onlining_cpus_impl;
-	spin_unlock(&online_lock);
-}
-
-static void remove_onlininig_cpu(void)
-{
-	spin_lock(&online_lock);
-	--n_onlining_cpus_impl;
-	spin_unlock(&online_lock);
-}
-
-static void init_onlining_cpus(void)
-{
-	spin_lock(&online_lock);
-	n_onlining_cpus_impl = num_online_cpus();
-	spin_unlock(&online_lock);
-}
-
-static int is_only_onlining_cpu(void)
-{
-	int result;
-	spin_lock(&online_lock);
-	result = n_onlining_cpus_impl == 1;
-	spin_unlock(&online_lock);
-	return result;
-}
 
 static int exynos4_check_enter(void)
 {
@@ -639,8 +595,6 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 
 	local_irq_disable();
 
-	cpu_pm_enter();
-
 	if (log_en)
 		pr_info("+++aftr\n");
 
@@ -658,10 +612,12 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 		exynos4_reset_assert_ctrl(0);
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -688,8 +644,10 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 
 early_wakeup:
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210())
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
@@ -702,8 +660,6 @@ early_wakeup:
 
 	if (log_en)
 		pr_info("---aftr\n");
-
-	cpu_pm_exit();
 
 	local_irq_enable();
 	idle_time = (after.tv_sec - before.tv_sec) * USEC_PER_SEC +
@@ -737,8 +693,6 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	bt_uart_rts_ctrl(1);
 #endif
 	local_irq_disable();
-
-	cpu_pm_enter();
 
 #ifdef CONFIG_INTERNAL_MODEM_IF
 	gpio_set_value(GPIO_PDA_ACTIVE, 0);
@@ -780,12 +734,14 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	} while (exynos4_check_enter());
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
+#ifdef CONFIG_CPU_EXYNOS4212
 	if (!soc_is_exynos4210()) {
 		abb_val = exynos4x12_get_abb_member(ABB_ARM);
 		abb_val_int = exynos4x12_get_abb_member(ABB_INT);
 		exynos4x12_set_abb_member(ABB_ARM, ABB_MODE_075V);
 		exynos4x12_set_abb_member(ABB_INT, ABB_MODE_075V);
 	}
+#endif
 #endif
 
 	if (exynos4_enter_lp(0, PLAT_PHYS_OFFSET - PAGE_OFFSET) == 0) {
@@ -818,10 +774,12 @@ early_wakeup:
 			       ARRAY_SIZE(exynos4_lpa_save));
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
-	if (!soc_is_exynos4210()) {
+#ifdef CONFIG_CPU_EXYNOS4212
+	if ((exynos_result_of_asv > 1) && !soc_is_exynos4210()) {
 		exynos4x12_set_abb_member(ABB_ARM, abb_val);
 		exynos4x12_set_abb_member(ABB_INT, abb_val_int);
 	}
+#endif
 #endif
 
 	if (!soc_is_exynos4210())
@@ -840,8 +798,6 @@ early_wakeup:
 #ifdef CONFIG_INTERNAL_MODEM_IF
 	gpio_set_value(GPIO_PDA_ACTIVE, 1);
 #endif
-
-	cpu_pm_exit();
 
 	local_irq_enable();
 	idle_time = (after.tv_sec - before.tv_sec) * USEC_PER_SEC +
@@ -911,7 +867,7 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 		spin_lock(&idle_lock);
 		cpu_core |= (1 << cpu);
 
-		if ((cpu_core == 0x3) || is_only_onlining_cpu()) {
+		if ((cpu_core == 0x3) || (cpu_online(1) == 0)) {
 			old_div = __raw_readl(EXYNOS4_CLKDIV_CPU);
 			tmp = old_div;
 			tmp |= ((0x7 << 28) | (0x7 << 0));
@@ -929,7 +885,7 @@ static int exynos4_enter_idle(struct cpuidle_device *dev,
 
 		spin_lock(&idle_lock);
 
-		if ((cpu_core == 0x3) || is_only_onlining_cpu()) {
+		if ((cpu_core == 0x3) || (cpu_online(1) == 0)) {
 			__raw_writel(old_div, EXYNOS4_CLKDIV_CPU);
 
 			do {
@@ -985,12 +941,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	int ret;
 
 	/* This mode only can be entered when only Core0 is online */
-	if (use_clock_down == SW_CLK_DWN) {
-		enter_mode = is_only_onlining_cpu();
-	} else {
-		enter_mode = num_online_cpus() == 1;
-	}
-	if (!enter_mode) {
+	if (num_online_cpus() != 1) {
 		BUG_ON(!dev->safe_state);
 		new_state = dev->safe_state;
 	}
@@ -1008,6 +959,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 	if (!enter_mode)
 		return exynos4_enter_idle(dev, new_state);
 	else {
+		cpu_pm_enter();
 #ifdef CONFIG_CORESIGHT_ETM
 		etm_disable(0);
 #endif
@@ -1018,6 +970,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 #ifdef CONFIG_CORESIGHT_ETM
 		etm_enable(0);
 #endif
+		cpu_pm_exit();
 	}
 
 	return ret;
@@ -1035,9 +988,6 @@ static int exynos4_cpuidle_notifier_event(struct notifier_block *this,
 		pr_debug("PM_SUSPEND_PREPARE for CPUIDLE\n");
 		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
-#ifdef CONFIG_FAST_RESUME
-		exynos4_init_cpuidle_post_hib();
-#endif
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		enable_hlt();
@@ -1049,31 +999,6 @@ static int exynos4_cpuidle_notifier_event(struct notifier_block *this,
 
 static struct notifier_block exynos4_cpuidle_notifier = {
 	.notifier_call = exynos4_cpuidle_notifier_event,
-};
-
-static int exynos4_cpuidle_cpu_notifier_event(struct notifier_block *this,
-					      unsigned long event,
-					      void *hcpu)
-{
-	switch (event) {
-	case CPU_UP_PREPARE:
-	case CPU_UP_PREPARE_FROZEN:
-		add_onlininig_cpu();
-		break;
-
-	case CPU_UP_CANCELED:
-	case CPU_UP_CANCELED_FROZEN:
-	case CPU_DEAD:
-	case CPU_DEAD_FROZEN:
-		remove_onlininig_cpu();
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block exynos4_cpuidle_cpu_notifier = {
-	.notifier_call = exynos4_cpuidle_cpu_notifier_event,
 };
 
 #ifdef CONFIG_EXYNOS4_ENABLE_CLOCK_DOWN
@@ -1136,35 +1061,6 @@ static void __init exynos4_core_down_clk(void)
 #define exynos4_core_down_clk()	do { } while (0)
 #endif
 
-#ifdef CONFIG_FAST_RESUME
-static void exynos4_init_cpuidle_post_hib(void)
-{
-	if (soc_is_exynos4210())
-		use_clock_down = SW_CLK_DWN;
-	else
-		use_clock_down = HW_CLK_DWN;
-
-	/* Clock down feature can use only EXYNOS4212 */
-	if (use_clock_down == HW_CLK_DWN)
-		exynos4_core_down_clk();
-
-	sys_pwr_conf_addr = (unsigned long)S5P_CENTRAL_SEQ_CONFIGURATION;
-
-	/* Save register value for SCU */
-	scu_save[0] = __raw_readl(S5P_VA_SCU + 0x30);
-	scu_save[1] = __raw_readl(S5P_VA_SCU + 0x0);
-
-	/* Save register value for L2X0 */
-	l2x0_save[0] = __raw_readl(S5P_VA_L2CC + 0x108);
-	l2x0_save[1] = __raw_readl(S5P_VA_L2CC + 0x10C);
-	l2x0_save[2] = __raw_readl(S5P_VA_L2CC + 0xF60);
-
-	flush_cache_all();
-	outer_clean_range(virt_to_phys(l2x0_save), ARRAY_SIZE(l2x0_save));
-	outer_clean_range(virt_to_phys(scu_save), ARRAY_SIZE(scu_save));
-}
-#endif
-
 static int __init exynos4_init_cpuidle(void)
 {
 	int i, max_cpuidle_state, cpu_id, ret;
@@ -1188,7 +1084,7 @@ static int __init exynos4_init_cpuidle(void)
 		return ret;
 	}
 
-	for_each_cpu(cpu_id, cpu_online_mask) {
+	for_each_online_cpu(cpu_id) {
 		device = &per_cpu(exynos4_cpuidle_device, cpu_id);
 		device->cpu = cpu_id;
 
@@ -1206,10 +1102,11 @@ static int __init exynos4_init_cpuidle(void)
 
 		device->safe_state = &device->states[0];
 
-		if (cpuidle_register_device(device)) {
+		ret = cpuidle_register_device(device);
+		if (ret) {
 			cpuidle_unregister_driver(&exynos4_idle_driver);
 			printk(KERN_ERR "CPUidle register device failed\n,");
-			return -EIO;
+			return ret;
 		}
 	}
 
@@ -1248,16 +1145,7 @@ static int __init exynos4_init_cpuidle(void)
 		return -EINVAL;
 	}
 #endif
-
 	register_pm_notifier(&exynos4_cpuidle_notifier);
-
-	if (use_clock_down == SW_CLK_DWN) {
-		get_online_cpus();
-		init_onlining_cpus();
-		register_cpu_notifier(&exynos4_cpuidle_cpu_notifier);
-		put_online_cpus();
-	}
-
 	sys_pwr_conf_addr = (unsigned long)S5P_CENTRAL_SEQ_CONFIGURATION;
 
 	/* Save register value for SCU */

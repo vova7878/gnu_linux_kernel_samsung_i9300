@@ -19,6 +19,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/io.h>
 #include <linux/regulator/machine.h>
+#include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/interrupt.h>
 
 #if defined(CONFIG_MACH_M0_CTC)
@@ -32,6 +34,7 @@
 
 #include <plat/cpu.h>
 #include <plat/pm.h>
+#include <plat/pll.h>
 #include <plat/regs-srom.h>
 
 #include <mach/regs-irq.h>
@@ -42,10 +45,6 @@
 #include <mach/pmu.h>
 #include <mach/smc.h>
 #include <mach/gpio.h>
-
-#if defined(CONFIG_SEC_GPIO_DVS)
-#include <linux/secgpio_dvs.h>
-#endif
 
 void (*exynos4_sleep_gpio_table_set)(void);
 
@@ -309,23 +308,6 @@ static struct sleep_save exynos4_l2cc_save[] = {
 
 void exynos4_cpu_suspend(void)
 {
-#if defined(CONFIG_SEC_GPIO_DVS)
-	/************************ Caution !!! ****************************/
-	/* This function must be located in appropriate SLEEP position
-     * in accordance with the specification of each BB vendor.
-     */
-	/************************ Caution !!! ****************************/
-	gpio_dvs_check_sleepgpio();
-#ifdef SECGPIO_SLEEP_DEBUGGING
-	/************************ Caution !!! ****************************/
-	/* This func. must be located in an appropriate position for GPIO SLEEP debugging
-     * in accordance with the specification of each BB vendor, and
-     * the func. must be called after calling the function "gpio_dvs_check_sleepgpio"
-     */
-	/************************ Caution !!! ****************************/
-	gpio_dvs_set_sleepgpio();
-#endif
-#endif
 
 	if (soc_is_exynos4210()) {
 		/* eMMC power off delay (hidden register)
@@ -426,7 +408,7 @@ static unsigned int exynos4_pm_check_eint_pend(void)
 	return pending_eint;
 }
 
-static int exynos4_pm_add(struct sys_device *sysdev)
+static int exynos4_pm_add(struct device *dev, struct subsys_interface *sif)
 {
 	pm_cpu_prep = exynos4_cpu_prepare;
 	pm_cpu_sleep = exynos4_cpu_suspend;
@@ -442,8 +424,10 @@ static int exynos4_pm_add(struct sys_device *sysdev)
 	return 0;
 }
 
-static struct sysdev_driver exynos4_pm_driver = {
-	.add		= exynos4_pm_add,
+static struct subsys_interface exynos4_pm_interface = {
+	.name		= "exynos4_pm",
+	.subsys		= &exynos4_subsys,
+	.add_dev	= exynos4_pm_add,
 };
 
 static __init int exynos4_pm_drvinit(void)
@@ -461,7 +445,7 @@ static __init int exynos4_pm_drvinit(void)
 	/* Disable XXTI pad in system level normal mode */
 	__raw_writel(0x0, S5P_XXTI_CONFIGURATION);
 
-	return sysdev_driver_register(&exynos4_sysclass, &exynos4_pm_driver);
+	return subsys_interface_register(&exynos4_pm_interface);
 }
 arch_initcall(exynos4_pm_drvinit);
 
@@ -532,17 +516,6 @@ static int exynos4_pm_suspend(void)
 
 	/* Setting Central Sequence Register for power down mode */
 
-#if defined(CONFIG_REGULATOR_S5M8767)
-	/* Change Central sequence operation to enable memory earlier */
-	__raw_writel(0x8080008b, S5P_SEQ_TRANSITION0);
-	__raw_writel(0x80920081, S5P_SEQ_TRANSITION1);
-	__raw_writel(0x808a0093, S5P_SEQ_TRANSITION2);
-
-	__raw_writel(0x8080008b, S5P_SEQ_COREBLK_TRANSITION0);
-	__raw_writel(0x80920081, S5P_SEQ_COREBLK_TRANSITION1);
-	__raw_writel(0x808a0093, S5P_SEQ_COREBLK_TRANSITION2);
-#endif
-
 	tmp = __raw_readl(S5P_CENTRAL_SEQ_CONFIGURATION);
 	tmp &= ~(S5P_CENTRAL_LOWPWR_CFG);
 	__raw_writel(tmp, S5P_CENTRAL_SEQ_CONFIGURATION);
@@ -568,18 +541,10 @@ static int exynos4_pm_suspend(void)
 	return 0;
 }
 
-#if !defined(CONFIG_CPU_EXYNOS4210)
-#define CHECK_POINT printk(KERN_DEBUG "%s:%d\n", __func__, __LINE__)
-#else
-#define CHECK_POINT
-#endif
-
 static void exynos4_pm_resume(void)
 {
 	unsigned long tmp;
-#if defined(CONFIG_MACH_KONA) || defined(CONFIG_MACH_T0)
-	int check_pending_count = 0;
-#endif
+
 	/* If PMU failed while entering sleep mode, WFI will be
 	 * ignored by PMU and then exiting cpu_do_idle().
 	 * S5P_CENTRAL_LOWPWR_CFG bit will not be set automatically
@@ -628,8 +593,6 @@ static void exynos4_pm_resume(void)
 }
 #endif
 
-	CHECK_POINT;
-
 	if (!exynos4_is_c2c_use())
 		s3c_pm_do_restore_core(exynos4_core_save, ARRAY_SIZE(exynos4_core_save));
 	else {
@@ -644,8 +607,6 @@ static void exynos4_pm_resume(void)
 	/* For the suspend-again to check the value */
 	s3c_suspend_wakeup_stat = __raw_readl(S5P_WAKEUP_STAT);
 
-	CHECK_POINT;
-
 	if ((__raw_readl(S5P_WAKEUP_STAT) == 0) && soc_is_exynos4412()) {
 		__raw_writel(__raw_readl(S5P_EINT_PEND(0)), S5P_EINT_PEND(0));
 		__raw_writel(__raw_readl(S5P_EINT_PEND(1)), S5P_EINT_PEND(1));
@@ -655,37 +616,9 @@ static void exynos4_pm_resume(void)
 		__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(1));
 		__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(2));
 		__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(3));
-
-#if defined(CONFIG_MACH_KONA) || defined(CONFIG_MACH_T0)
-		for (check_pending_count = 0; check_pending_count < 10; ) {
-			if ((__raw_readl(S5P_EINT_PEND(0)) == 0) &&
-				(__raw_readl(S5P_EINT_PEND(1)) == 0) &&
-				(__raw_readl(S5P_EINT_PEND(2)) == 0) &&
-				(__raw_readl(S5P_EINT_PEND(3)) == 0)) {
-				printk(KERN_DEBUG "[kona] try clear pending register Success [%d] times\n",++check_pending_count);
-				break;
-			} else {
-				__raw_writel(__raw_readl(S5P_EINT_PEND(0)), S5P_EINT_PEND(0));
-				__raw_writel(__raw_readl(S5P_EINT_PEND(1)), S5P_EINT_PEND(1));
-				__raw_writel(__raw_readl(S5P_EINT_PEND(2)), S5P_EINT_PEND(2));
-				__raw_writel(__raw_readl(S5P_EINT_PEND(3)), S5P_EINT_PEND(3));
-				__raw_writel(0x01010001, S5P_ARM_CORE_OPTION(0));
-				__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(1));
-				__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(2));
-				__raw_writel(0x00000001, S5P_ARM_CORE_OPTION(3));
-				printk(KERN_DEBUG "[kona] try clear pending register [%d] times\n",++check_pending_count);
-				if (check_pending_count == 10) {
-					printk("[kona] check counter expired enter bug!\n");
-					BUG();
-				}
-			}
-		}
-#endif
 	}
 
 	scu_enable(S5P_VA_SCU);
-
-	CHECK_POINT;
 
 #ifdef CONFIG_CACHE_L2X0
 #ifdef CONFIG_ARM_TRUSTZONE
@@ -696,17 +629,11 @@ static void exynos4_pm_resume(void)
 				       exynos4_l2cc_save[1].val,
 				       exynos4_l2cc_save[2].val);
 
-	CHECK_POINT;
-
 	exynos_smc(SMC_CMD_L2X0SETUP2,
 			L2X0_DYNAMIC_CLK_GATING_EN | L2X0_STNDBY_MODE_EN,
 			0x7C470001, 0xC200FFFF);
 
-	CHECK_POINT;
-
 	exynos_smc(SMC_CMD_L2X0INVALL, 0, 0, 0);
-
-	CHECK_POINT;
 
 	exynos_smc(SMC_CMD_L2X0CTRL, 1, 0, 0);
 #else
@@ -717,8 +644,6 @@ static void exynos4_pm_resume(void)
 #endif
 #endif
 
-	CHECK_POINT;
-
 early_wakeup:
 	if (!soc_is_exynos4210())
 		exynos4_reset_assert_ctrl(1);
@@ -727,8 +652,6 @@ early_wakeup:
 	/* Enable the full line of zero */
 	enable_cache_foz();
 #endif
-
-	CHECK_POINT;
 
 	/* Clear Check mode */
 	__raw_writel(0x0, REG_INFORM1);
