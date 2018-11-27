@@ -149,7 +149,7 @@ struct s3cfb_extdsp_lcd {
 #include <mach/midas-tsp.h>
 #include <mach/regs-clock.h>
 
-#include <mach/midas-lcd.h>
+#include <mach/board-lcd.h>
 #include <mach/midas-sound.h>
 
 #ifdef CONFIG_INPUT_WACOM
@@ -2271,6 +2271,9 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_FB_S5P_LD9040
 	&ld9040_spi_gpio,
 #endif
+#ifdef CONFIG_FB_S5P_GD2EVF
+	&gd2evf_spi_gpio,
+#endif
 #ifdef CONFIG_VIDEO_TVOUT
 	&s5p_device_tvout,
 	&s5p_device_cec,
@@ -3089,6 +3092,9 @@ static void __init midas_machine_init(void)
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	s3cfb_set_platdata(&lms501kf03_data);
 #endif
+#if defined(CONFIG_FB_S5P_GD2EVF)
+	gd2evf_fb_init();
+#endif
 #if defined(CONFIG_FB_S5P_MIPI_DSIM)
 	mipi_fb_init();
 #elif defined(CONFIG_FB_S5P_LD9040)
@@ -3097,6 +3103,9 @@ static void __init midas_machine_init(void)
 	samsung_bl_set(&smdk4212_bl_gpio_info, &smdk4212_bl_data);
 #endif
 	s3cfb_set_platdata(&fb_platform_data);
+#if defined(CONFIG_FB_S5P_GD2EVF)
+	mipi_fb_platdata_addr = s3c_device_fb.dev.platform_data;
+#endif
 
 #ifdef CONFIG_EXYNOS_DEV_PD
 	s3c_device_fb.dev.parent = &exynos4_device_pd[PD_LCD0].dev;
