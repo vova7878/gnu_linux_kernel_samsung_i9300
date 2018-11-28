@@ -17,6 +17,7 @@ extern "C"
 #endif
 
 #include <linux/cdev.h>     /* character device definitions */
+#include <linux/mm.h>
 #include "mali_kernel_license.h"
 #include "mali_osk.h"
 
@@ -29,6 +30,15 @@ extern struct workqueue_struct * mali_wq;
 
 void mali_osk_low_level_mem_init(void);
 void mali_osk_low_level_mem_term(void);
+
+/*
+ * From 4.20.0 kernel vm_insert_pfn was dropped
+ * Make wrapper to preserve compatibility
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+extern int vm_insert_pfn(struct vm_area_struct *vma, unsigned long addr,
+			 unsigned long pfn);
+#endif
 
 #ifdef __cplusplus
 }

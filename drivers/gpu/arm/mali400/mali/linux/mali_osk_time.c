@@ -47,7 +47,11 @@ void _mali_osk_time_ubusydelay( u32 usecs )
 
 u64 _mali_osk_time_get_ns( void )
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+	return ktime_get_boot_ns();
+#else
 	struct timespec tsval;
 	getnstimeofday(&tsval);
 	return (u64)timespec_to_ns(&tsval);
+#endif
 }
