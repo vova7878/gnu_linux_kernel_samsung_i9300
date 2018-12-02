@@ -3099,7 +3099,7 @@ static int __devexit mms_ts_remove(struct i2c_client *client)
 	struct mms_ts_info *info = i2c_get_clientdata(client);
 
 #ifdef CONFIG_FB
-	unregister_fb_notifier(&info->fb_notif);
+	fb_unregister_client(&info->fb_notif);
 #endif
 
 	if (info->irq >= 0)
