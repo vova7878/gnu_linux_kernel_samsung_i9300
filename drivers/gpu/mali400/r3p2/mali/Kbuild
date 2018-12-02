@@ -214,7 +214,3 @@ VERSION_STRINGS += USING_PROFILING=$(CONFIG_MALI400_PROFILING)
 VERSION_STRINGS += USING_INTERNAL_PROFILING=$(CONFIG_MALI400_INTERNAL_PROFILING)
 VERSION_STRINGS += USING_GPU_UTILIZATION=$(USING_GPU_UTILIZATION)
 VERSION_STRINGS += MALI_UPPER_HALF_SCHEDULING=$(MALI_UPPER_HALF_SCHEDULING)
-
-# Create file with Mali driver configuration
-$(srctree)/$(src)/__malidrv_build_info.c:
-	@echo 'const char *__malidrv_build_info(void) { return "malidrv: $(VERSION_STRINGS)";}' > $(srctree)/$(src)/__malidrv_build_info.c
