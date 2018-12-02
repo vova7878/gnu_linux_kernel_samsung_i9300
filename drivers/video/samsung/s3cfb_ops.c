@@ -1098,10 +1098,6 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 	return 0;
 }
 
-extern unsigned int poweroff_charging;
-extern int s6e8ax0_suspended;
-extern int s6e8ax0_fix_fence;
-
 int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	struct s3cfb_window *win = fb->par;
@@ -1120,16 +1116,12 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	}
 #endif
 
-#ifdef DEBUG
-	pr_err("[FB] s6e8ax0_fix_fence = %d", s6e8ax0_fix_fence);
+#ifdef SUPPORT_LPM_PAN_DISPLAY
+	/* support LPM (off charging mode) display based on FBIOPAN_DISPLAY */
+	s3cfb_check_var(var, fb);
+	s3cfb_set_par(fb);
+	s3cfb_enable_window(fbdev, win->id);
 #endif
-	if (s6e8ax0_fix_fence || poweroff_charging) {
-		/* support LPM (off charging mode) display based on FBIOPAN_DISPLAY */
-		s3cfb_check_var(var, fb);
-		s3cfb_set_par(fb);
-		s3cfb_enable_window(fbdev, win->id);
-		s6e8ax0_fix_fence = 0;
-	}
 
 	if (var->yoffset + var->yres > var->yres_virtual) {
 		dev_err(fbdev->dev, "invalid yoffset value\n");
