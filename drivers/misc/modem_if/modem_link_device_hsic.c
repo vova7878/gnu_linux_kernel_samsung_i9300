@@ -1345,11 +1345,12 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 	}
 
 	/* HSIC main comm channel has been established */
-	if (pipe == IF_USB_CMD_EP)
-		link_pm_change_modem_state(usb_ld->link_pm_data, STATE_ONLINE);
+	mif_err("pipe = %d, changing modem status to %d", pipe, STATE_ONLINE);
+	//if (pipe == IF_USB_CMD_EP)
+	link_pm_change_modem_state(usb_ld->link_pm_data, STATE_ONLINE);
 
-	if (pipe == IF_USB_CMD_EP || info->intf_id == BOOT_DOWN)
-		usb_ld->if_usb_connected = 1;
+	//if (pipe == IF_USB_CMD_EP || info->intf_id == BOOT_DOWN)
+	usb_ld->if_usb_connected = 1;
 
 	mif_err("successfully done\n");
 
