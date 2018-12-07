@@ -414,7 +414,7 @@ s32 ffsCreateFile(struct inode *inode, char *path, u8 mode, FILE_ID_T *fid)
 	/* create a new file */
 	ret = create_file(inode, &dir, &uni_name, mode, fid);
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -709,7 +709,7 @@ s32 ffsWriteFile(struct inode *inode, FILE_ID_T *fid, void *buffer, u64 count, u
 		release_entry_set(es);
 	}
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -827,7 +827,7 @@ s32 ffsTruncateFile(struct inode *inode, u64 old_size, u64 new_size)
 	if (fid->rwoffset > fid->size)
 		fid->rwoffset = fid->size;
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -948,7 +948,7 @@ s32 ffsMoveFile(struct inode *old_parent_inode, FILE_ID_T *fid, struct inode *ne
 		p_fs->fs_func->delete_dir_entry(sb, p_dir, new_entry, 0, num_entries+1);
 	}
 out:
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -997,7 +997,7 @@ s32 ffsRemoveFile(struct inode *inode, FILE_ID_T *fid)
 	fid->start_clu = CLUSTER_32(~0);
 	fid->flags = (p_fs->vol_type == EXFAT) ? 0x03 : 0x01;
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -1073,7 +1073,7 @@ s32 ffsSetAttr(struct inode *inode, u32 attr)
 		release_entry_set(es);
 	}
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -1171,7 +1171,7 @@ s32 ffsGetStat(struct inode *inode, DIR_ENTRY_T *info)
 	/* XXX this is very bad for exfat cuz name is already included in es.
 	 API should be revised */
 	p_fs->fs_func->get_uni_name_from_ext_entry(sb, &(fid->dir), fid->entry, uni_name.name);
-	if (*(uni_name.name) == 0x0)
+	if (*(uni_name.name) == 0x0 && p_fs->vol_type != EXFAT)
 		get_uni_name_from_dos_entry(sb, (DOS_DENTRY_T *) ep, &uni_name, 0x1);
 	nls_uniname_to_cstring(sb, info->Name, &uni_name);
 
@@ -1429,7 +1429,7 @@ s32 ffsCreateDir(struct inode *inode, char *path, FILE_ID_T *fid)
 
 	ret = create_dir(inode, &dir, &uni_name, fid);
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
@@ -1556,7 +1556,7 @@ s32 ffsReadDir(struct inode *inode, DIR_ENTRY_T *dir_entry)
 
 			*(uni_name.name) = 0x0;
 			p_fs->fs_func->get_uni_name_from_ext_entry(sb, &dir, dentry, uni_name.name);
-			if (*(uni_name.name) == 0x0)
+			if (*(uni_name.name) == 0x0 && p_fs->vol_type != EXFAT)
 				get_uni_name_from_dos_entry(sb, (DOS_DENTRY_T *) ep, &uni_name, 0x1);
 			nls_uniname_to_cstring(sb, dir_entry->Name, &uni_name);
 			buf_unlock(sb, sector);
@@ -1651,7 +1651,7 @@ s32 ffsRemoveDir(struct inode *inode, FILE_ID_T *fid)
 	fid->start_clu = CLUSTER_32(~0);
 	fid->flags = (p_fs->vol_type == EXFAT)? 0x03: 0x01;
 
-#ifdef CONFIG_EXFAT_DELAYED_SYNC
+#ifndef CONFIG_EXFAT_DELAYED_SYNC
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
 #endif
