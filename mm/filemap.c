@@ -769,12 +769,23 @@ struct page *find_or_create_page(struct address_space *mapping,
 {
 	struct page *page;
 	int err;
+	gfp_t gfp_notmask = 0;
+
 repeat:
 	page = find_lock_page(mapping, index);
 	if (!page) {
-		page = __page_cache_alloc(gfp_mask);
+retry:
+		page = __page_cache_alloc(gfp_mask & ~gfp_notmask);
 		if (!page)
 			return NULL;
+
+		if (is_cma_pageblock(page)) {
+			__free_page(page);
+			gfp_notmask |= __GFP_MOVABLE;
+			goto retry;
+		}
+
+
 		/*
 		 * We want a regular kernel memory (not highmem or DMA etc)
 		 * allocation for the radix tree nodes, but we need to honour
@@ -1650,13 +1661,13 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	 * Do we have something in the page cache already?
 	 */
 	page = find_get_page(mapping, offset);
-	if (likely(page) && !(vmf->flags & FAULT_FLAG_TRIED)) {
+	if (likely(page)) {
 		/*
 		 * We found the page, so try async readahead before
 		 * waiting for the lock.
 		 */
 		do_async_mmap_readahead(vma, ra, file, page, offset);
-	} else if (!page) {
+	} else {
 		/* No page in the page cache at all */
 		do_sync_mmap_readahead(vma, ra, file, offset);
 		count_vm_event(PGMAJFAULT);
@@ -2343,9 +2354,17 @@ repeat:
 	if (page)
 		goto found;
 
+retry:
 	page = __page_cache_alloc(gfp_mask & ~gfp_notmask);
 	if (!page)
 		return NULL;
+
+	if (is_cma_pageblock(page)) {
+		__free_page(page);
+		gfp_notmask |= __GFP_MOVABLE;
+		goto retry;
+	}
+
 	status = add_to_page_cache_lru(page, mapping, index,
 						GFP_KERNEL & ~gfp_notmask);
 	if (unlikely(status)) {
@@ -2402,6 +2421,11 @@ again:
 			break;
 		}
 
+		if (fatal_signal_pending(current)) {
+			status = -EINTR;
+			break;
+		}
+
 		status = a_ops->write_begin(file, mapping, pos, bytes, flags,
 						&page, &fsdata);
 		if (unlikely(status))
@@ -2442,10 +2466,6 @@ again:
 		written += copied;
 
 		balance_dirty_pages_ratelimited(mapping);
-		if (fatal_signal_pending(current)) {
-			status = -EINTR;
-			break;
-		}
 	} while (iov_iter_count(i));
 
 	return written ? written : status;

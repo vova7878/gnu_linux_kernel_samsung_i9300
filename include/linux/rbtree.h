@@ -135,7 +135,6 @@ static inline void rb_root_init(struct rb_root *root, struct rb_node *node)
 {
 	root->rb_node = node;
 	if (node) {
-		node->rb_parent_color = RB_BLACK; /* black, no parent */
 		node->rb_left  = NULL;
 		node->rb_right = NULL;
 	}
@@ -150,6 +149,14 @@ static inline void rb_root_init(struct rb_root *root, struct rb_node *node)
 static inline void rb_init_node(struct rb_node *rb)
 {
 	rb->rb_parent_color = 0;
+	rb->rb_right = NULL;
+	rb->rb_left = NULL;
+	RB_CLEAR_NODE(rb);
+}
+
+static inline void rb_init_node(struct rb_node *rb)
+{
+	//rb->rb_parent_color = 0;
 	rb->rb_right = NULL;
 	rb->rb_left = NULL;
 	RB_CLEAR_NODE(rb);
