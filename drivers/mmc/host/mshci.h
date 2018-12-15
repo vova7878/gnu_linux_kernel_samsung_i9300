@@ -422,16 +422,12 @@ struct mshci_ops {
 	void		(*init_issue_cmd)(struct mshci_host *host);
 	void		(*init_card)(struct mshci_host *host);
 
-	int		(*dma_map_sg)(struct mshci_host *host,
-				struct device *dev,
+	int		(*dma_map_sg1)(struct device *dev,
 				struct scatterlist *sg,
-				int nents, enum dma_data_direction dir,
-				int flush_type);
-	void		(*dma_unmap_sg)(struct mshci_host *host,
-				struct device *dev,
+				int nents, enum dma_data_direction dir);
+	void		(*dma_unmap_sg1)(struct device *dev,
 				struct scatterlist *sg,
-				int nents, enum dma_data_direction dir,
-				int flush_type);
+				int nents, enum dma_data_direction dir);
 	int		(*get_fifo_depth)(struct mshci_host *host);
 };
 
