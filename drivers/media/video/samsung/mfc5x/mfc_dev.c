@@ -198,10 +198,12 @@ static int get_free_inst_id(struct mfc_dev *dev)
 	return slot;
 }
 
+#define DMA_ALLOC_RETRY 10
+
 static int mfc_open(struct inode *inode, struct file *file)
 {
 	struct mfc_inst_ctx *mfc_ctx;
-	int ret;
+	int ret, retry = 0;
 	enum mfc_ret_code retcode;
 	int inst_id;
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
@@ -216,14 +218,21 @@ static int mfc_open(struct inode *inode, struct file *file)
 #ifdef CONFIG_USE_MFC_CMA
 	if (atomic_read(&mfcdev->inst_cnt) == 0) {
 		size_t size = 0x02800000;
-		mfcdev->cma_vaddr = dma_alloc_coherent(mfcdev->device, size,
+
+		do {
+			mfcdev->cma_vaddr = dma_alloc_coherent(mfcdev->device, size,
 						&mfcdev->cma_dma_addr, 0);
+
+			retry++;
+		} while (!mfcdev->cma_vaddr && retry < DMA_ALLOC_RETRY);
+
 		if (!mfcdev->cma_vaddr) {
 			printk(KERN_ERR "%s: dma_alloc_coherent returns "
-						"-ENOMEM\n", __func__);
+					"-ENOMEM\n", __func__);
 			mutex_unlock(&mfcdev->lock);
 			return -ENOMEM;
 		}
+
 		printk(KERN_INFO "%s[%d] size 0x%x, vaddr 0x%x, base 0x%x\n",
 					 __func__, __LINE__, (int)size,
 						(int)mfcdev->cma_vaddr,
