@@ -286,6 +286,7 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
 #ifndef arch_has_speculative_dfetch
 #define arch_has_speculative_dfetch()	0
 #endif
+#endif
 
 #endif
 
