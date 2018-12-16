@@ -23,6 +23,10 @@
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 #include <linux/usb/composite.h>
 #endif
+
+extern void ___dma_single_cpu_to_dev(const void *, size_t,
+	enum dma_data_direction);
+
 static u8 clear_feature_num;
 static int clear_feature_flag;
 static int set_conf_done;
@@ -223,7 +227,7 @@ static void complete_rx(struct s3c_udc *dev, u8 ep_num)
 	else
 		xfer_size = (ep_tsr & 0x7fff);
 
-	__dma_single_cpu_to_dev(req->req.buf, req->req.length, DMA_FROM_DEVICE);
+	___dma_single_cpu_to_dev(req->req.buf, req->req.length, DMA_FROM_DEVICE);
 	xfer_length = req->req.length - xfer_size;
 	req->req.actual += min(xfer_length, req->req.length - req->req.actual);
 	is_short = (xfer_length < ep->ep.maxpacket);
@@ -865,7 +869,7 @@ static int s3c_udc_get_status(struct s3c_udc *dev,
 		return 1;
 	}
 
-	__dma_single_cpu_to_dev(&g_status, 2, DMA_TO_DEVICE);
+	___dma_single_cpu_to_dev(&g_status, 2, DMA_TO_DEVICE);
 
 	__raw_writel(virt_to_phys(&g_status), dev->regs + S3C_UDC_OTG_DIEPDMA(EP0_CON));
 	__raw_writel((1<<19)|(2<<0), dev->regs + S3C_UDC_OTG_DIEPTSIZ(EP0_CON));
@@ -1166,7 +1170,7 @@ static inline void set_test_mode(struct s3c_udc *dev)
 		printk(KERN_INFO "Test mode selector in set_feature request is"
 			"TEST PACKET\n");
 
-		__dma_single_cpu_to_dev(test_pkt, TEST_PKT_SIZE, DMA_TO_DEVICE);
+		___dma_single_cpu_to_dev(test_pkt, TEST_PKT_SIZE, DMA_TO_DEVICE);
 		__raw_writel(virt_to_phys(test_pkt), dev->regs + S3C_UDC_OTG_DIEPDMA(EP0_CON));
 
 		ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
