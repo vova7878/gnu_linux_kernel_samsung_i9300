@@ -6050,7 +6050,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 {
 	struct zone *zone = page_zone(pfn_to_page(start));
 	unsigned long outer_start, outer_end;
-	int ret = 0, order;
+	int ret = 0, order, test = 0;
 
 	struct compact_control cc = {
 		.nr_migratepages = 0,
@@ -6126,8 +6126,11 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 		outer_start &= ~0UL << order;
 	}
 
+	test = test_pages_isolated(outer_start, end);
+	WARN_ON(test);
+
 	/* Make sure the range is really isolated. */
-	if (test_pages_isolated(outer_start, end)) {
+	if (test) {
 		pr_warn("alloc_contig_range test_pages_isolated(%lx, %lx) failed\n",
 		       outer_start, end);
 		ret = -EBUSY;
