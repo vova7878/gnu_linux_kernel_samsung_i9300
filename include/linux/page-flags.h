@@ -133,7 +133,7 @@ enum pageflags {
 
 #ifndef __GENERATING_BOUNDS_H
 
-#ifdef CONFIG_DMA_CMA
+#ifdef CONFIG_CMA
 struct page;
 extern struct page *migrate_pages_current;
 

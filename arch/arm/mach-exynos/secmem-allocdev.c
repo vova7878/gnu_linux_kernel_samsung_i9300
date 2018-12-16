@@ -324,7 +324,7 @@ static long secmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		pr_info("SECMEM_IOC_GET_ADDR: size:%lu\n", region.len);
-#ifndef CONFIG_DMA_CMA
+#ifndef CONFIG_CMA
 		region.virt_addr = kmalloc(region.len, GFP_KERNEL | GFP_DMA);
 #else
 		region.virt_addr = dma_alloc_coherent(NULL, region.len,
@@ -336,7 +336,7 @@ static long secmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-#ifndef CONFIG_DMA_CMA
+#ifndef CONFIG_CMA
 		region.phys_addr = virt_to_phys(region.virt_addr);
 
 		dma_map_single(secmem.this_device, region.virt_addr,
@@ -372,7 +372,7 @@ static long secmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-#ifndef CONFIG_DMA_CMA
+#ifndef CONFIG_CMA
 		kfree(region.virt_addr);
 #else
 		dma_free_coherent(NULL, region.len, region.virt_addr,

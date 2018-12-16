@@ -8,7 +8,7 @@ config VIDEO_FIMC
 
 config USE_FIMC_CMA
 	bool "Use CMA for FIMC0/1 region (EXPERIMENTAL)"
-	depends on DMA_CMA
+	depends on CMA
 	default n
 	help
 	  This enables the Contiguous Memory Allocator for MFC SECURE region.

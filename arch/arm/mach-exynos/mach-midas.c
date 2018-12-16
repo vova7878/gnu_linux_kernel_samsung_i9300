@@ -56,7 +56,7 @@
 #include <linux/delay.h>
 #include <linux/bootmem.h>
 
-#ifdef CONFIG_DMA_CMA
+#ifdef CONFIG_CMA
 #include <linux/dma-contiguous.h>
 #endif
 
@@ -2533,6 +2533,42 @@ static int __init early_fbmem(char *p)
 }
 early_param("fbmem", early_fbmem);
 
+/*
+ * FIXME: why <linux/cma.h> definitions are not included?
+ *        switch to using #include <linux/cma.h> instead
+ *        of direct definitions below.
+ */
+
+struct cma_allocator;
+struct cma_region {
+        const char *name;
+        dma_addr_t start;
+        size_t size;
+        union {
+                size_t free_space;      /* Normal region */
+                dma_addr_t alignment;   /* Early region */
+        };
+
+        struct cma_allocator *alloc;
+        const char *alloc_name;
+        void *private_data;
+
+        unsigned users;
+        struct list_head list;
+
+#if defined CONFIG_CMA_SYSFS
+        struct kobject kobj;
+#endif
+
+        unsigned used:1;
+        unsigned registered:1;
+        unsigned reserved:1;
+        unsigned copy_name:1;
+        unsigned free_alloc_name:1;
+};
+
+int __init __must_check cma_early_region_register(struct cma_region *reg);
+
 static void __init exynos4_reserve_mem(void)
 {
 	static struct cma_region regions[] = {
@@ -2694,7 +2730,7 @@ static void __init exynos4_reserve_mem(void)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	static struct cma_region regions_secure[] = {
-#if !defined(CONFIG_DMA_CMA)
+#if !defined(CONFIG_CMA)
 #ifdef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
 		{
 			.name	= "ion",
@@ -2717,7 +2753,7 @@ static void __init exynos4_reserve_mem(void)
 			.name = "sectbl",
 			.size = SZ_1M,
 		},
-#else /*defined(CONFIG_DMA_CMA)*/
+#else /*defined(CONFIG_CMA)*/
 #if defined(CONFIG_USE_MFC_CMA)
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_ZEST) || defined(CONFIG_MACH_WATCH)
 #ifdef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
@@ -3584,7 +3620,7 @@ static void __init exynos_c2c_reserve(void)
 }
 #endif
 
-#ifdef CONFIG_DMA_CMA
+#ifdef CONFIG_CMA
 static void __init exynos4_reserve(void)
 {
 	int ret = 0;
@@ -3631,7 +3667,7 @@ MACHINE_START(SMDK4412, "SMDK4x12")
 	.timer		= &exynos4_timer,
 #if defined(CONFIG_EXYNOS_C2C)
 	.reserve	= &exynos_c2c_reserve,
-#elif defined(CONFIG_DMA_CMA)
+#elif defined(CONFIG_CMA)
 	.reserve	= &exynos4_reserve,
 #endif
 	.init_early	= &exynos_init_reserve,
@@ -3646,7 +3682,7 @@ MACHINE_START(SMDK4212, "SMDK4x12")
 	.timer		= &exynos4_timer,
 #if defined(CONFIG_EXYNOS_C2C)
 	.reserve	= &exynos_c2c_reserve,
-#elif defined(CONFIG_DMA_CMA)
+#elif defined(CONFIG_CMA)
 	.reserve	= &exynos4_reserve,
 #endif
 	.init_early	= &exynos_init_reserve,

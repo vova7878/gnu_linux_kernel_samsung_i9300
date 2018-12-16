@@ -155,7 +155,7 @@ void __init s5p_cma_region_reserve(struct cma_region *regions_normal,
 		}
 
 		if (paddr_last) {
-#ifndef CONFIG_DMA_CMA
+#ifndef CONFIG_CMA
 			while (memblock_reserve(paddr_last, size_secure))
 				paddr_last -= align_secure;
 #else
@@ -167,7 +167,7 @@ void __init s5p_cma_region_reserve(struct cma_region *regions_normal,
 #endif
 
 			do {
-#ifndef CONFIG_DMA_CMA
+#ifndef CONFIG_CMA
 				reg->start = paddr_last;
 				reg->reserved = 1;
 				paddr_last += reg->size;

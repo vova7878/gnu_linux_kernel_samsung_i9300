@@ -130,7 +130,7 @@ config USER_ALLOC_TVOUT
 
 config USE_TVOUT_CMA
 	bool "Allocate vp buffer memory on CMA heap. (EXPERIMENTAL)"
-	depends on VIDEO_TVOUT && DMA_CMA
+	depends on VIDEO_TVOUT && CMA
 	default n
 	---help---
 	  TV Driver doesn't reserve memory for vp buffer.

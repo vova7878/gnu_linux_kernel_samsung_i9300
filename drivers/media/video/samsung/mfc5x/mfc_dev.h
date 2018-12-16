@@ -99,7 +99,7 @@ struct mfc_dev {
 
 	struct mfc_fw		fw;
 
-#if defined(CONFIG_DMA_CMA) && defined(CONFIG_USE_MFC_CMA)
+#if defined(CONFIG_CMA) && defined(CONFIG_USE_MFC_CMA)
 	/* NEW CMA */
 	void            *cma_vaddr;
 	dma_addr_t      cma_dma_addr;

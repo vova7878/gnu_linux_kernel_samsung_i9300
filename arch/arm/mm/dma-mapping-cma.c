@@ -245,7 +245,7 @@ static int __init coherent_init(void)
 	void *ptr;
 
 #if 0
-	if (!IS_ENABLED(CONFIG_DMA_CMA))
+	if (!IS_ENABLED(CONFIG_CMA))
 		return 0;
 #endif
 
@@ -603,7 +603,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	if (arch_is_coherent() || nommu())
 		addr = __alloc_simple_buffer(dev, size, gfp, &page);
 #if 0
-	else if (!IS_ENABLED(CONFIG_DMA_CMA))
+	else if (!IS_ENABLED(CONFIG_CMA))
 		addr = __alloc_remap_buffer(dev, size, gfp, prot, &page, caller);
 #endif
 	else if (gfp & GFP_ATOMIC)
@@ -697,7 +697,7 @@ void dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
 	if (arch_is_coherent() || nommu()) {
 		__dma_free_buffer(page, size);
 #if 0
-	} else if (!IS_ENABLED(CONFIG_DMA_CMA)) {
+	} else if (!IS_ENABLED(CONFIG_CMA)) {
 		__dma_free_remap(cpu_addr, size);
 		__dma_free_buffer(page, size);
 #endif
