@@ -93,6 +93,7 @@ static int
 __test_page_isolated_in_pageblock(unsigned long pfn, unsigned long end_pfn)
 {
 	struct page *page;
+	int migratetype = 0;
 
 	while (pfn < end_pfn) {
 		if (!pfn_valid_within(pfn)) {
@@ -100,13 +101,25 @@ __test_page_isolated_in_pageblock(unsigned long pfn, unsigned long end_pfn)
 			continue;
 		}
 		page = pfn_to_page(pfn);
-		if (PageBuddy(page))
+
+		if (PageBuddy(page)) {
 			pfn += 1 << page_order(page);
-		else if (page_count(page) == 0 &&
-			get_freepage_migratetype(page) == MIGRATE_ISOLATE)
+			continue;
+		}
+
+		migratetype = get_freepage_migratetype(page);
+
+		if (page_count(page) == 0 &&
+				(migratetype == MIGRATE_ISOLATE ||
+				migratetype == MIGRATE_CMA))
 			pfn += 1;
-		else
+		else {
+			if (migratetype != MIGRATE_ISOLATE
+					&& migratetype != MIGRATE_CMA)
+				pr_err("%s: pfn = %lx is not MIGRATE_ISOLATE (%d)\n",
+								__func__, pfn, migratetype);
 			break;
+		}
 	}
 	if (pfn < end_pfn)
 		return 0;
@@ -118,7 +131,7 @@ int test_pages_isolated(unsigned long start_pfn, unsigned long end_pfn)
 	unsigned long pfn, flags;
 	struct page *page;
 	struct zone *zone;
-	int ret;
+	int ret, migratetype = MIGRATE_ISOLATE;
 
 	/*
 	 * Note: pageblock_nr_page != MAX_ORDER. Then, chunks of free page
@@ -127,12 +140,16 @@ int test_pages_isolated(unsigned long start_pfn, unsigned long end_pfn)
 	 */
 	for (pfn = start_pfn; pfn < end_pfn; pfn += pageblock_nr_pages) {
 		page = __first_valid_page(pfn, pageblock_nr_pages);
-		if (page && get_pageblock_migratetype(page) != MIGRATE_ISOLATE)
+		migratetype = get_pageblock_migratetype(page);
+		if (page && migratetype != MIGRATE_ISOLATE
+				&& migratetype != MIGRATE_CMA)
 			break;
 	}
 	page = __first_valid_page(start_pfn, end_pfn - start_pfn);
-	if ((pfn < end_pfn) || !page)
+	if ((pfn < end_pfn) || !page) {
+		pr_err("%s: pfn = %lx is not MIGRATE_ISOLATE (%d)\n", __func__, pfn, migratetype);
 		return -EBUSY;
+	}
 	/* Check all pages are free or Marked as ISOLATED */
 	zone = page_zone(page);
 	spin_lock_irqsave(&zone->lock, flags);
