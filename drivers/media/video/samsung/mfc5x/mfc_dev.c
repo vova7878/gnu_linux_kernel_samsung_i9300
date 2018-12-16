@@ -216,8 +216,11 @@ static int mfc_open(struct inode *inode, struct file *file)
 #ifdef CONFIG_USE_MFC_CMA
 	if (atomic_read(&mfcdev->inst_cnt) == 0) {
 		size_t size = 0x02800000;
-		mfcdev->cma_vaddr = dma_alloc_coherent(mfcdev->device, size,
-						&mfcdev->cma_dma_addr, 0);
+
+		WARN_ON(mfcdev->cma_vaddr != NULL);
+
+		mfcdev->cma_vaddr = dma_alloc_writecombine(mfcdev->device, size,
+						&mfcdev->cma_dma_addr, GFP_KERNEL);
 		if (!mfcdev->cma_vaddr) {
 			printk(KERN_ERR "%s: dma_alloc_coherent returns "
 						"-ENOMEM\n", __func__);
@@ -419,6 +422,8 @@ err_start_hw:
 				__func__, __LINE__, (int)size,
 				(int) mfcdev->cma_vaddr,
 				(int)mfcdev->cma_dma_addr);
+
+		mfcdev->cma_vaddr = NULL;
 #endif
 		if (mfc_power_off() < 0)
 			mfc_err("power disable failed\n");
@@ -594,6 +599,8 @@ err_pwr_disable:
 				__func__, __LINE__, (int)size,
 				(int) mfcdev->cma_vaddr,
 				(int)mfcdev->cma_dma_addr);
+
+		mfcdev->cma_vaddr = NULL;
 	}
 #endif
 	mutex_unlock(&dev->lock);
