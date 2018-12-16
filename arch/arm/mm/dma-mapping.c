@@ -765,24 +765,20 @@ static void *__alloc_simple_buffer(struct device *dev, size_t size, gfp_t gfp,
 	return page_address(page);
 }
 
-
-
 static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
-			 gfp_t gfp, pgprot_t prot, bool is_coherent,
+			 gfp_t gfp, pgprot_t prot, bool is_coherent, bool force_contiguous,
 			 const void *caller, struct dma_attrs *attrs)
 {
 	u64 mask = get_coherent_dma_mask(dev);
 	struct page *page = NULL;
 	void *addr;
 
-#ifdef CONFIG_DMA_API_DEBUG
 	u64 limit = (mask + 1) & ~mask;
 	if (limit && size >= limit) {
-		dev_warn(dev, "coherent allocation too big (requested %#x mask %#llx)\n",
-			size, mask);
+		pr_err("%s: coherent allocation too big (requested %#x mask %#llx)\n",
+			__func__, size, mask);
 		return NULL;
 	}
-#endif
 
 	if (!mask)
 		return NULL;
@@ -802,21 +798,42 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	*handle = DMA_ERROR_CODE;
 	size = PAGE_ALIGN(size);
 
-	if (is_coherent || nommu())
-		addr = __alloc_simple_buffer(dev, size, gfp, &page);
-	else if (!(gfp & __GFP_WAIT))
-		addr = __alloc_from_pool(size, &page);
-	else if (!IS_ENABLED(CONFIG_CMA))
-		addr = __alloc_remap_buffer(dev, size, gfp, prot, &page, caller);
-	else
-		addr = __alloc_from_contiguous(dev, size, prot, &page, caller,
-						attrs);
+	if (!force_contiguous) {
+		if (is_coherent || nommu())
+			addr = __alloc_simple_buffer(dev, size, gfp, &page);
+		else if (!(gfp & __GFP_WAIT))
+			addr = __alloc_from_pool(size, &page);
+		else if (!IS_ENABLED(CONFIG_CMA))
+			addr = __alloc_remap_buffer(dev, size, gfp, prot, &page, caller);
+		else
+			addr = __alloc_from_contiguous(dev, size, prot, &page, caller,
+							attrs);
+	} else
+		addr = __alloc_from_contiguous(dev, size, prot, &page, caller, attrs);
 
 	if (addr)
 		*handle = pfn_to_dma(dev, page_to_pfn(page));
 
 	return addr;
 }
+
+/*
+ * Allocate DMA-coherent memory space and return both the kernel remapped
+ * virtual and bus address for that space.
+ */
+void *dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle,
+			 gfp_t gfp)
+{
+	void *memory;
+
+	if (dma_alloc_from_coherent(dev, size, handle, &memory))
+		return memory;
+
+	return __dma_alloc(dev, size, handle, gfp,
+			   pgprot_dmacoherent(pgprot_kernel), false, true,
+			   __builtin_return_address(0), NULL);
+}
+EXPORT_SYMBOL(dma_alloc_coherent);
 
 /*
  * Allocate DMA-coherent memory space and return both the kernel remapped
@@ -831,7 +848,7 @@ void *arm_dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	if (dma_alloc_from_coherent(dev, size, handle, &memory))
 		return memory;
 
-	return __dma_alloc(dev, size, handle, gfp, prot, false,
+	return __dma_alloc(dev, size, handle, gfp, prot, false, false,
 			   __builtin_return_address(0), attrs);
 }
 
@@ -844,7 +861,7 @@ static void *arm_coherent_dma_alloc(struct device *dev, size_t size,
 	if (dma_alloc_from_coherent(dev, size, handle, &memory))
 		return memory;
 
-	return __dma_alloc(dev, size, handle, gfp, prot, true,
+	return __dma_alloc(dev, size, handle, gfp, prot, true, false,
 			   __builtin_return_address(0), attrs);
 }
 
