@@ -984,18 +984,14 @@ end_tvif_ioctl:
 }
 
 #ifdef CONFIG_USE_TVOUT_CMA
-#define DMA_ALLOC_RETRY 10
 static inline int alloc_vp_buff(void)
 {
-	int i, retry = 0;
+	int i;
 
-	do {
-		s5p_tvout_v4l2_private.vir_addr = dma_alloc_coherent(
+	s5p_tvout_v4l2_private.vir_addr = dma_alloc_coherent(
 				s5p_tvout_v4l2_private.dev,
 				S5PTV_VP_BUFF_CNT * S5PTV_VP_BUFF_SIZE,
 				&s5p_tvout_v4l2_private.dma_addr, 0);
-		retry++;
-	} while (!s5p_tvout_v4l2_private.vir_addr && retry < DMA_ALLOC_RETRY);
 
 	if (!s5p_tvout_v4l2_private.vir_addr) {
 		printk(KERN_ERR "S5P-TVOUT: %s: dma_alloc_coherent returns "
