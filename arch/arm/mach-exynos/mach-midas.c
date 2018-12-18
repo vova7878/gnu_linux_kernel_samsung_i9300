@@ -3448,6 +3448,9 @@ static void __init exynos4_reserve(void)
 	ret = dma_declare_contiguous(&s5p_device_mfc.dev,
 			0x02800000, 0x5C800000, 0);
 #endif
+	ret = dma_declare_contiguous(&exynos_device_ion.dev,
+               CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K, 0x5F200000 /*0x5ea00000*/, 0);
+
 	ret = dma_declare_contiguous(&s3c_device_fimc0.dev,
 		CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC0 * SZ_1K, 0x50000000, 0);
 	if (ret != 0)
