@@ -2631,11 +2631,11 @@ static void __init exynos4_reserve_mem(void)
 		},
 #else
 #if defined(CONFIG_USE_MFC_CMA) && defined(CONFIG_MACH_M0)
-#ifdef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
+#if defined(CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE)
 		{
 			.name = "ion",
 			.size = CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K,
-			.start = 0x5F200000,
+			.start = 0x5F200000, /*0x5ea00000 */
 		},
 #endif
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_MFC_SECURE
@@ -2651,7 +2651,7 @@ static void __init exynos4_reserve_mem(void)
 			.start = 0x5C000000,
 		},
 #else
-#ifdef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
+#if defined(CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE)
 		{
 			.name   = "ion",
 			.size   = CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K,
@@ -3465,6 +3465,22 @@ static void __init exynos4_reserve(void)
 		if (ret)
 			pr_err("S5P/CMA: Failed to register '%s' (%d)\n",
 						fimc0_reg.name, ret);
+
+	ret = dma_declare_contiguous(&exynos_device_ion.dev,
+		CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K, 0x5F200000 /*0x5ea00000*/, 0);
+	if (ret != 0)
+		pr_err("%s: alloc failed for ion!\n", __func__);
+	else {
+		static struct cma_region ion_reg = {
+			.name = "ion",
+			.size = CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K,
+			.start = 0x5F200000 /*0x5ea00000*/,
+			.reserved = 1,
+		};
+
+		if (cma_early_region_register(&ion_reg))
+			pr_err("S5P/CMA: Failed to register '%s'\n",
+						ion_reg.name);
 	}
 
 	if (ret != 0)
