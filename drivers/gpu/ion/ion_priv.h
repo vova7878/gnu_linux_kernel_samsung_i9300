@@ -64,7 +64,7 @@ struct ion_buffer {
 	size_t size;
 	union {
 		void *priv_virt;
-		ion_phys_addr_t priv_phys;
+		dma_addr_t priv_phys;
 	};
 	struct mutex lock;
 	int kmap_cnt;
