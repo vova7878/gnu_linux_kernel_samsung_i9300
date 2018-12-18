@@ -14,9 +14,17 @@
 #include <linux/slab.h>
 #include <mach/exynos-ion.h>
 
+#include <linux/dma-mapping.h>
+
+static u64 ion_exynos_dmamask = DMA_BIT_MASK(32);
+
 struct platform_device exynos_device_ion = {
 	.name		= "ion-exynos",
 	.id		= -1,
+	.dev		= {
+		.dma_mask               = &ion_exynos_dmamask,
+		.coherent_dma_mask      = DMA_BIT_MASK(32),
+	},
 };
 
 void __init exynos_ion_set_platdata(void)
