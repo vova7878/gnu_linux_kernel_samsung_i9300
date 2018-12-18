@@ -1099,12 +1099,14 @@ __cma_alloc(const struct device *dev, const char *type,
 {
 	struct cma_region *reg;
 	const char *from;
-	dma_addr_t addr;
+	dma_addr_t addr = 0;
 
-	if (dev)
-		pr_debug("allocate %p/%p for %s/%s\n",
-			 (void *)size, (void *)alignment,
+	if (dev) {
+		pr_err("%s: allocate %p/%p for %s/%s\n",
+			 __func__, (void *)size, (void *)alignment,
 			 dev_name(dev), type ?: "");
+		dump_stack();
+	}
 
 	if (!size || (alignment & ~alignment))
 		return -EINVAL;
@@ -1120,11 +1122,12 @@ __cma_alloc(const struct device *dev, const char *type,
 	from = __cma_where_from(dev, type);
 	if (unlikely(IS_ERR(from))) {
 		addr = PTR_ERR(from);
+		pr_err("%s: __cma_where_from returned %p\n", __func__, (void *)from);
 		goto done;
 	}
 
-	pr_debug("allocate %p/%p from one of %s\n",
-		 (void *)size, (void *)alignment, from);
+	pr_err("%s: allocate %p/%p from one of %s\n",
+		 __func__, (void *)size, (void *)alignment, from);
 
 	while (*from && *from != ';') {
 		reg = __cma_region_find(&from);
@@ -1133,7 +1136,7 @@ __cma_alloc(const struct device *dev, const char *type,
 			goto done;
 	}
 
-	pr_debug("not enough memory\n");
+	pr_err("%s: not enough memory (%p)\n", __func__, (void *)addr);
 	addr = -ENOMEM;
 
 done:
