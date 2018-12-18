@@ -140,11 +140,15 @@ early_param("mminit_loglevel", set_mminit_loglevel);
 struct kobject *mm_kobj;
 EXPORT_SYMBOL_GPL(mm_kobj);
 
+extern int cma_sysfs_init(void);
+
 static int __init mm_sysfs_init(void)
 {
 	mm_kobj = kobject_create_and_add("mm", kernel_kobj);
 	if (!mm_kobj)
 		return -ENOMEM;
+
+	cma_sysfs_init();
 
 	return 0;
 }

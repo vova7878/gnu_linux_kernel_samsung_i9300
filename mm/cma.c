@@ -763,7 +763,7 @@ static struct kobj_type cma_sysfs_root_type = {
 	},
 };
 
-static int __init cma_sysfs_init(void)
+int cma_sysfs_init(void)
 {
 	static struct kobject root;
 	static struct kobj_type fake_type;
@@ -771,11 +771,13 @@ static int __init cma_sysfs_init(void)
 	struct cma_region *reg;
 	int ret;
 
+	pr_err("%s: init\n", __func__);
+
 	/* Root */
 	ret = kobject_init_and_add(&root, &cma_sysfs_root_type,
 				   mm_kobj, "contiguous");
 	if (unlikely(ret < 0)) {
-		pr_err("init: unable to add root kobject: %d\n", ret);
+		pr_err("%s: init: unable to add root kobject: %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -783,7 +785,7 @@ static int __init cma_sysfs_init(void)
 	ret = kobject_init_and_add(&cma_sysfs_regions, &fake_type,
 				   &root, "regions");
 	if (unlikely(ret < 0)) {
-		pr_err("init: unable to add regions kobject: %d\n", ret);
+		pr_err("%s: init: unable to add regions kobject: %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -793,11 +795,11 @@ static int __init cma_sysfs_init(void)
 		__cma_sysfs_region_add(reg);
 	mutex_unlock(&cma_mutex);
 
+	pr_err("%s: returned 0\n", __func__);
+
 	return 0;
 }
-device_initcall(cma_sysfs_init);
-
-
+//device_initcall(cma_sysfs_init);
 
 struct cma_region_attribute {
 	struct attribute attr;
@@ -1093,6 +1095,8 @@ cma_alloc_from_region(struct cma_region *reg,
 }
 EXPORT_SYMBOL_GPL(cma_alloc_from_region);
 
+static const char *cma_regions_str = "ion;s3c-mfc/A=mfc0,mfc-secure;s3c-mfc/B=mfc1,mfc-normal;s3c-mfc/AB=mfc;samsung-rp=srp;exynos4-fimc-is=fimc_is;s5p-fimg2d=fimg2d;s5p-smem/sectbl=sectbl;s5p-smem/mfc=mfc-secure;s5p-smem/fimc=ion;s5p-smem/mfc-shm=mfc-normal;s5p-smem/fimd=fimd;s5p-smem/fimc0=fimc0";
+
 dma_addr_t __must_check
 __cma_alloc(const struct device *dev, const char *type,
 	    dma_addr_t size, dma_addr_t alignment)
@@ -1123,7 +1127,8 @@ __cma_alloc(const struct device *dev, const char *type,
 	if (unlikely(IS_ERR(from))) {
 		addr = PTR_ERR(from);
 		pr_err("%s: __cma_where_from returned %p\n", __func__, (void *)from);
-		goto done;
+		from = cma_regions_str;
+		//goto done;
 	}
 
 	pr_err("%s: allocate %p/%p from one of %s\n",
