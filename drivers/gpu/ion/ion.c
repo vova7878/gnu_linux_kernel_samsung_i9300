@@ -1124,16 +1124,26 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_allocation_data data;
 
-		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+		if (copy_from_user(&data, (void __user *)arg, sizeof(data))) {
+			pr_err("%s: ION_IOC_ALLOC: err = -EFAULT (copy_from_user)\n", __func__);
+			dump_stack();
 			return -EFAULT;
+		}
 		data.handle = ion_alloc(client, data.len, data.align,
 					     data.flags);
 
-		if (IS_ERR(data.handle))
+		if (IS_ERR(data.handle)) {
+			pr_err("%s: ION_IOC_ALLOC: err = %ld\n", __func__, PTR_ERR(data.handle));
+			dump_stack();
+
 			return PTR_ERR(data.handle);
+		}
 
 		if (copy_to_user((void __user *)arg, &data, sizeof(data))) {
 			ion_free(client, data.handle);
+			pr_err("%s: ION_IOC_ALLOC: err = -EFAULT (copy_to_user)\n", __func__);
+			dump_stack();
+
 			return -EFAULT;
 		}
 		break;
@@ -1144,13 +1154,21 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		bool valid;
 
 		if (copy_from_user(&data, (void __user *)arg,
-				   sizeof(struct ion_handle_data)))
+				   sizeof(struct ion_handle_data))) {
+			pr_err("%s: ION_IOC_FREE: err = -EFAULT (copy_from_user)\n", __func__);
+			dump_stack();
+
 			return -EFAULT;
+		}
 		mutex_lock(&client->lock);
 		valid = ion_handle_validate(client, data.handle);
 		mutex_unlock(&client->lock);
-		if (!valid)
+		if (!valid) {
+			pr_err("%s: ION_IOC_FREE: err = -EINVAL (ion_handle_validate)\n", __func__);
+			dump_stack();
+
 			return -EINVAL;
+		}
 		ion_free(client, data.handle);
 		break;
 	}
@@ -1159,19 +1177,29 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		struct ion_fd_data data;
 
-		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+		if (copy_from_user(&data, (void __user *)arg, sizeof(data))) {
+			pr_err("%s: ION_IOC_SHARE: err = -EFAULT (copy_from_user)\n", __func__);
+			dump_stack();
+
 			return -EFAULT;
+		}
 		mutex_lock(&client->lock);
 		if (!ion_handle_validate(client, data.handle)) {
-			pr_err("%s: invalid handle passed to share ioctl.\n",
+			pr_err("%s: ION_IOC_SHARE: invalid handle passed to share ioctl.\n",
 			       __func__);
+			dump_stack();
+
 			mutex_unlock(&client->lock);
 			return -EINVAL;
 		}
 		data.fd = ion_ioctl_share(filp, client, data.handle);
 		mutex_unlock(&client->lock);
-		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
+		if (copy_to_user((void __user *)arg, &data, sizeof(data))) {
+			pr_err("%s: ION_IOC_SHARE: err = -EFAULT (copy_to_user)\n", __func__);
+			dump_stack();
+
 			return -EFAULT;
+		}
 		break;
 	}
 	case ION_IOC_IMPORT:
