@@ -1121,6 +1121,7 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 #ifdef DEBUG
 	pr_err("[FB] s6e8ax0_fix_fence = %d", s6e8ax0_fix_fence);
 #endif
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_T0)
 	if (s6e8ax0_fix_fence || poweroff_charging) {
 		/* support LPM (off charging mode) display based on FBIOPAN_DISPLAY */
 		s3cfb_check_var(var, fb);
@@ -1128,6 +1129,7 @@ int s3cfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 		s3cfb_enable_window(fbdev, win->id);
 		s6e8ax0_fix_fence = 0;
 	}
+#endif
 
 	if (var->yoffset + var->yres > var->yres_virtual) {
 		dev_err(fbdev->dev, "invalid yoffset value\n");
