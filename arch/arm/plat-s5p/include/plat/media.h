@@ -17,7 +17,7 @@
 #include <asm/setup.h>
 
 #ifdef CONFIG_CMA
-#include <linux/cma.h>
+struct cma_region;
 void s5p_cma_region_reserve(struct cma_region *regions_normal,
 			      struct cma_region *regions_secure,
 			      size_t align_secure, const char *map);
