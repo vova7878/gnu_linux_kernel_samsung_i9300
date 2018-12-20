@@ -25,6 +25,7 @@
 #include <plat/media.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/cma.h>
 #ifdef CONFIG_SLP_DMABUF
 #include <linux/dma-buf.h>
 #endif
