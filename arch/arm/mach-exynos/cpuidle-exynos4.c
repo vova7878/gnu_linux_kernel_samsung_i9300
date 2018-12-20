@@ -88,7 +88,7 @@ static bool include_onlining_cpus = false;
 static DEFINE_SPINLOCK(onlining_lock);
 
 #ifdef CONFIG_MACH_MIDAS
-unsigned int log_en = 0;
+unsigned int log_en = 1;
 #else
 unsigned int log_en;
 #endif

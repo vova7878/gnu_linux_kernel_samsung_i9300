@@ -29,7 +29,6 @@ AFLAGS_sleep-exynos4.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 
 obj-$(CONFIG_EXYNOS5_PM)	+= pm-exynos5.o sleep-exynos5.o
 obj-$(CONFIG_CPU_FREQ)		+= cpufreq.o
-obj-$(CONFIG_ABB_CONTROL)	+= abb_control.o
 obj-$(CONFIG_EXYNOS4_CPUFREQ)  += asv.o
 ifeq ($(CONFIG_CPU_EXYNOS4210),y)
 obj-$(CONFIG_EXYNOS4_CPUFREQ)  += asv-4210.o
@@ -160,13 +159,14 @@ ifeq ($(CONFIG_MACH_M3),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o board-lcd-mipi.o midas-sound.o
 else
 ifeq ($(CONFIG_MACH_T0),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o t0-sound.o
+					   midas-mhl.o t0-sound.o
+obj-$(CONFIG_FB_S5P_MIPI_DSIM)		+= board-lcd-mipi.o
 obj-$(CONFIG_SEC_MODEM)			+= board-gps-bcm475x.o
 else
 ifeq ($(CONFIG_MACH_P4NOTE),y)
@@ -174,15 +174,16 @@ ifeq ($(CONFIG_MACH_P4NOTELTE_USA_VZW),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o\
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-sound.o
 
 obj-$(CONFIG_GPS_BRCM_475X)		+= board-gps-bcm475x.o
 else
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o\
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-sound.o
 
+obj-$(CONFIG_FB_S5P_MIPI_DSIM)		+= board-lcd-mipi.o
 obj-$(CONFIG_GPS_BRCM_475X)		+= board-gps-bcm475x.o
 endif #CONFIG_MACH_P4NOTELTE_USA_VZW
 else
@@ -190,7 +191,7 @@ ifeq ($(CONFIG_MACH_KONA),y)
 obj-$(CONFIG_MIDAS_COMMON)              += sec-common.o\
                                            midas-tsp.o board-midas-wlan.o \
                                            midas-camera.o midas-thermistor.o \
-                                           midas-mhl.o midas-lcd.o midas-sound.o \
+                                           midas-mhl.o midas-sound.o \
                                            midas-wacom.o board-gps-bcm4752.o
 else
 ifeq ($(CONFIG_MACH_SLP_T0_LTE),y)
@@ -208,7 +209,7 @@ else
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o board-gps-bcm475x.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-sound.o
 endif
 endif
 endif
@@ -217,6 +218,11 @@ endif
 endif
 endif
 endif
+
+ifeq ($(CONFIG_MACH_M0),y)
+obj-$(CONFIG_FB_S5P_MIPI_DSIM)		+= board-lcd-mipi.o
+endif
+
 obj-$(CONFIG_IRON_BD)			+= board-iron-gpio.o board-grande-power.o
 obj-$(CONFIG_GRANDE_BD)			+= board-grande-gpio.o board-grande-power.o
 obj-$(CONFIG_P4NOTE_00_BD)		+= p4note-gpio.o p4note-power.o
