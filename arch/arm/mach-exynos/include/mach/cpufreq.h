@@ -14,13 +14,10 @@
  * This should be same with cpufreq_frequency_table
 */
 
-#if defined(CONFIG_MACH_T0)
-#define CPUFREQ_LEVEL_END	(L19 + 1)
-
-#elif defined(CONFIG_MACH_U1)
-#define CPUFREQ_LEVEL_END      (L14)
+#ifdef CONFIG_MACH_U1
+#define CPUFREQ_LEVEL_END	(L14)
 #else
-#define CPUFREQ_LEVEL_END	(L17 + 1)
+#define CPUFREQ_LEVEL_END	(L16)
 #endif
 
 enum cpufreq_level_index {

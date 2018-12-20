@@ -296,100 +296,100 @@ static int get_backlight_level_from_brightness(int brightness)
 	 * But in this driver, brightness is only supported from 0 to 24 */
 
 	switch (brightness) {
-	case 0 ... 19:
+	case 0 ... 29:
 		backlightlevel = GAMMA_20CD;
 		break;
-	case 20 ... 29:
+	case 30 ... 39:
 		backlightlevel = GAMMA_30CD;
 		break;
-	case 30 ... 39:
+	case 40 ... 49:
 		backlightlevel = GAMMA_40CD;
 		break;
-	case 40 ... 49:
+	case 50 ... 59:
 		backlightlevel = GAMMA_50CD;
 		break;
-	case 50 ... 59:
+	case 60 ... 69:
 		backlightlevel = GAMMA_60CD;
 		break;
-	case 60 ... 69:
+	case 70 ... 79:
 		backlightlevel = GAMMA_70CD;
 		break;
-	case 70 ... 79:
+	case 80 ... 89:
 		backlightlevel = GAMMA_80CD;
 		break;
-	case 80 ... 89:
+	case 90 ... 99:
 		backlightlevel = GAMMA_90CD;
 		break;
-	case 90 ... 99:
+	case 100 ... 101:
 		backlightlevel = GAMMA_100CD;
 		break;
-	case 100 ... 109:
+	case 102 ... 103:
 		backlightlevel = GAMMA_102CD;
 		break;
-	case 110 ... 119:
+	case 104 ... 105:
 		backlightlevel = GAMMA_104CD;
 		break;
-	case 120 ... 129:
+	case 106 ... 107:
 		backlightlevel = GAMMA_106CD;
 		break;
-	case 130 ... 139:
+	case 108 ... 109:
 		backlightlevel = GAMMA_108CD;
 		break;
-	case 140 ... 145:
+	case 110 ... 119:
 		backlightlevel = GAMMA_110CD;
 		break;
-	case 146 ... 151:
+	case 120 ... 129:
 		backlightlevel = GAMMA_120CD;
 		break;
-	case 152 ... 157:
+	case 130 ... 139:
 		backlightlevel = GAMMA_130CD;
 		break;
-	case 158 ... 163:
+	case 140 ... 149:
 		backlightlevel = GAMMA_140CD;
 		break;
-	case 164 ... 170:
+	case 150 ... 159:
 		backlightlevel = GAMMA_150CD;
 		break;
-	case 171 ... 176:
+	case 160 ... 169:
 		backlightlevel = GAMMA_160CD;
 		break;
-	case 177 ... 182:
+	case 170 ... 179:
 		backlightlevel = GAMMA_170CD;
 		break;
-	case 183 ... 189:
+	case 180 ... 181:
 		backlightlevel = GAMMA_180CD;
 		break;
-	case 190 ... 195:
+	case 182 ... 183:
 		backlightlevel = GAMMA_182CD;
 		break;
-	case 196 ... 202:
+	case 184 ... 185:
 		backlightlevel = GAMMA_184CD;
 		break;
-	case 203 ... 209:
+	case 186 ... 187:
 		backlightlevel = GAMMA_186CD;
 		break;
-	case 210 ... 215:
+	case 188 ... 189:
 		backlightlevel = GAMMA_188CD;
 		break;
-	case 216 ... 221:
+	case 190 ... 199:
 		backlightlevel = GAMMA_190CD;
 		break;
-	case 222 ... 227:
+	case 200 ... 209:
 		backlightlevel = GAMMA_200CD;
 		break;
-	case 228 ... 233:
+	case 210 ... 219:
 		backlightlevel = GAMMA_210CD;
 		break;
-	case 234 ... 239:
+	case 220 ... 229:
 		backlightlevel = GAMMA_220CD;
 		break;
-	case 240 ... 245:
+	case 230 ... 239:
 		backlightlevel = GAMMA_230CD;
 		break;
-	case 246 ... 251:
+	case 240 ... 249:
 		backlightlevel = GAMMA_240CD;
 		break;
-	case 252 ... 254:
+	case 250 ... 254:
 		backlightlevel = GAMMA_250CD;
 		break;
 	case 255:
@@ -1283,6 +1283,9 @@ static DEVICE_ATTR(auto_brightness, 0644, auto_brightness_show, auto_brightness_
 #ifdef CONFIG_HAS_EARLYSUSPEND
 struct lcd_info *g_lcd;
 
+int s6e8ax0_suspended;
+int s6e8ax0_fix_fence;
+
 void s6e8ax0_early_suspend(void)
 {
 	struct lcd_info *lcd = g_lcd;
@@ -1303,6 +1306,8 @@ void s6e8ax0_early_suspend(void)
 #endif
 	s6e8ax0_power(lcd, FB_BLANK_POWERDOWN);
 	dev_info(&lcd->ld->dev, "-%s\n", __func__);
+	s6e8ax0_suspended = 1;
+	s6e8ax0_fix_fence = 1;
 
 	return ;
 }
@@ -1310,6 +1315,7 @@ void s6e8ax0_early_suspend(void)
 void s6e8ax0_late_resume(void)
 {
 	struct lcd_info *lcd = g_lcd;
+	s6e8ax0_suspended = 0;
 
 	dev_info(&lcd->ld->dev, "+%s\n", __func__);
 	s6e8ax0_power(lcd, FB_BLANK_UNBLANK);
