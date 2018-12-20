@@ -726,15 +726,14 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	}
 
 	ret = cpufreq_frequency_table_cpuinfo(policy, exynos_info->freq_table);
-
+	
 	/* Set default startup frq. */
 #ifdef CONFIG_MACH_T0
 	policy->max = 1600000;
-	policy->min = 200000;
 #else
 	policy->max = 1400000;
-	policy->min = 200000;
 #endif
+	policy->min = 100000;
 
 	if (ret)
 		return ret;
@@ -893,7 +892,7 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 	if(tokens != CPUFREQ_LEVEL_END) {
 		top_offset = CPUFREQ_LEVEL_END - tokens;
 	}
-
+	
 	for (i = 0 + top_offset; i < CPUFREQ_LEVEL_END; i++) {
 		int rest = 0;
 
@@ -905,31 +904,31 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 			else
 				t[i] -= rest;
 		}
-
-		if (t[i] > CPU_UV_MV_MAX)
+		
+		if (t[i] > CPU_UV_MV_MAX) 
 			t[i] = CPU_UV_MV_MAX;
-		else if (t[i] < CPU_UV_MV_MIN)
+		else if (t[i] < CPU_UV_MV_MIN) 
 			t[i] = CPU_UV_MV_MIN;
 
 		while(exynos_info->freq_table[i+invalid_offset].frequency==CPUFREQ_ENTRY_INVALID)
 			++invalid_offset;
-
+		
 		exynos_info->volt_table[i+invalid_offset] = t[i];
 	}
-
+	
 	return count;
 }
 
 /* sysfs interface for ASV level */
 ssize_t show_asv_level(struct cpufreq_policy *policy, char *buf) {
 
-	return sprintf(buf, "ASV level: %d\n",exynos_result_of_asv);
+	return sprintf(buf, "ASV level: %d\n",exynos_result_of_asv); 
 
 }
 
 extern ssize_t store_asv_level(struct cpufreq_policy *policy,
                                       const char *buf, size_t count) {
-
+	
 	// the store function does not do anything
 	return count;
 }
