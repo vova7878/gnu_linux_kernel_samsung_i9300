@@ -35,6 +35,9 @@ static ssize_t charge_level_ac_store(struct kobject *kobj, struct kobj_attribute
 	// read value from input buffer
 	ret = sscanf(buf, "%d", &val);
 
+    if (ret != 1)
+        return -EINVAL;
+        
 	// check whether value is within the valid ranges and adjust accordingly
 	if (val > AC_CHARGE_LEVEL_MAX)
 		val = AC_CHARGE_LEVEL_MAX;
@@ -64,6 +67,9 @@ static ssize_t charge_level_usb_store(struct kobject *kobj, struct kobj_attribut
 	// read value from input buffer
 	ret = sscanf(buf, "%d", &val);
 
+    if (ret != 1)
+        return -EINVAL;
+        
 	// check whether value is within the valid ranges and adjust accordingly
 	if (val > USB_CHARGE_LEVEL_MAX)
 		val = USB_CHARGE_LEVEL_MAX;
@@ -92,6 +98,9 @@ static ssize_t charge_level_wireless_store(struct kobject *kobj, struct kobj_att
 	// read value from input buffer
 	ret = sscanf(buf, "%d", &val);
 
+    if (ret != 1)
+        return -EINVAL;
+        
 	// check whether value is within the valid ranges and adjust accordingly
 	if (val > WIRELESS_CHARGE_LEVEL_MAX)
 		val = WIRELESS_CHARGE_LEVEL_MAX;
@@ -121,6 +130,9 @@ static ssize_t ignore_unstable_power_store(struct kobject *kobj, struct kobj_att
 	// read value from input buffer
 	ret = sscanf(buf, "%d", &val);
 
+    if (ret != 1)
+        return -EINVAL;
+        
 	// check whether value is valid
 	if ((val == 0) || (val == 1))
 		ignore_unstable_power = val;
@@ -144,6 +156,9 @@ static ssize_t ignore_safety_margin_store(struct kobject *kobj, struct kobj_attr
 	// read value from input buffer
 	ret = sscanf(buf, "%d", &val);
 
+    if (ret != 1)
+        return -EINVAL;
+        
 	// check whether value is valid
 	if ((val == 0) || (val == 1))
 		ignore_safety_margin = val;
@@ -155,8 +170,10 @@ static ssize_t charge_info_show(struct kobject *kobj, struct kobj_attribute *att
 {
 
 	// print charge info
-	return sprintf(buf, "%s / %d mA", charge_info_text, charge_info_level);
-
+	if (charge_info_level != 0)
+	    return sprintf(buf, "%s / %d mA", charge_info_text, charge_info_level);
+	else
+	    return sprintf(buf, "%s", charge_info_text);
 }
 
 
