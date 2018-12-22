@@ -40,6 +40,10 @@ static struct resource s3c_fimc0_resource[] = {
 struct platform_device s3c_device_fimc0 = {
 	.name		= "s3c-fimc",
 	.id		= 0,
+	.dev		= {
+		.dma_mask		= &s3c_fimc_dmamask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
 	.num_resources	= ARRAY_SIZE(s3c_fimc0_resource),
 	.resource	= s3c_fimc0_resource,
 };
@@ -148,6 +152,10 @@ static struct resource s3c_fimc2_resource[] = {
 struct platform_device s3c_device_fimc2 = {
 	.name		= "s3c-fimc",
 	.id		= 2,
+	.dev		= {
+		.dma_mask		= &s3c_fimc_dmamask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
 	.num_resources	= ARRAY_SIZE(s3c_fimc2_resource),
 	.resource	= s3c_fimc2_resource,
 };
@@ -199,6 +207,10 @@ static struct resource s3c_fimc3_resource[] = {
 struct platform_device s3c_device_fimc3 = {
 	.name		= "s3c-fimc",
 	.id		= 3,
+	.dev		= {
+		.dma_mask		= &s3c_fimc_dmamask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
 	.num_resources	= ARRAY_SIZE(s3c_fimc3_resource),
 	.resource	= s3c_fimc3_resource,
 };

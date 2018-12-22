@@ -710,40 +710,38 @@ static struct fimc_control *fimc_register_controller(struct platform_device *pde
 	ctrl->mem.base = 0;
 #else
 	/* CMA */
-#ifdef CONFIG_ION_EXYNOS
-	/* In Midas project, FIMC2 reserve memory is used by ION driver. */
-	if (id != 2) {
-#endif
 #ifdef CONFIG_USE_FIMC_CMA
-		if (id == 1) {
+	if (id == 0 || id == 1) {
+		if (id == 0)
+			ctrl->mem.size =
+				CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC0 * SZ_1K;
+		else
 			ctrl->mem.size =
 				CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1 * SZ_1K;
+
+		ctrl->mem.base = 0;
+	} else
+#endif
+	{
+		sprintf(ctrl->cma_name, "%s%d",
+				FIMC_CMA_NAME, ctrl->id);
+		err = cma_info(&mem_info, ctrl->dev, 0);
+		fimc_info1("%s : [cma_info] start_addr : 0x%x, "
+			" end_addr : 0x%x, total_size : 0x%x, "
+			"free_size : 0x%x\n", __func__,
+			mem_info.lower_bound, mem_info.upper_bound,
+			mem_info.total_size, mem_info.free_size);
+		if (err) {
+			fimc_err("%s: get cma info failed\n", __func__);
+			ctrl->mem.size = 0;
 			ctrl->mem.base = 0;
-		} else
-#endif
-		{
-			sprintf(ctrl->cma_name, "%s%d",
-					FIMC_CMA_NAME, ctrl->id);
-			err = cma_info(&mem_info, ctrl->dev, 0);
-			fimc_info1("%s : [cma_info] start_addr : 0x%x, "
-				" end_addr : 0x%x, total_size : 0x%x, "
-				"free_size : 0x%x\n", __func__,
-				mem_info.lower_bound, mem_info.upper_bound,
-				mem_info.total_size, mem_info.free_size);
-			if (err) {
-				fimc_err("%s: get cma info failed\n", __func__);
-				ctrl->mem.size = 0;
-				ctrl->mem.base = 0;
-			} else {
-				ctrl->mem.size = mem_info.total_size;
-				ctrl->mem.base = (dma_addr_t)cma_alloc
-					(ctrl->dev, ctrl->cma_name,
-					(size_t)ctrl->mem.size, 0);
-			}
+		} else {
+			ctrl->mem.size = mem_info.total_size;
+			ctrl->mem.base = (dma_addr_t)cma_alloc
+				(ctrl->dev, ctrl->cma_name,
+				(size_t)ctrl->mem.size, 0);
 		}
-#ifdef CONFIG_ION_EXYNOS
 	}
-#endif
 	printk(KERN_DEBUG "ctrl->mem.size = 0x%x\n", ctrl->mem.size);
 	printk(KERN_DEBUG "ctrl->mem.base = 0x%x\n", ctrl->mem.base);
 	ctrl->mem.curr = ctrl->mem.base;
@@ -1545,7 +1543,7 @@ static int fimc_open(struct file *filp)
 	}
 
 #ifdef CONFIG_USE_FIMC_CMA
-	if (ctrl->id == 1) {
+	if (ctrl->id == 0 || ctrl->id == 1) {
 		ctrl->mem.cpu_addr = dma_alloc_coherent(ctrl->dev,
 					ctrl->mem.size, &(ctrl->mem.base), 0);
 		if (!ctrl->mem.cpu_addr) {
@@ -1805,7 +1803,7 @@ static int fimc_release(struct file *filp)
 	}
 
 #ifdef CONFIG_USE_FIMC_CMA
-	if (ctrl->id == 1) {
+	if (ctrl->id == 0 || ctrl->id == 1) {
 		dma_free_coherent(ctrl->dev, ctrl->mem.size, ctrl->mem.cpu_addr,
 					ctrl->mem.base);
 		ctrl->mem.base = 0;
