@@ -2810,9 +2810,8 @@ int fimc_qbuf_output(void *fh, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-#if 0
-	if (buf.base[FIMC_ADDR_Y] != 0 && y_size != 0 &&
-			!cma_is_registered_region(buf.base[FIMC_ADDR_Y], y_size)) {
+	if (buf->base[FIMC_ADDR_Y] != 0 && y_size != 0 &&
+			!cma_is_registered_region(buf->base[FIMC_ADDR_Y], y_size)) {
 		fimc_err("%s: Y address is not CMA region 0x%x, %d \n",
 				__func__, buf->base[FIMC_ADDR_Y], y_size);
 		return -EINVAL;
@@ -2830,7 +2829,6 @@ int fimc_qbuf_output(void *fh, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 	/* End check CMA region */
-#endif
 
 	if ((ctrl->status == FIMC_READY_ON) ||
 	    (ctrl->status == FIMC_STREAMON) ||
@@ -2970,7 +2968,6 @@ int fimc_qbuf_output(void *fh, struct v4l2_buffer *b)
 			goto err_routine;
 		}
 
-#if 0
 		if (ctx->dst[idx].base[FIMC_ADDR_Y] != 0 && y_size != 0 &&
 				!cma_is_registered_region((dma_addr_t)ctx->dst[idx].base[FIMC_ADDR_Y],
 					y_size)) {
@@ -2995,7 +2992,6 @@ int fimc_qbuf_output(void *fh, struct v4l2_buffer *b)
 			ret = -EINVAL;
 			goto err_routine;
 		}
-#endif
 		/* End check CMA region */
 
 		switch (ctx->overlay.mode) {
