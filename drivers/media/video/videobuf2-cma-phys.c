@@ -38,7 +38,6 @@ struct vb2_cma_phys_conf {
 struct vb2_cma_phys_buf {
 	struct vb2_cma_phys_conf		*conf;
 	dma_addr_t			dma_addr;
-	void				*cma_vaddr;
 	unsigned long			size;
 	struct vm_area_struct		*vma;
 	/* fd exported from this buf object. */
@@ -181,12 +180,9 @@ static void *vb2_cma_phys_alloc(void *alloc_ctx, unsigned long size)
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	if (!IS_ALIGNED(size, conf->alignment))
-		size = ALIGN(size, conf->alignment);
-
-	buf->cma_vaddr = dma_alloc_writecombine(conf->dev, size, &buf->dma_addr, GFP_KERNEL | GFP_ATOMIC);
+	buf->dma_addr = cma_alloc(conf->dev, conf->type, size, conf->alignment);
 	if (IS_ERR((void *)buf->dma_addr)) {
-		printk(KERN_ERR "dma_alloc_writecombine of size %ld failed (%p)\n", size, (void *)buf->dma_addr);
+		printk(KERN_ERR "cma_alloc of size %ld failed\n", size);
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -209,8 +205,7 @@ static void vb2_cma_phys_put(void *buf_priv)
 	struct vb2_cma_phys_buf *buf = buf_priv;
 
 	if (atomic_dec_and_test(&buf->refcount)) {
-		dma_free_coherent(buf->conf->dev, buf->size,
-				buf->cma_vaddr, buf->dma_addr);
+		cma_free(buf->dma_addr);
 		kfree(buf);
 	}
 }
