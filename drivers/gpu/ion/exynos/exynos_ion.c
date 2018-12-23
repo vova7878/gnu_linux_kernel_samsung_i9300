@@ -414,10 +414,10 @@ static int ion_exynos_contig_heap_allocate(struct ion_heap *heap,
 					   unsigned long align,
 					   unsigned long flags)
 {
-	if (!IS_ALIGNED(len, align))
-		len = ALIGN(len, align);
-
 	pr_err("%s: allocating %ld bytes aligned by %ld bytes\n", __func__, len, align);
+
+	if (align != 0 && !IS_ALIGNED(len, align))
+		len = ALIGN(len, align);
 
 	buffer->vaddr = dma_alloc_writecombine(exynos_ion_dev, len, &buffer->priv_phys, GFP_KERNEL);
 
