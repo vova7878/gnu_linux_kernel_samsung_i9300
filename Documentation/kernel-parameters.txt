@@ -508,11 +508,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			Also note the kernel might malfunction if you disable
 			some critical bits.
 
-	cma=nn[MG]	[ARM,KNL]
-			Sets the size of kernel global memory area for contiguous
-			memory allocations. For more information, see
-			include/linux/dma-contiguous.h
-
 	cmo_free_hint=	[PPC] Format: { yes | no }
 			Specify whether pages are marked as being inactive
 			when they are freed.  This is used in CMO environments
@@ -2383,6 +2378,8 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 	resume=		[SWSUSP]
 			Specify the partition device for software suspend
+			Format:
+			{/dev/<dev> | PARTUUID=<uuid> | <int>:<int> | <hex>}
 
 	resume_offset=	[SWSUSP]
 			Specify the offset from the beginning of the partition
@@ -2525,10 +2522,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 				0: Toshiba Satellite 1800 (GP data pin select)
 				1: Fast pin select (default)
 				2: ATC IRMode
-
-	snddev_icodec.msm_codec_i2s_slave_mode= [ARM-MSM]
-			1, codec is I2S master
-			0, MSM is I2S master (default)
 
 	softlockup_panic=
 			[KNL] Should the soft-lockup detector generate panics.
