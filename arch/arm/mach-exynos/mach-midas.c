@@ -2476,6 +2476,42 @@ static int __init early_fbmem(char *p)
 }
 early_param("fbmem", early_fbmem);
 
+/*
+ * FIXME: why <linux/cma.h> definitions are not included?
+ *        switch to using #include <linux/cma.h> instead
+ *        of direct definitions below.
+ */
+
+struct cma_allocator;
+struct cma_region {
+        const char *name;
+        dma_addr_t start;
+        size_t size;
+        union {
+                size_t free_space;      /* Normal region */
+                dma_addr_t alignment;   /* Early region */
+        };
+
+        struct cma_allocator *alloc;
+        const char *alloc_name;
+        void *private_data;
+
+        unsigned users;
+        struct list_head list;
+
+#if defined CONFIG_CMA_SYSFS
+        struct kobject kobj;
+#endif
+
+        unsigned used:1;
+        unsigned registered:1;
+        unsigned reserved:1;
+        unsigned copy_name:1;
+        unsigned free_alloc_name:1;
+};
+
+int __init __must_check cma_early_region_register(struct cma_region *reg);
+
 static void __init exynos4_reserve_mem(void)
 {
 	static struct cma_region regions[] = {
