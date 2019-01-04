@@ -230,6 +230,7 @@ struct fimc_meminfo {
 #ifdef CONFIG_USE_FIMC_CMA
 	void		*cpu_addr;
 #endif
+	int		dev_id;		/* device id for current alloc */
 	dma_addr_t	base;		/* buffer base */
 	size_t		size;		/* total length */
 	dma_addr_t	curr;		/* current addr */
