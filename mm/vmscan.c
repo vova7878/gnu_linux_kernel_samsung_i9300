@@ -102,11 +102,6 @@ struct mem_cgroup_zone {
 
 #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-atomic_t kswapd_thread_on = ATOMIC_INIT(1);
-extern int get_soft_reclaim_status(void);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 #ifdef ARCH_HAS_PREFETCH
 #define prefetch_prev_lru_page(_page, _base, _field)			\
 	do {								\
@@ -208,7 +203,6 @@ static int debug_shrinker_show(struct seq_file *s, void *unused)
 
 	down_read(&shrinker_rwsem);
 	list_for_each_entry(shrinker, &shrinker_list, list) {
-		char name[64];
 		int num_objs;
 
 		num_objs = shrinker->shrink(shrinker, &sc);
@@ -290,19 +284,24 @@ static inline int do_shrinker_shrink(struct shrinker *shrinker,
  *
  * Returns the number of slab objects which we shrunk.
  */
-unsigned long shrink_slab(struct shrink_control *shrink,
+unsigned long shrink_slab(struct shrink_control *shrinkctl,
 			  unsigned long nr_pages_scanned,
 			  unsigned long lru_pages)
 {
 	struct shrinker *shrinker;
-	unsigned long ret = 0;
+	unsigned long freed = 0;
 
 	if (nr_pages_scanned == 0)
 		nr_pages_scanned = SWAP_CLUSTER_MAX;
 
 	if (!down_read_trylock(&shrinker_rwsem)) {
-		/* Assume we'll be able to shrink next time */
-		ret = 1;
+		/*
+		 * If we would return 0, our callers would understand that we
+		 * have nothing else to shrink and give up trying. By returning
+		 * 1 we keep it going and assume we'll be able to shrink next
+		 * time.
+		 */
+		freed = 1;
 		goto out;
 	}
 
@@ -310,7 +309,6 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		unsigned long long delta;
 		long total_scan;
 		long max_pass;
-		int shrink_ret = 0;
 		long nr;
 		long new_nr;
 		long batch_size = shrinker->batch ? shrinker->batch
@@ -320,8 +318,11 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		if (current_is_kswapd())
 			min_cache_size = 0;
 
-		max_pass = do_shrinker_shrink(shrinker, shrink, 0);
-		if (max_pass <= 0)
+		if (shrinker->count_objects)
+			max_pass = shrinker->count_objects(shrinker, shrinkctl);
+		else
+			max_pass = do_shrinker_shrink(shrinker, shrinkctl, 0);
+		if (max_pass == 0)
 			continue;
 
 		/*
@@ -337,8 +338,8 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		do_div(delta, lru_pages + 1);
 		total_scan += delta;
 		if (total_scan < 0) {
-			printk(KERN_ERR "shrink_slab: %pF negative objects to "
-			       "delete nr=%ld\n",
+			printk(KERN_ERR
+			"shrink_slab: %pF negative objects to delete nr=%ld\n",
 			       shrinker->shrink, total_scan);
 			total_scan = max_pass;
 		}
@@ -366,24 +367,36 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		if (total_scan > max_pass * 2)
 			total_scan = max_pass * 2;
 
-		trace_mm_shrink_slab_start(shrinker, shrink, nr,
+		trace_mm_shrink_slab_start(shrinker, shrinkctl, nr,
 					nr_pages_scanned, lru_pages,
 					max_pass, delta, total_scan);
 
-		while (total_scan >= min_cache_size) {
-			long this_scan = SHRINK_BATCH;
-			int nr_before;
+		while (total_scan > min_cache_size) {
 
 			if (total_scan < batch_size)
 				batch_size = total_scan;
 
-			nr_before = do_shrinker_shrink(shrinker, shrink, 0);
-			shrink_ret = do_shrinker_shrink(shrinker, shrink,
-							batch_size);
-			if (shrink_ret == -1)
-				break;
-			if (shrink_ret < nr_before)
-				ret += nr_before - shrink_ret;
+			if (shrinker->scan_objects) {
+				unsigned long ret;
+				shrinkctl->nr_to_scan = batch_size;
+				ret = shrinker->scan_objects(shrinker, shrinkctl);
+
+				if (ret == SHRINK_STOP)
+					break;
+				freed += ret;
+			} else {
+				int nr_before;
+				long ret;
+
+				nr_before = do_shrinker_shrink(shrinker, shrinkctl, 0);
+				ret = do_shrinker_shrink(shrinker, shrinkctl,
+								batch_size);
+				if (ret == -1)
+					break;
+				if (ret < nr_before)
+					freed += nr_before - ret;
+			}
+
 			count_vm_events(SLABS_SCANNED, batch_size);
 			total_scan -= batch_size;
 
@@ -401,12 +414,12 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		else
 			new_nr = atomic_long_read(&shrinker->nr_in_batch);
 
-		trace_mm_shrink_slab_end(shrinker, shrink_ret, nr, new_nr);
+		trace_mm_shrink_slab_end(shrinker, freed, nr, new_nr);
 	}
 	up_read(&shrinker_rwsem);
 out:
 	cond_resched();
-	return ret;
+	return freed;
 }
 
 static inline int is_page_cache_freeable(struct page *page)
@@ -763,6 +776,7 @@ static enum page_references page_check_references(struct page *page,
 		 */
 		if (vm_flags & VM_EXEC)
 			return PAGEREF_ACTIVATE;
+
 		return PAGEREF_KEEP;
 	}
 
@@ -799,7 +813,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		struct address_space *mapping;
 		struct page *page;
 		int may_enter_fs;
-		enum page_references references = PAGEREF_RECLAIM_CLEAN;
+		enum page_references references = PAGEREF_RECLAIM;
 
 		cond_resched();
 
@@ -996,6 +1010,13 @@ free_it:
 		 * appear not as the counts should be low
 		 */
 		list_add(&page->lru, &free_pages);
+		/*
+		 * If pagelist are from multiple zones, we should decrease
+		 * NR_ISOLATED_ANON + x on freed pages in here.
+		 */
+		if (!zone)
+			dec_zone_page_state(page, NR_ISOLATED_ANON +
+					page_is_file_cache(page));
 		continue;
 
 cull_mlocked:
@@ -1025,7 +1046,7 @@ keep:
 	 * back off and wait for congestion to clear because further reclaim
 	 * will encounter the same problem
 	 */
-	if (nr_dirty && nr_dirty == nr_congested && global_reclaim(sc))
+	if (zone && nr_dirty && nr_dirty == nr_congested && global_reclaim(sc))
 		zone_set_flag(zone, ZONE_CONGESTED);
 
 	free_hot_cold_page_list(&free_pages, 1);
@@ -1045,6 +1066,8 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 		.gfp_mask = GFP_KERNEL,
 		.priority = DEF_PRIORITY,
 		.may_unmap = 1,
+		/* Doesn't allow to write out dirty page */
+		.may_writepage = 0,
 	};
 	unsigned long ret, dummy1, dummy2;
 	struct page *page, *next;
@@ -1086,6 +1109,7 @@ int __isolate_lru_page(struct page *page, isolate_mode_t mode)
 	/* Compaction should not handle unevictable pages but CMA can do so */
 	if (PageUnevictable(page) && !(mode & ISOLATE_UNEVICTABLE))
 		return ret;
+
 	ret = -EBUSY;
 
 	/*
@@ -1296,12 +1320,6 @@ static int __too_many_isolated(struct zone *zone, int file,
 static int too_many_isolated(struct zone *zone, int file,
 		struct scan_control *sc, int safe)
 {
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	if(get_soft_reclaim_status() == 1)
-	{
-		return 0;
-	}
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	if (current_is_kswapd())
 		return 0;
 
@@ -1332,6 +1350,7 @@ putback_inactive_pages(struct mem_cgroup_zone *mz,
 	while (!list_empty(page_list)) {
 		struct page *page = lru_to_page(page_list);
 		int lru;
+		int file;
 
 		VM_BUG_ON(PageLRU(page));
 		list_del(&page->lru);
@@ -1344,8 +1363,13 @@ putback_inactive_pages(struct mem_cgroup_zone *mz,
 		SetPageLRU(page);
 		lru = page_lru(page);
 		add_page_to_lru_list(zone, page, lru);
+
+		file = is_file_lru(lru);
+#if IS_ENABLED(CONFIG_ZCACHE)
+		if (file)
+			SetPageWasActive(page);
+#endif
 		if (is_active_lru(lru)) {
-			int file = is_file_lru(lru);
 			int numpages = hpage_nr_pages(page);
 			reclaim_stat->recent_rotated[file] += numpages;
 		}
@@ -1621,6 +1645,13 @@ static void shrink_active_list(unsigned long nr_to_scan,
 		}
 
 		ClearPageActive(page);	/* we are de-activating */
+#if IS_ENABLED(CONFIG_ZCACHE)
+		/*
+		 * For zcache to know whether the page is from active
+		 * file list
+		 */
+		SetPageWasActive(page);
+#endif
 		list_add(&page->lru, &l_inactive);
 	}
 
@@ -2001,10 +2032,6 @@ restart:
 		if (nr_reclaimed >= nr_to_reclaim &&
 		    sc->priority < DEF_PRIORITY)
 			break;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		if ((sc->nr_reclaimed + nr_reclaimed) >= nr_to_reclaim && sc->may_swap)
-			break;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	}
 	blk_finish_plug(&plug);
 	sc->nr_reclaimed += nr_reclaimed;
@@ -2121,11 +2148,7 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 {
 	struct zoneref *z;
 	struct zone *zone;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	unsigned long nr_soft_reclaimed = 0;
-#else
 	unsigned long nr_soft_reclaimed;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	unsigned long nr_soft_scanned;
 	bool aborted_reclaim = false;
 
@@ -2173,11 +2196,9 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 			 * and balancing, not for a memcg's limit.
 			 */
 			nr_soft_scanned = 0;
-#ifndef CONFIG_ZRAM_FOR_ANDROID
 			nr_soft_reclaimed = mem_cgroup_soft_limit_reclaim(zone,
 						sc->order, sc->gfp_mask,
 						&nr_soft_scanned);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 			sc->nr_reclaimed += nr_soft_reclaimed;
 			sc->nr_scanned += nr_soft_scanned;
 			/* need some check for avoid more shrink_zone() */
@@ -2340,11 +2361,7 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 		.may_writepage = !laptop_mode,
 		.nr_to_reclaim = SWAP_CLUSTER_MAX,
 		.may_unmap = 1,
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		.may_swap = 0,
-#else
 		.may_swap = 1,
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 		.order = order,
 		.priority = DEF_PRIORITY,
 		.target_mem_cgroup = NULL,
@@ -2525,10 +2542,6 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
 	unsigned long balanced = 0;
 	bool all_zones_ok = true;
 
-	/* If kswapd has been running too long, just sleep */
-	if (need_resched())
-		return false;
-
 	/* If a direct reclaimer woke kswapd within HZ/10, it's premature */
 	if (remaining)
 		return true;
@@ -2598,20 +2611,12 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 	int end_zone = 0;	/* Inclusive.  0 = ZONE_DMA */
 	unsigned long total_scanned;
 	struct reclaim_state *reclaim_state = current->reclaim_state;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	unsigned long nr_soft_reclaimed = 0;
-#else
 	unsigned long nr_soft_reclaimed;
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	unsigned long nr_soft_scanned;
 	struct scan_control sc = {
 		.gfp_mask = GFP_KERNEL,
 		.may_unmap = 1,
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		.may_swap = 0,
-#else
 		.may_swap = 1,
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 		/*
 		 * kswapd doesn't want to be bailed out while reclaim. because
 		 * we want to put equal scanning pressure on each zone.
@@ -2712,11 +2717,9 @@ loop_again:
 			/*
 			 * Call soft limit reclaim before calling shrink_zone.
 			 */
-#ifndef CONFIG_ZRAM_FOR_ANDROID
 			nr_soft_reclaimed = mem_cgroup_soft_limit_reclaim(zone,
 							order, sc.gfp_mask,
 							&nr_soft_scanned);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 			sc.nr_reclaimed += nr_soft_reclaimed;
 			total_scanned += nr_soft_scanned;
 
@@ -2919,11 +2922,6 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
 		 * per-cpu vmstat threshold while kswapd is awake and restore
 		 * them before going back to sleep.
 		 */
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		atomic_set(&kswapd_thread_on,0);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 		set_pgdat_percpu_threshold(pgdat, calculate_normal_threshold);
 
 		/*
@@ -3037,10 +3035,6 @@ static int kswapd(void *p)
 		if (kthread_should_stop())
 			break;
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		atomic_set(&kswapd_thread_on, 1);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 		/*
 		 * We can speed up thawing tasks if we don't call balance_pgdat
 		 * after returning from the refrigerator
@@ -3086,129 +3080,6 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 	wake_up_interruptible(&pgdat->kswapd_wait);
 }
 
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-/*
- * This is the main entry point to direct page reclaim for RTCC.
- *
- * If a full scan of the inactive list fails to free enough memory then we
- * are "out of memory" and something needs to be killed.
- *
- * If the caller is !__GFP_FS then the probability of a failure is reasonably
- * high - the zone may be full of dirty or under-writeback pages, which this
- * caller can't do much about.  We kick the writeback threads and take explicit
- * naps in the hope that some of these pages can be written.  But if the
- * allocating task holds filesystem locks which prevent writeout this might not
- * work, and the allocation attempt will fail.
- *
- * returns:	0, if no pages reclaimed
- * 		else, the number of pages reclaimed
- */
-static unsigned long rtcc_do_try_to_free_pages(struct zonelist *zonelist, struct scan_control *sc, struct shrink_control *shrink)
-{
-	int priority;
-	unsigned long total_scanned = 0;
-	struct zoneref *z;
-	struct zone *zone;
-	unsigned long writeback_threshold;
-
-	get_mems_allowed();
-	delayacct_freepages_start();
-
-	if (scanning_global_lru(sc))
-		count_vm_event(ALLOCSTALL);
-
-	for (priority = DEF_PRIORITY; priority >= 0; priority--) {
-		sc->nr_scanned = 0;
-		if (!priority)
-			disable_swap_token(sc->mem_cgroup);
-		shrink_zones(priority, zonelist, sc);
-		total_scanned += sc->nr_scanned;
-		if (sc->nr_reclaimed >= sc->nr_to_reclaim)
-			goto out;
-
-		/*
-		 * Try to write back as many pages as we just scanned.  This
-		 * tends to cause slow streaming writers to write data to the
-		 * disk smoothly, at the dirtying rate, which is nice.   But
-		 * that's undesirable in laptop mode, where we *want* lumpy
-		 * writeout.  So in laptop mode, write out the whole world.
-		 */
-		writeback_threshold = sc->nr_to_reclaim + sc->nr_to_reclaim / 2;
-		if (total_scanned > writeback_threshold) {
-			wakeup_flusher_threads(laptop_mode ? 0 : total_scanned);
-			sc->may_writepage = 1;
-		}
-
-		/* Take a nap, wait for some writeback to complete */
-		if (!sc->hibernation_mode && sc->nr_scanned &&
-		    priority < DEF_PRIORITY - 2) {
-			struct zone *preferred_zone;
-
-			first_zones_zonelist(zonelist, gfp_zone(sc->gfp_mask),
-						&cpuset_current_mems_allowed,
-						&preferred_zone);
-			wait_iff_congested(preferred_zone, BLK_RW_ASYNC, HZ/10);
-		}
-	}
-
-out:
-	delayacct_freepages_end();
-	put_mems_allowed();
-
-	if (sc->nr_reclaimed)
-		return sc->nr_reclaimed;
-
-	/*
-	 * As hibernation is going on, kswapd is freezed so that it can't mark
-	 * the zone into all_unreclaimable. Thus bypassing all_unreclaimable
-	 * check.
-	 */
-	if (oom_killer_disabled)
-		return 0;
-
-	/* top priority shrink_zones still had more to do? don't OOM, then */
-	if (scanning_global_lru(sc) && !all_unreclaimable(zonelist, sc))
-		return 1;
-
-	return 0;
-}
-
-long rtcc_reclaim_pages(long nr_to_reclaim)
-{
-	struct reclaim_state reclaim_state;
-	struct scan_control sc = {
-		.gfp_mask = GFP_KERNEL,
-		.may_swap = 1,
-		.may_unmap = 1,
-		.may_writepage = 1,
-		.nr_to_reclaim = nr_to_reclaim,
-		.swappiness = 100,
-		.order = 0,
-	};
-	struct shrink_control shrink = {
-		.gfp_mask = sc.gfp_mask,
-	};
-	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
-	struct task_struct *p = current;
-	unsigned long nr_reclaimed;
-
-	p->flags |= PF_MEMALLOC;
-	lockdep_set_current_reclaim_state(sc.gfp_mask);
-	reclaim_state.reclaimed_slab = 0;
-	p->reclaim_state = &reclaim_state;
-
-	nr_reclaimed = rtcc_do_try_to_free_pages(zonelist, &sc, &shrink);
-
-	p->reclaim_state = NULL;
-	lockdep_clear_current_reclaim_state();
-	p->flags &= ~PF_MEMALLOC;
-
-	printk("RTCC, reclaim %ld pages\n", nr_reclaimed);
-
-	return nr_reclaimed;
-}
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
-
 #ifdef CONFIG_HIBERNATION
 /*
  * Try to free `nr_to_reclaim' of memory, system-wide, and return the number of
@@ -3223,11 +3094,7 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 	struct reclaim_state reclaim_state;
 	struct scan_control sc = {
 		.gfp_mask = GFP_HIGHUSER_MOVABLE,
-#if defined(CONFIG_SLP) && defined(CONFIG_FULL_PAGE_RECLAIM)
-		.may_swap = 0,
-#else
 		.may_swap = 1,
-#endif
 		.may_unmap = 1,
 		.may_writepage = 1,
 		.nr_to_reclaim = nr_to_reclaim,
@@ -3417,11 +3284,7 @@ static int __zone_reclaim(struct zone *zone, gfp_t gfp_mask, unsigned int order)
 	struct scan_control sc = {
 		.may_writepage = !!(zone_reclaim_mode & RECLAIM_WRITE),
 		.may_unmap = !!(zone_reclaim_mode & RECLAIM_SWAP),
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-		.may_swap = 0,
-#else
 		.may_swap = 1,
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 		.nr_to_reclaim = max_t(unsigned long, nr_pages,
 				       SWAP_CLUSTER_MAX),
 		.gfp_mask = gfp_mask,
