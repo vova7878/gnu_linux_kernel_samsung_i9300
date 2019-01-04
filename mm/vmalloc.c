@@ -1,4 +1,3 @@
-c
 /*
  *  linux/mm/vmalloc.c
  *
