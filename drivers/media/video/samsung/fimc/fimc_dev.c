@@ -44,7 +44,8 @@
 char buf[32];
 struct fimc_global *fimc_dev;
 
-static struct device *dev_fimc2;
+extern struct device *exynos_ion_dev;
+#define EXYNOS_ION_DEV_NUM 5
 
 #ifndef CONFIG_VIDEO_FIMC_MIPI
 int s3c_csis_get_pkt(int csis_id, void *pktdata) {}
@@ -701,9 +702,6 @@ static struct fimc_control *fimc_register_controller(struct platform_device *pde
 	ctrl = get_fimc_ctrl(id);
 	ctrl->id = id;
 	ctrl->dev = &pdev->dev;
-
-	if (id == 2)
-		dev_fimc2 = ctrl->dev;
 
 	ctrl->vd = &fimc_video_device[id];
 	ctrl->vd->minor = id;
@@ -1556,10 +1554,10 @@ static int fimc_open(struct file *filp)
 		if (!ctrl->mem.cpu_addr) {
 			printk(KERN_INFO "FIMC%d: dma_alloc_coherent failed, retrying to alloc from FIMC2\n",
 								ctrl->id);
+			WARN_ON(exynos_ion_dev == NULL);
 
-			WARN_ON(dev_fimc2 == NULL);
-			if (dev_fimc2 != NULL)
-				ctrl->mem.cpu_addr = dma_alloc_writecombine(dev_fimc2,
+			if (likely(exynos_ion_dev != NULL))
+				ctrl->mem.cpu_addr = dma_alloc_writecombine(exynos_ion_dev,
 					ctrl->mem.size, &(ctrl->mem.base), 0);
 
 			if (!ctrl->mem.cpu_addr) {
@@ -1568,7 +1566,7 @@ static int fimc_open(struct file *filp)
 				ret = -ENOMEM;
 				goto dma_alloc_err;
 			} else
-				ctrl->mem.dev_id = 2;
+				ctrl->mem.dev_id = EXYNOS_ION_DEV_NUM;
 		} else
 			ctrl->mem.dev_id = ctrl->id;
 
@@ -1824,8 +1822,8 @@ static int fimc_release(struct file *filp)
 
 #ifdef CONFIG_USE_FIMC_CMA
 	if (ctrl->id == 0 || ctrl->id == 1) {
-		if (ctrl->mem.dev_id == 2)
-			dma_free_coherent(dev_fimc2, ctrl->mem.size, ctrl->mem.cpu_addr,
+		if (ctrl->mem.dev_id == EXYNOS_ION_DEV_NUM)
+			dma_free_coherent(exynos_ion_dev, ctrl->mem.size, ctrl->mem.cpu_addr,
 					ctrl->mem.base);
 		else
 			dma_free_coherent(ctrl->dev, ctrl->mem.size, ctrl->mem.cpu_addr,

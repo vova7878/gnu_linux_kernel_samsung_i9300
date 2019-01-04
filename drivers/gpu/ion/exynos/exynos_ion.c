@@ -50,7 +50,7 @@ struct ion_device *ion_exynos;
 
 static int num_heaps;
 static struct ion_heap **heaps;
-static struct device *exynos_ion_dev;
+struct device *exynos_ion_dev;
 
 /* IMBUFS stands for "InterMediate BUFfer Storage" */
 #define IMBUFS_SHIFT	4
