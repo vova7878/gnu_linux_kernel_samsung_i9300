@@ -44,6 +44,7 @@
 char buf[32];
 struct fimc_global *fimc_dev;
 
+struct device *dev_fimc0;
 extern struct device *exynos_ion_dev;
 #define EXYNOS_ION_DEV_NUM 5
 
@@ -702,6 +703,8 @@ static struct fimc_control *fimc_register_controller(struct platform_device *pde
 	ctrl = get_fimc_ctrl(id);
 	ctrl->id = id;
 	ctrl->dev = &pdev->dev;
+	if (id == 0)
+		dev_fimc0 = ctrl->dev;
 
 	ctrl->vd = &fimc_video_device[id];
 	ctrl->vd->minor = id;
