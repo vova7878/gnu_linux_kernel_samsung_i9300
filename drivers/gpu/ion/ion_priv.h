@@ -54,6 +54,7 @@ struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
  * @vaddr:		the kenrel mapping if kmap_cnt is not zero
  * @dmap_cnt:		number of times the buffer is mapped for dma
  * @sglist:		the scatterlist for the buffer is dmap_cnt is not zero
+ * @dev_id:		the number of device used for allocation
 */
 struct ion_buffer {
 	struct kref ref;
@@ -71,6 +72,7 @@ struct ion_buffer {
 	void *vaddr;
 	int dmap_cnt;
 	struct scatterlist *sglist;
+	int dev_id;
 };
 
 /**

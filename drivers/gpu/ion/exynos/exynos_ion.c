@@ -34,6 +34,9 @@
 
 #include "../ion_priv.h"
 
+#define FIMC0_DEV_NUM 0
+#define EXYNOS_ION_DEV_NUM 5
+
 struct ion_device {
 	struct miscdevice dev;
 	struct rb_root buffers;
@@ -51,6 +54,8 @@ struct ion_device *ion_exynos;
 static int num_heaps;
 static struct ion_heap **heaps;
 struct device *exynos_ion_dev;
+
+extern struct device *dev_fimc0;
 
 /* IMBUFS stands for "InterMediate BUFfer Storage" */
 #define IMBUFS_SHIFT	4
@@ -420,11 +425,20 @@ static int ion_exynos_contig_heap_allocate(struct ion_heap *heap,
 		len = ALIGN(len, align);
 
 	buffer->vaddr = dma_alloc_writecombine(exynos_ion_dev, len, &buffer->priv_phys, GFP_KERNEL);
-
 	if (IS_ERR_VALUE(buffer->priv_phys)) {
-		pr_err("%s: get cma alloc for ION failed\n", __func__);
-		return (int)buffer->priv_phys;
-	}
+		pr_err("%s: get cma alloc for ION failed, retrying to alloc from FIMC0\n", __func__);
+		WARN_ON(dev_fimc0 == NULL);
+		if (unlikely(dev_fimc0 == NULL))
+			return (int)buffer->priv_phys;
+
+		buffer->vaddr = dma_alloc_writecombine(dev_fimc0, len, &buffer->priv_phys, GFP_KERNEL);
+		if (IS_ERR_VALUE(buffer->priv_phys)) {
+			pr_err("%s: get cma alloc for ION failed\n", __func__);
+			return (int)buffer->priv_phys;
+		} else
+			buffer->dev_id = FIMC0_DEV_NUM;
+	} else
+		buffer->dev_id = EXYNOS_ION_DEV_NUM;
 
 	buffer->flags = flags;
 	buffer->size = len;
@@ -441,8 +455,16 @@ static void ion_exynos_contig_heap_free(struct ion_buffer *buffer)
 {
 	int ret = 0;
 
-	dma_free_coherent(exynos_ion_dev, buffer->size,
+	WARN_ON((buffer->dev_id != EXYNOS_ION_DEV_NUM) &&
+        	        (buffer->dev_id != FIMC0_DEV_NUM));
+
+	if (buffer->dev_id == EXYNOS_ION_DEV_NUM)
+		dma_free_coherent(exynos_ion_dev, buffer->size,
 			buffer->vaddr, buffer->priv_phys);
+	else if (buffer->dev_id == FIMC0_DEV_NUM)
+		dma_free_coherent(dev_fimc0, buffer->size,
+			buffer->vaddr, buffer->priv_phys);
+
 }
 
 static int ion_exynos_contig_heap_phys(struct ion_heap *heap,
