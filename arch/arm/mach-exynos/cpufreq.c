@@ -976,4 +976,4 @@ void exynos_pm_hook_remove(void)
 
 	mutex_unlock(&pm_hook_mutex);
 }
-EXPORT_SYMBOL(exynos_pm_hook_add);
+EXPORT_SYMBOL(exynos_pm_hook_remove);
