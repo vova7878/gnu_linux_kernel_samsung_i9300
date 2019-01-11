@@ -26,6 +26,9 @@
 #include <linux/earlysuspend.h>
 #endif
 
+static struct work_struct compaction_work;
+static struct workqueue_struct *compaction_wq;
+
 #if defined CONFIG_COMPACTION || defined CONFIG_DMA_CMA
 
 #define CREATE_TRACE_POINTS
@@ -889,16 +892,14 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-
-static void do_compact_nodes(struct work_struct *work)
+static void compact_nodes_fn(struct work_struct *work)
 {
 	compact_nodes();
 }
-static DECLARE_DELAYED_WORK(compact_nodes_delayedwork, do_compact_nodes);
 
 static void compaction_suspend(struct early_suspend *handler)
 {
-	schedule_delayed_work(&compact_nodes_delayedwork, msecs_to_jiffies(500));
+	queue_work(compaction_wq, &compaction_work);
 }
 
 static struct early_suspend compaction_early_suspend_handler = {
@@ -941,6 +942,13 @@ void compaction_unregister_node(struct node *node)
 static int __init mem_compaction_init(void)
 {
 	register_early_suspend(&compaction_early_suspend_handler);
+
+	compaction_wq = alloc_workqueue("compaction_wq", WQ_UNBOUND, 0);
+	if (!compaction_wq)
+		printk(KERN_ERR "Failed to create compaction_wq workqueue\n");
+
+	INIT_WORK(&compaction_work, compact_nodes_fn);
+
 	return 0;
 }
 late_initcall(mem_compaction_init);
