@@ -14,6 +14,7 @@
 #include <linux/backing-dev.h>
 #include <linux/sysctl.h>
 #include <linux/sysfs.h>
+#include <linux/workqueue.h>
 #include "internal.h"
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -865,9 +866,15 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 
-static void compaction_suspend(struct early_suspend *handler)
+static void do_compact_nodes(struct work_struct *work)
 {
 	compact_nodes();
+}
+static DECLARE_DELAYED_WORK(compact_nodes_delayedwork, do_compact_nodes);
+
+static void compaction_suspend(struct early_suspend *handler)
+{
+	schedule_delayed_work(&compact_nodes_delayedwork, msecs_to_jiffies(500));
 }
 
 static struct early_suspend compaction_early_suspend_handler = {
