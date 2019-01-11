@@ -126,7 +126,7 @@ static void rq_work_fn(struct work_struct *work)
 	spin_unlock_irqrestore(&rq_data->lock, flags);
 }
 
-static unsigned int get_nr_run_avg(void)
+unsigned int get_nr_run_avg(void)
 {
 	unsigned int nr_run_avg;
 	unsigned long flags = 0;

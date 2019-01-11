@@ -26,7 +26,6 @@
 #include <linux/earlysuspend.h>
 #endif
 
-static struct work_struct compaction_work;
 static struct workqueue_struct *compaction_wq;
 
 #if defined CONFIG_COMPACTION || defined CONFIG_DMA_CMA
@@ -840,10 +839,12 @@ extern void cpufreq_dynamic_min_cpu_lock(unsigned int num_core);
 extern void cpufreq_dynamic_min_cpu_unlock(void);
 #endif
 
+#ifdef CONFIG_ARCH_EXYNOS
 static struct pm_qos_request_list bus_qos_pm_qos_req;
+#endif
 
 /* Compact all nodes in the system */
-static int compact_nodes(void)
+static void __compact_nodes(void)
 {
 	int nid;
 
@@ -874,6 +875,18 @@ static int compact_nodes(void)
 
 	pm_qos_remove_request(&bus_qos_pm_qos_req);
 #endif
+}
+
+static void compact_nodes_fn(struct work_struct *work)
+{
+	__compact_nodes();
+}
+static DECLARE_DELAYED_WORK(compact_nodes_delayedwork, compact_nodes_fn);
+
+static int compact_nodes(void)
+{
+	queue_delayed_work(compaction_wq,
+                &compact_nodes_delayedwork, 0);
 
 	return COMPACT_COMPLETE;
 }
@@ -892,14 +905,38 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-static void compact_nodes_fn(struct work_struct *work)
-{
-	compact_nodes();
-}
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+extern unsigned int get_nr_run_avg(void);
+
+static unsigned int nr_run_avg_thresh = 300;
+module_param(nr_run_avg_thresh, uint, 0644);
+#endif
+
+static unsigned int skip_compaction = 0;
+module_param(skip_compaction, uint, 0644);
 
 static void compaction_suspend(struct early_suspend *handler)
 {
-	queue_work(compaction_wq, &compaction_work);
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+	int nr_run_avg;
+#endif
+
+	if (skip_compaction)
+		return;
+
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+	nr_run_avg = get_nr_run_avg();
+
+	if (nr_run_avg > nr_run_avg_thresh) {
+		pr_err("%s: skipping compaction because"
+			"nr_run_avg (%d) > threshold (%d)\n",
+			__func__, nr_run_avg, nr_run_avg_thresh);
+		return;
+	}
+#endif
+
+	queue_delayed_work(compaction_wq,
+		&compact_nodes_delayedwork, msecs_to_jiffies(1000));
 }
 
 static struct early_suspend compaction_early_suspend_handler = {
@@ -944,10 +981,10 @@ static int __init mem_compaction_init(void)
 	register_early_suspend(&compaction_early_suspend_handler);
 
 	compaction_wq = alloc_workqueue("compaction_wq", WQ_UNBOUND, 0);
-	if (!compaction_wq)
+	if (!compaction_wq) {
 		printk(KERN_ERR "Failed to create compaction_wq workqueue\n");
-
-	INIT_WORK(&compaction_work, compact_nodes_fn);
+		return -EFAULT;
+	}
 
 	return 0;
 }
