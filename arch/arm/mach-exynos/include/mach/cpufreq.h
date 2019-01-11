@@ -14,6 +14,9 @@
  * This should be same with cpufreq_frequency_table
 */
 
+#ifndef __MACH_CPUFREQ_H
+#define __MACH_CPUFREQ_H
+
 #if defined(CONFIG_MACH_T0)
 #define CPUFREQ_LEVEL_END	(L19 + 1)
 
@@ -29,6 +32,13 @@ enum cpufreq_level_index {
 	L10, L11, L12, L13, L14,
 	L15, L16, L17, L18, L19,
 	L20,
+};
+
+enum busfreq_level_idx {
+	LV_0,
+	LV_1,
+	LV_2,
+	LV_END
 };
 
 enum busfreq_level_request {
@@ -60,6 +70,7 @@ enum cpufreq_lock_ID {
 	DVFS_LOCK_ID_LCD,	/* LCD */
 	DVFS_LOCK_ID_DRM,	/* DRM */
 	DVFS_LOCK_ID_ROTATION_BOOSTER,	/* ROTATION_BOOSTER */
+	DVFS_LOCK_ID_MM,	/* MM */
 
 	/*
 	 * QoS Request on DMA Latency.
@@ -83,9 +94,22 @@ int exynos_cpufreq_lock(unsigned int nId,
 			enum cpufreq_level_index cpufreq_level);
 void exynos_cpufreq_lock_free(unsigned int nId);
 
+
+#ifndef CONFIG_BUSFREQ
+static inline int exynos4_busfreq_lock(unsigned int nId,
+			enum cpufreq_level_index cpufreq_level)
+{
+	return -ENOENT;
+}
+
+static inline void exynos4_busfreq_lock_free(unsigned int nId)
+{
+}
+#else
 int exynos4_busfreq_lock(unsigned int nId,
 			enum busfreq_level_request busfreq_level);
 void exynos4_busfreq_lock_free(unsigned int nId);
+#endif
 
 int exynos_cpufreq_upper_limit(unsigned int nId,
 			enum cpufreq_level_index cpufreq_level);
@@ -163,3 +187,5 @@ extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
 /* These function and variables should be removed in EVT1 */
 void exynos5250_set_arm_abbg(unsigned int arm_volt, unsigned int int_volt);
 #endif
+
+#endif /* __MACH_CPUFREQ_H */

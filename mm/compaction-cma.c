@@ -15,7 +15,12 @@
 #include <linux/sysctl.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
+#include <linux/pm_qos_params.h>
 #include "internal.h"
+
+#ifdef CONFIG_ARCH_EXYNOS
+#include <mach/cpufreq.h>
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -832,13 +837,26 @@ extern void cpufreq_dynamic_min_cpu_lock(unsigned int num_core);
 extern void cpufreq_dynamic_min_cpu_unlock(void);
 #endif
 
+static struct pm_qos_request_list bus_qos_pm_qos_req;
+
 /* Compact all nodes in the system */
 static int compact_nodes(void)
 {
 	int nid;
 
+#ifdef CONFIG_ARCH_EXYNOS
+	int cpufreq_lock_ret = 0;
+#endif
+
 #ifdef CONFIG_CPUFREQ_DYNAMIC
 	cpufreq_dynamic_min_cpu_lock(NR_CPUS);
+#endif
+#ifdef CONFIG_ARCH_EXYNOS
+	cpufreq_lock_ret = exynos_cpufreq_lock(DVFS_LOCK_ID_USER, CPUFREQ_LEVEL_END - 1);
+	if (cpufreq_lock_ret < 0)
+		pr_err("%s: failed to lock CPUFreq (ret = %d)!\n", __func__, cpufreq_lock_ret);
+
+	pm_qos_add_request(&bus_qos_pm_qos_req, PM_QOS_BUS_QOS, 1);
 #endif
 
 	for_each_online_node(nid)
@@ -846,6 +864,12 @@ static int compact_nodes(void)
 
 #ifdef CONFIG_CPUFREQ_DYNAMIC
 	cpufreq_dynamic_min_cpu_unlock();
+#endif
+#ifdef CONFIG_ARCH_EXYNOS
+	if (!cpufreq_lock_ret)
+		exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
+
+	pm_qos_remove_request(&bus_qos_pm_qos_req);
 #endif
 
 	return COMPACT_COMPLETE;
