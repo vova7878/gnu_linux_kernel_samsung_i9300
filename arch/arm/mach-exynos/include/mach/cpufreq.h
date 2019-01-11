@@ -188,4 +188,6 @@ extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
 void exynos5250_set_arm_abbg(unsigned int arm_volt, unsigned int int_volt);
 #endif
 
+extern int exynos_pm_hook_add(void);
+extern void exynos_pm_hook_remove(void);
 #endif /* __MACH_CPUFREQ_H */

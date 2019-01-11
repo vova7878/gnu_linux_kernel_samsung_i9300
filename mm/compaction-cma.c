@@ -834,51 +834,47 @@ static int compact_node(int nid)
 
 //int compaction_pm_hint = 0;
 
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-extern void cpufreq_dynamic_min_cpu_lock(unsigned int num_core);
-extern void cpufreq_dynamic_min_cpu_unlock(void);
-#endif
-
-#ifdef CONFIG_ARCH_EXYNOS
-static struct pm_qos_request_list bus_qos_pm_qos_req;
-#endif
-
 /* Compact all nodes in the system */
 static void __compact_nodes(void)
 {
-	int nid;
+	int nid, ret;
 
 #ifdef CONFIG_ARCH_EXYNOS
-	int cpufreq_lock_ret = 0;
-#endif
-
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-	cpufreq_dynamic_min_cpu_lock(NR_CPUS);
-#endif
-#ifdef CONFIG_ARCH_EXYNOS
-	cpufreq_lock_ret = exynos_cpufreq_lock(DVFS_LOCK_ID_USER, CPUFREQ_LEVEL_END - 1);
-	if (cpufreq_lock_ret < 0)
-		pr_err("%s: failed to lock CPUFreq (ret = %d)!\n", __func__, cpufreq_lock_ret);
-
-	pm_qos_add_request(&bus_qos_pm_qos_req, PM_QOS_BUS_QOS, 1);
+	ret = exynos_pm_hook_add();
 #endif
 
 	for_each_online_node(nid)
 		compact_node(nid);
 
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-	cpufreq_dynamic_min_cpu_unlock();
-#endif
 #ifdef CONFIG_ARCH_EXYNOS
-	if (!cpufreq_lock_ret)
-		exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
-
-	pm_qos_remove_request(&bus_qos_pm_qos_req);
+	if (!ret)
+		exynos_pm_hook_remove();
 #endif
 }
 
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+extern unsigned int get_nr_run_avg(void);
+
+static unsigned int nr_run_avg_thresh = 300;
+module_param(nr_run_avg_thresh, uint, 0644);
+#endif
+
 static void compact_nodes_fn(struct work_struct *work)
 {
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+	int nr_run_avg = get_nr_run_avg();
+
+	if (nr_run_avg > nr_run_avg_thresh) {
+		pr_err("%s: skipping compaction because"
+			"nr_run_avg (%d) > threshold (%d)\n",
+			__func__, nr_run_avg, nr_run_avg_thresh);
+		return;
+	} else
+		pr_err("%s: nr_run_avg (%d) <= threshold (%d)\n",
+			__func__, nr_run_avg, nr_run_avg_thresh);
+
+#endif
+
 	__compact_nodes();
 }
 static DECLARE_DELAYED_WORK(compact_nodes_delayedwork, compact_nodes_fn);
@@ -905,35 +901,13 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-extern unsigned int get_nr_run_avg(void);
-
-static unsigned int nr_run_avg_thresh = 300;
-module_param(nr_run_avg_thresh, uint, 0644);
-#endif
-
 static unsigned int skip_compaction = 0;
 module_param(skip_compaction, uint, 0644);
 
 static void compaction_suspend(struct early_suspend *handler)
 {
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-	int nr_run_avg;
-#endif
-
 	if (skip_compaction)
 		return;
-
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-	nr_run_avg = get_nr_run_avg();
-
-	if (nr_run_avg > nr_run_avg_thresh) {
-		pr_err("%s: skipping compaction because"
-			"nr_run_avg (%d) > threshold (%d)\n",
-			__func__, nr_run_avg, nr_run_avg_thresh);
-		return;
-	}
-#endif
 
 	queue_delayed_work(compaction_wq,
 		&compact_nodes_delayedwork, msecs_to_jiffies(1000));

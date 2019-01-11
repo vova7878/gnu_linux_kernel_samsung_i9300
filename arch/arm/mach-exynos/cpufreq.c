@@ -18,9 +18,10 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/cpufreq.h>
+#include <linux/mutex.h>
 #include <linux/suspend.h>
-#include <linux/reboot.h>
 #include <linux/pm_qos_params.h>
+#include <linux/reboot.h>
 #include <linux/sysfs_helpers.h>
 #include <mach/map.h>
 #include <mach/regs-clock.h>
@@ -36,6 +37,8 @@
 	defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_GC1)
 #include <mach/sec_debug.h>
 #endif
+
+static DEFINE_MUTEX(pm_hook_mutex);
 
 struct exynos_dvfs_info *exynos_info;
 
@@ -928,7 +931,48 @@ ssize_t show_asv_level(struct cpufreq_policy *policy, char *buf) {
 
 extern ssize_t store_asv_level(struct cpufreq_policy *policy,
                                       const char *buf, size_t count) {
-	
 	// the store function does not do anything
 	return count;
 }
+
+static struct pm_qos_request_list bus_qos_pm_qos_req;
+
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+extern void cpufreq_dynamic_min_cpu_lock(unsigned int num_core);
+extern void cpufreq_dynamic_min_cpu_unlock(void);
+#endif
+
+int exynos_pm_hook_add(void)
+{
+	int ret = 0;
+
+	mutex_lock(&pm_hook_mutex);
+
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+	cpufreq_dynamic_min_cpu_lock(NR_CPUS);
+#endif
+	ret = exynos_cpufreq_lock(DVFS_LOCK_ID_USER, CPUFREQ_LEVEL_END - 1);
+	if (ret < 0)
+		pr_err("%s: failed to lock CPUFreq (ret = %d)!\n", __func__, ret);
+
+	pm_qos_add_request(&bus_qos_pm_qos_req, PM_QOS_BUS_QOS, 1);
+
+	mutex_unlock(&pm_hook_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(exynos_pm_hook_add);
+
+void exynos_pm_hook_remove(void)
+{
+	mutex_lock(&pm_hook_mutex);
+
+#ifdef CONFIG_CPUFREQ_DYNAMIC
+	cpufreq_dynamic_min_cpu_unlock();
+#endif
+	exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
+	pm_qos_remove_request(&bus_qos_pm_qos_req);
+
+	mutex_unlock(&pm_hook_mutex);
+}
+EXPORT_SYMBOL(exynos_pm_hook_add);
