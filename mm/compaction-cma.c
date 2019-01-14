@@ -22,10 +22,6 @@
 #include <mach/cpufreq.h>
 #endif
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
-
 static struct workqueue_struct *compaction_wq;
 
 #if defined CONFIG_COMPACTION || defined CONFIG_DMA_CMA
@@ -901,25 +897,6 @@ int sysctl_compaction_handler(struct ctl_table *table, int write,
 	return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static unsigned int skip_compaction = 0;
-module_param(skip_compaction, uint, 0644);
-
-static void compaction_suspend(struct early_suspend *handler)
-{
-	if (skip_compaction)
-		return;
-
-	queue_delayed_work(compaction_wq,
-		&compact_nodes_delayedwork, msecs_to_jiffies(1000));
-}
-
-static struct early_suspend compaction_early_suspend_handler = {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 10,
-	.suspend = compaction_suspend,
-};
-#endif
-
 int sysctl_extfrag_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *length, loff_t *ppos)
 {
@@ -950,19 +927,4 @@ void compaction_unregister_node(struct node *node)
 }
 #endif /* CONFIG_SYSFS && CONFIG_NUMA */
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static int __init mem_compaction_init(void)
-{
-	register_early_suspend(&compaction_early_suspend_handler);
-
-	compaction_wq = alloc_workqueue("compaction_wq", WQ_UNBOUND, 0);
-	if (!compaction_wq) {
-		printk(KERN_ERR "Failed to create compaction_wq workqueue\n");
-		return -EFAULT;
-	}
-
-	return 0;
-}
-late_initcall(mem_compaction_init);
-#endif
 #endif /* CONFIG_COMPACTION */
