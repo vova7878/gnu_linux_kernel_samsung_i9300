@@ -874,29 +874,8 @@ static void __compact_nodes(void)
 #endif
 }
 
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-extern unsigned int get_nr_run_avg(void);
-
-static unsigned int nr_run_avg_thresh = 300;
-module_param(nr_run_avg_thresh, uint, 0644);
-#endif
-
 static void compact_nodes_fn(struct work_struct *work)
 {
-#ifdef CONFIG_CPUFREQ_DYNAMIC
-	int nr_run_avg = get_nr_run_avg();
-
-	if (nr_run_avg > nr_run_avg_thresh) {
-		pr_err("%s: skipping compaction because"
-			"nr_run_avg (%d) > threshold (%d)\n",
-			__func__, nr_run_avg, nr_run_avg_thresh);
-		return;
-	} else
-		pr_err("%s: nr_run_avg (%d) <= threshold (%d)\n",
-			__func__, nr_run_avg, nr_run_avg_thresh);
-
-#endif
-
 	__compact_nodes();
 }
 static DECLARE_DELAYED_WORK(compact_nodes_delayedwork, compact_nodes_fn);
