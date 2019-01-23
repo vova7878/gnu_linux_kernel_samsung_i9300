@@ -227,7 +227,7 @@ int mem_dump_mmu_page_table_wrapper(struct mali_session_data *session_data, _mal
 	/* get size of mmu page table info buffer from user space */
 	if ( 0 != get_user(kargs.size, &uargs->size) ) goto err_exit;
     /* verify we can access the whole of the user buffer */
-    if (!access_ok(VERIFY_WRITE, buffer, kargs.size)) goto err_exit;
+    if (!_access_ok(VERIFY_WRITE, buffer, kargs.size)) goto err_exit;
 
     /* allocate temporary buffer (kernel side) to store mmu page table info */
     kargs.buffer = _mali_osk_valloc(kargs.size);
