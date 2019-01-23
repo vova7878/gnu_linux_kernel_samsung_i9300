@@ -33,6 +33,12 @@ extern int vm_insert_pfn(struct vm_area_struct *vma, unsigned long addr,
 			 unsigned long pfn);
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+#define _access_ok(TYPE, BUF, SIZE) access_ok(BUF, SIZE)
+#else
+#define _access_ok(TYPE, BUF, SIZE) access_ok(TYPE, BUF, SIZE)
+#endif
+
 #ifdef __cplusplus
 }
 #endif
