@@ -730,7 +730,7 @@ err_clk1:
 	return -EINVAL;
 }
 
-unsigned int get_clk_rate(struct platform_device *pdev, struct clk *sclk)
+static unsigned int get_clk_rate(struct platform_device *pdev, struct clk *sclk)
 {
 	struct s3c_platform_fb *pdata = pdev->dev.platform_data;
 	struct s3cfb_lcd *lcd = (struct s3cfb_lcd *)pdata->lcd;

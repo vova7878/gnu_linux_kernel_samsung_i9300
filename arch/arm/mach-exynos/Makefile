@@ -248,9 +248,15 @@ ifeq ($(CONFIG_MACH_KONA_SENSOR), y)
 obj-$(CONFIG_MACH_MIDAS)                += sec-reboot.o
 obj-$(CONFIG_MACH_KONA_SENSOR)          += kona-sensor.o
 else
-obj-$(CONFIG_MACH_MIDAS)		+= sec-reboot.o midas-sensor.o
+obj-$(CONFIG_MACH_MIDAS)		+= sec-reboot.o
 endif
 endif
+endif
+
+ifeq ($(CONFIG_MACH_T0),y)
+obj-$(CONFIG_MACH_MIDAS) 		+= midas-sensor_n7100.o
+else
+obj-$(CONFIG_MACH_MIDAS) 		+= midas-sensor.o
 endif
 obj-$(CONFIG_LEDS_LP5521)		+= midas-leds.o
 
@@ -318,8 +324,10 @@ obj-$(CONFIG_EXYNOS4_SETUP_MIPI_DSIM)	+= setup-mipidsim.o
 obj-$(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION) += secmem-allocdev.o
 obj-$(CONFIG_EXYNOS_C2C)		+= setup-c2c.o
 obj-$(CONFIG_SEC_MODEM_M0_C2C)		+= board-midas-modems.o
+obj-$(CONFIG_SEC_MODEM_SP7160LTE)	+= board-sp7160lte-modems.o
 obj-$(CONFIG_SEC_MODEM_M0)		+= board-m0-modems.o
 obj-$(CONFIG_SEC_MODEM_M0_TD)           += board-m0-td-modems.o
+obj-$(CONFIG_SEC_MODEM_Q1_TD)           += board-q1-td-modems.o
 obj-$(CONFIG_SEC_MODEM_T0_TD_DUAL)           += board-m0-modems.o board-m0-td-modems.o
 obj-$(CONFIG_SEC_MODEM_M0_CTC)		+= board-m0ctc-modems.o
 obj-$(CONFIG_SEC_MODEM_T0_CU_DUOS)	+= board-m0-modems.o board-t0cu-duos-modems.o
@@ -334,7 +342,9 @@ obj-$(CONFIG_SEC_MODEM_U1)		+= board-u1-modems.o
 obj-$(CONFIG_SEC_MODEM_U1_SPR)		+= board-u1-spr-modems.o
 obj-$(CONFIG_SEC_MODEM_U1_LGT)		+= board-u1-lgt-modems.o
 obj-$(CONFIG_SEC_MODEM_P8LTE)		+= board-p8ltevzw-modems.o
-obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_getlog.o sec_gaf.o
+obj-$(CONFIG_SEC_MODEM_GODIVA2)		+= board-godiva2-modems.o
+obj-$(CONFIG_SEC_MODEM_ZEST)		+= board-zest-modems.o
+obj-$(CONFIG_SEC_MODEM_GC2_ATT)		+= board-gc2att-modems.o
 obj-$(CONFIG_SEC_WATCHDOG_RESET)	+= sec_watchdog.o
 obj-$(CONFIG_SEC_LOG)			+= sec_log.o
 obj-$(CONFIG_EXYNOS5_DEV_BTS)		+= bts.o
