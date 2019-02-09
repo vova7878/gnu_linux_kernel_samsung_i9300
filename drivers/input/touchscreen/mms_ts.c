@@ -14,14 +14,14 @@
  *
  */
 
-/* #define DEBUG
-/* #define VERBOSE_DEBUG */
-/* #define SEC_TSP_DEBUG */
-/* #define SEC_TSP_VERBOSE_DEBUG */
+//#define DEBUG
+//#define VERBOSE_DEBUG
+//#define SEC_TSP_DEBUG
+//#define SEC_TSP_VERBOSE_DEBUG
 
-/* #define FORCE_FW_FLASH */
-/* #define FORCE_FW_PASS */
-/* #define ESD_DEBUG */
+//#define FORCE_FW_FLASH
+//#define FORCE_FW_PASS
+//#define ESD_DEBUG
 
 #define SEC_TSP_FACTORY_TEST
 #define SEC_TSP_FW_UPDATE
