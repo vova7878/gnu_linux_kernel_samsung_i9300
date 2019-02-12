@@ -48,17 +48,19 @@ static inline struct freezer *task_freezer(struct task_struct *task)
 			    struct freezer, css);
 }
 
-bool cgroup_freezing(struct task_struct *task)
+static inline int __cgroup_freezing_or_frozen(struct task_struct *task)
 {
-	enum freezer_state state;
-	bool ret;
+	enum freezer_state state = task_freezer(task)->state;
+	return (state == CGROUP_FREEZING) || (state == CGROUP_FROZEN);
+}
 
-	rcu_read_lock();
-	state = task_freezer(task)->state;
-	ret = state == CGROUP_FREEZING || state == CGROUP_FROZEN;
-	rcu_read_unlock();
-
-	return ret;
+int cgroup_freezing_or_frozen(struct task_struct *task)
+{
+	int result;
+	task_lock(task);
+	result = __cgroup_freezing_or_frozen(task);
+	task_unlock(task);
+	return result;
 }
 
 /*
