@@ -3,6 +3,10 @@
 #include <linux/utsname.h>
 #include <linux/freezer.h>
 
+#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4)
+#define CONFIG_DVFS_LIMIT
+#endif
+
 struct swsusp_info {
 	struct new_utsname	uts;
 	u32			version_code;
@@ -290,6 +294,8 @@ static inline void pm_wd_del_timer(struct timer_list *timer) { }
 #endif
 
 /* Yank555.lu - Make current max limit available globally */
+#ifdef CONFIG_DVFS_LIMIT
 int get_cpufreq_level(unsigned int freq, unsigned int *level);
 extern int cpufreq_max_limit_val;
 extern int cpufreq_max_limit_coupled;
+#endif

@@ -20,9 +20,6 @@
 #include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-#include <asm/atomic.h>
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 #include "power.h"
 
@@ -32,17 +29,15 @@ enum {
 	DEBUG_VERBOSE = 1U << 3,
 };
 static int debug_mask = DEBUG_USER_STATE;
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-atomic_t optimize_comp_on = ATOMIC_INIT(0);
-EXPORT_SYMBOL(optimize_comp_on);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static DEFINE_MUTEX(early_suspend_lock);
 static LIST_HEAD(early_suspend_handlers);
+static void sync_system(struct work_struct *work);
 static void early_suspend(struct work_struct *work);
 static void late_resume(struct work_struct *work);
+static DECLARE_WORK(sync_system_work, sync_system);
 static DECLARE_WORK(early_suspend_work, early_suspend);
 static DECLARE_WORK(late_resume_work, late_resume);
 static DEFINE_SPINLOCK(state_lock);
@@ -52,6 +47,22 @@ enum {
 	SUSPEND_REQUESTED_AND_SUSPENDED = SUSPEND_REQUESTED | SUSPENDED,
 };
 static int state;
+
+#ifdef CONFIG_SPEEDUP_KEYRESUME
+	struct sched_param earlysuspend_s = { .sched_priority = 99 };
+	struct sched_param earlysuspend_v = { .sched_priority = 0 };
+	int earlysuspend_old_prio = 0;
+	int earlysuspend_old_policy = 0;
+#endif
+
+static void sync_system(struct work_struct *work)
+{
+	pr_info("%s +\n", __func__);
+	wake_lock(&sync_wake_lock);
+	sys_sync();
+	wake_unlock(&sync_wake_lock);
+	pr_info("%s -\n", __func__);
+}
 
 void register_early_suspend(struct early_suspend *handler)
 {
@@ -84,12 +95,13 @@ static void early_suspend(struct work_struct *work)
 	struct early_suspend *pos;
 	unsigned long irqflags;
 	int abort = 0;
+	struct timer_list timer;
+	struct pm_wd_data data;
+
+	pm_wd_add_timer(&timer, &data, 30);
 
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	atomic_set(&optimize_comp_on, 1);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	if (state == SUSPEND_REQUESTED)
 		state |= SUSPENDED;
 	else
@@ -117,12 +129,16 @@ static void early_suspend(struct work_struct *work)
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: sync\n");
 
-	sys_sync();
+	/* sys_sync(); */
+	queue_work(sync_work_queue, &sync_system_work);
+
 abort:
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
 		wake_unlock(&main_wake_lock);
 	spin_unlock_irqrestore(&state_lock, irqflags);
+
+	pm_wd_del_timer(&timer);
 }
 
 static void late_resume(struct work_struct *work)
@@ -131,11 +147,24 @@ static void late_resume(struct work_struct *work)
 	unsigned long irqflags;
 	int abort = 0;
 
+#ifdef CONFIG_SPEEDUP_KEYRESUME
+	earlysuspend_old_prio = current->rt_priority;
+	earlysuspend_old_policy = current->policy;
+
+	/* just for this write, set us real-time */
+	if (!(unlikely(earlysuspend_old_policy == SCHED_FIFO) || unlikely(earlysuspend_old_policy == SCHED_RR))) {
+		if ((sched_setscheduler(current, SCHED_RR, &earlysuspend_s)) < 0)
+			printk(KERN_ERR "late_resume: up late_resume failed\n");
+	}
+#endif
+
+	struct timer_list timer;
+	struct pm_wd_data data;
+
+	pm_wd_add_timer(&timer, &data, 30);
+
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	atomic_set(&optimize_comp_on, 0);
-#endif /* CONFIG_ZRAM_FOR_ANDROID */
 	if (state == SUSPENDED)
 		state &= ~SUSPENDED;
 	else
@@ -161,8 +190,21 @@ static void late_resume(struct work_struct *work)
 		pr_info("late_resume: done\n");
 abort:
 	mutex_unlock(&early_suspend_lock);
+
+#ifdef CONFIG_SPEEDUP_KEYRESUME
+	if (!(unlikely(earlysuspend_old_policy == SCHED_FIFO) || unlikely(earlysuspend_old_policy == SCHED_RR))) {
+		earlysuspend_v.sched_priority = earlysuspend_old_prio;
+		if ((sched_setscheduler(current, earlysuspend_old_policy, &earlysuspend_v)) < 0)
+			printk(KERN_ERR "late_resume: down late_resume failed\n");
+	}
+#endif
+
+	pm_wd_del_timer(&timer);
 }
 
+#ifdef CONFIG_FAST_BOOT
+extern bool fake_shut_down;
+#endif
 void request_suspend_state(suspend_state_t new_state)
 {
 	unsigned long irqflags;
@@ -187,6 +229,10 @@ void request_suspend_state(suspend_state_t new_state)
 		state |= SUSPEND_REQUESTED;
 		queue_work(suspend_work_queue, &early_suspend_work);
 	} else if (old_sleep && new_state == PM_SUSPEND_ON) {
+#ifdef CONFIG_FAST_BOOT
+		if (fake_shut_down)
+			fake_shut_down = false;
+#endif
 		state &= ~SUSPEND_REQUESTED;
 		wake_lock(&main_wake_lock);
 		queue_work(suspend_work_queue, &late_resume_work);
