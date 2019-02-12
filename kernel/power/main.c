@@ -8,24 +8,24 @@
  *
  */
 
+#include <linux/export.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/resume-trace.h>
 #include <linux/workqueue.h>
-
-#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4)
-#define CONFIG_DVFS_LIMIT
-#endif
 
 #if defined(CONFIG_CPU_EXYNOS4210)
 #define CONFIG_GPU_LOCK
 #define CONFIG_ROTATION_BOOSTER_SUPPORT
 #endif
 
-#ifdef CONFIG_DVFS_LIMIT
+#if defined(CONFIG_CPU_EXYNOS4412) && defined(CONFIG_MALI400) \
+			&& defined(CONFIG_MALI_DVFS)
+#define CONFIG_EXYNOS4_GPU_LOCK
+#endif
+
 #include <linux/cpufreq.h>
 #include <mach/cpufreq.h>
-#endif
 
 #ifdef CONFIG_GPU_LOCK
 #include <mach/gpufreq.h>
@@ -358,7 +358,6 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
-#ifdef CONFIG_DVFS_LIMIT
 int cpufreq_max_limit_val = -1;
 int cpufreq_max_limit_coupled = SCALING_MAX_UNDEFINED; /* Yank555.lu - not yet defined at startup */
 static int cpufreq_min_limit_val = -1;
@@ -560,7 +559,6 @@ out:
 power_attr(cpufreq_table);
 power_attr(cpufreq_max_limit);
 power_attr(cpufreq_min_limit);
-#endif /* CONFIG_DVFS_LIMIT */
 
 #ifdef CONFIG_GPU_LOCK
 static int gpu_lock_val;
@@ -748,14 +746,9 @@ static struct attribute * g[] = {
 	&wake_unlock_attr.attr,
 #endif
 #endif
-#ifdef CONFIG_DVFS_LIMIT
 	&cpufreq_table_attr.attr,
 	&cpufreq_max_limit_attr.attr,
 	&cpufreq_min_limit_attr.attr,
-#endif
-#ifdef CONFIG_GPU_LOCK
-	&gpu_lock_attr.attr,
-#endif
 #ifdef CONFIG_PEGASUS_GPU_LOCK
 	&mali_lock_attr.attr,
 #endif
