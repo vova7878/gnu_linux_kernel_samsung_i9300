@@ -632,18 +632,18 @@ int hibernate(void)
 	if (error)
 		goto Exit;
 
+	error = usermodehelper_disable();
+	if (error)
+		goto Exit;
+
 	/* Allocate memory management structures */
 	error = create_basic_memory_bitmaps();
 	if (error)
-		goto Exit;
+		goto Enable_umh;
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
 	printk("done.\n");
-
-	error = usermodehelper_disable();
-	if (error)
-		goto Exit;
 
 	error = freeze_processes();
 	if (error)
@@ -678,8 +678,9 @@ int hibernate(void)
 	freezer_test_done = false;
 
  Free_bitmaps:
-	usermodehelper_enable();
 	free_basic_memory_bitmaps();
+ Enable_umh:
+	usermodehelper_enable();
  Exit:
 	pm_notifier_call_chain(PM_POST_HIBERNATION);
 	pm_restore_console();
@@ -799,11 +800,11 @@ static int software_resume(void)
 	if (error)
 		goto close_finish;
 
-	error = create_basic_memory_bitmaps();
+	error = usermodehelper_disable();
 	if (error)
 		goto close_finish;
 
-	error = usermodehelper_disable();
+	error = create_basic_memory_bitmaps();
 	if (error)
 		goto close_finish;
 
@@ -825,8 +826,8 @@ static int software_resume(void)
 	swsusp_free();
 	thaw_processes();
  Done:
-	usermodehelper_enable();
 	free_basic_memory_bitmaps();
+	usermodehelper_enable();
  Finish:
 	pm_notifier_call_chain(PM_POST_RESTORE);
 	pm_restore_console();
