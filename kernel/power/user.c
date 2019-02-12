@@ -283,9 +283,8 @@ static long snapshot_ioctl(struct file *filp, unsigned int cmd,
 		error = hibernation_snapshot(data->platform_support);
 		if (!error)
 			error = put_user(in_suspend, (int __user *)arg);
-			data->ready = !freezer_test_done && !error;
-			freezer_test_done = false;
-		}
+		if (!error)
+			data->ready = 1;
 		break;
 
 	case SNAPSHOT_ATOMIC_RESTORE:
