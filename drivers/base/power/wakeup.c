@@ -432,7 +432,6 @@ static void wakeup_source_deactivate(struct wakeup_source *ws)
 		ws->max_time = duration;
 
 	del_timer(&ws->timer);
-	ws->timer_expires = 0;
 
 	/*
 	 * Increment the counter of registered wakeup events and decrement the
@@ -487,22 +486,11 @@ EXPORT_SYMBOL_GPL(pm_relax);
  * pm_wakeup_timer_fn - Delayed finalization of a wakeup event.
  * @data: Address of the wakeup source object associated with the event source.
  *
- * Call wakeup_source_deactivate() for the wakeup source whose address is stored
- * in @data if it is currently active and its timer has not been canceled and
- * the expiration time of the timer is not in future.
+ * Call __pm_relax() for the wakeup source whose address is stored in @data.
  */
 static void pm_wakeup_timer_fn(unsigned long data)
 {
-	struct wakeup_source *ws = (struct wakeup_source *)data;
-	unsigned long flags;
-
-	spin_lock_irqsave(&ws->lock, flags);
-
-	if (ws->active && ws->timer_expires
-	    && time_after_eq(jiffies, ws->timer_expires))
-		wakeup_source_deactivate(ws);
-
-	spin_unlock_irqrestore(&ws->lock, flags);
+	__pm_relax((struct wakeup_source *)data);
 }
 
 /**
