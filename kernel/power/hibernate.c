@@ -9,13 +9,11 @@
  * This file is released under the GPLv2.
  */
 
-#include <linux/export.h>
 #include <linux/suspend.h>
 #include <linux/syscalls.h>
 #include <linux/reboot.h>
 #include <linux/string.h>
 #include <linux/device.h>
-#include <linux/async.h>
 #include <linux/kmod.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
@@ -26,16 +24,13 @@
 #include <linux/freezer.h>
 #include <linux/gfp.h>
 #include <linux/syscore_ops.h>
-#include <linux/ctype.h>
-#include <linux/genhd.h>
 #include <scsi/scsi_scan.h>
 
 #include "power.h"
 
 
 static int nocompress = 0;
-int noresume;
-static int resume_wait = 0;
+static int noresume = 0;
 static char resume_file[256] = CONFIG_PM_STD_PARTITION;
 dev_t swsusp_resume_device;
 sector_t swsusp_resume_block;
@@ -349,6 +344,7 @@ int hibernation_snapshot(int platform_mode)
 		goto Complete_devices;
 
 	suspend_console();
+	ftrace_stop();
 	pm_restrict_gfp_mask();
 	error = dpm_suspend(PMSG_FREEZE);
 	if (error)
@@ -374,6 +370,7 @@ int hibernation_snapshot(int platform_mode)
 	if (error || !in_suspend)
 		pm_restore_gfp_mask();
 
+	ftrace_start();
 	resume_console();
 
  Complete_devices:
@@ -476,13 +473,21 @@ int hibernation_restore(int platform_mode)
 
 	pm_prepare_console();
 	suspend_console();
+	ftrace_stop();
 	pm_restrict_gfp_mask();
 	error = dpm_suspend_start(PMSG_QUIESCE);
 	if (!error) {
 		error = resume_target_kernel(platform_mode);
-		dpm_resume_end(PMSG_RECOVER);
+		/*
+		 * The above should either succeed and jump to the new kernel,
+		 * or return with an error. Otherwise things are just
+		 * undefined, so let's be paranoid.
+		 */
+		BUG_ON(!error);
 	}
+	dpm_resume_end(PMSG_RECOVER);
 	pm_restore_gfp_mask();
+	ftrace_start();
 	resume_console();
 	pm_restore_console();
 	return error;
@@ -509,6 +514,7 @@ int hibernation_platform_enter(void)
 
 	entering_platform_hibernation = true;
 	suspend_console();
+	ftrace_stop();
 	error = dpm_suspend_start(PMSG_HIBERNATE);
 	if (error) {
 		if (hibernation_ops->recover)
@@ -552,6 +558,7 @@ int hibernation_platform_enter(void)
  Resume_devices:
 	entering_platform_hibernation = false;
 	dpm_resume_end(PMSG_RESTORE);
+	ftrace_start();
 	resume_console();
 
  Close:
@@ -628,7 +635,7 @@ int hibernate(void)
 	/* Allocate memory management structures */
 	error = create_basic_memory_bitmaps();
 	if (error)
-		goto Exit;
+		goto Enable_umh;
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
@@ -636,7 +643,7 @@ int hibernate(void)
 
 	error = prepare_processes();
 	if (error)
-		goto Finish;
+		goto Free_bitmaps;
 
 	if (hibernation_test(TEST_FREEZER))
 		goto Thaw;
@@ -668,8 +675,9 @@ int hibernate(void)
 
  Thaw:
 	thaw_processes();
- Finish:
+ Free_bitmaps:
 	free_basic_memory_bitmaps();
+ Enable_umh:
 	usermodehelper_enable();
  Exit:
 	pm_notifier_call_chain(PM_POST_HIBERNATION);
@@ -731,30 +739,12 @@ static int software_resume(void)
 
 	/* Check if the device is there */
 	swsusp_resume_device = name_to_dev_t(resume_file);
-
-	/*
-	 * name_to_dev_t is ineffective to verify parition if resume_file is in
-	 * integer format. (e.g. major:minor)
-	 */
-	if (isdigit(resume_file[0]) && resume_wait) {
-		int partno;
-		while (!get_gendisk(swsusp_resume_device, &partno))
-			msleep(10);
-	}
-
 	if (!swsusp_resume_device) {
 		/*
 		 * Some device discovery might still be in progress; we need
 		 * to wait for this to finish.
 		 */
 		wait_for_device_probe();
-
-		if (resume_wait) {
-			while ((swsusp_resume_device = name_to_dev_t(resume_file)) == 0)
-				msleep(10);
-			async_synchronize_full();
-		}
-
 		/*
 		 * We can't depend on SCSI devices being available after loading
 		 * one of their modules until scsi_complete_async_scans() is
@@ -832,11 +822,7 @@ close_finish:
 	goto Finish;
 }
 
-#ifdef CONFIG_FAST_RESUME
-resume_initcall(software_resume);
-#else
 late_initcall(software_resume);
-#endif
 
 
 static const char * const hibernation_modes[] = {
@@ -1028,42 +1014,11 @@ static ssize_t reserved_size_store(struct kobject *kobj,
 
 power_attr(reserved_size);
 
-#ifdef CONFIG_FAST_RESUME
-static ssize_t noresume_show(struct kobject *kobj,
-			struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", noresume);
-}
-
-static ssize_t noresume_store(struct kobject *kobj,
-			struct kobj_attribute *attr, const char *buf, size_t n)
-{
-	if (sscanf(buf, "%d", &noresume) == 1) {
-		noresume = !!noresume;
-		if (noresume) {
-			if (!swsusp_resume_device)
-				swsusp_resume_device =
-						name_to_dev_t(resume_file);
-			swsusp_check();
-			swsusp_close(FMODE_READ);
-		}
-		return n;
-	}
-
-	return -EINVAL;
-}
-
-power_attr(noresume);
-#endif
-
 static struct attribute * g[] = {
 	&disk_attr.attr,
 	&resume_attr.attr,
 	&image_size_attr.attr,
 	&reserved_size_attr.attr,
-#ifdef CONFIG_FAST_RESUME
-	&noresume_attr.attr,
-#endif
 	NULL,
 };
 
@@ -1118,14 +1073,7 @@ static int __init noresume_setup(char *str)
 	return 1;
 }
 
-static int __init resumewait_setup(char *str)
-{
-	resume_wait = 1;
-	return 1;
-}
-
 __setup("noresume", noresume_setup);
 __setup("resume_offset=", resume_offset_setup);
 __setup("resume=", resume_setup);
 __setup("hibernate=", hibernate_setup);
-__setup("resumewait=", resumewait_setup);

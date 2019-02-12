@@ -8,23 +8,25 @@
  * This file is released under the GPLv2.
  */
 
+#include <linux/export.h>
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/init.h>
-#include <linux/kmod.h>
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
 #include <linux/gfp.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/kmod.h>
 #include <linux/list.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <linux/export.h>
 #include <linux/suspend.h>
+#include <linux/kthread.h>
 #include <linux/syscore_ops.h>
+#include <linux/ftrace.h>
 #include <trace/events/power.h>
 
 #include "power.h"
@@ -38,6 +40,10 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 };
 
 static const struct platform_suspend_ops *suspend_ops;
+
+static struct completion second_cpu_complete = {1,
+	__WAIT_QUEUE_HEAD_INITIALIZER((second_cpu_complete).wait)
+};
 
 /**
  *	suspend_set_ops - Set the global suspend method table.
@@ -130,24 +136,15 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
 	local_irq_enable();
 }
 
-#if !defined(CONFIG_CPU_EXYNOS4210)
-#define CHECK_POINT printk(KERN_DEBUG "%s:%d\n", __func__, __LINE__)
-#else
-#define CHECK_POINT
-#endif
-
 /**
- * suspend_enter - enter the desired system sleep state.
- * @state: State to enter
- * @wakeup: Returns information that suspend should not be entered again.
+ *	suspend_enter - enter the desired system sleep state.
+ *	@state:		state to enter
  *
- * This function should be called after devices have been suspended.
+ *	This function should be called after devices have been suspended.
  */
-static int suspend_enter(suspend_state_t state, bool *wakeup)
+static int suspend_enter(suspend_state_t state)
 {
 	int error;
-
-	CHECK_POINT;
 
 	if (suspend_ops->prepare) {
 		error = suspend_ops->prepare();
@@ -155,15 +152,11 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 			goto Platform_finish;
 	}
 
-	CHECK_POINT;
-
 	error = dpm_suspend_noirq(PMSG_SUSPEND);
 	if (error) {
 		printk(KERN_ERR "PM: Some devices failed to power down\n");
 		goto Platform_finish;
 	}
-
-	CHECK_POINT;
 
 	if (suspend_ops->prepare_late) {
 		error = suspend_ops->prepare_late();
@@ -174,22 +167,17 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	if (suspend_test(TEST_PLATFORM))
 		goto Platform_wake;
 
+
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS))
-		goto Enable_cpus;
-
-	CHECK_POINT;
+		goto Platform_wake;
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
 	error = syscore_suspend();
-
-	CHECK_POINT;
-
 	if (!error) {
-		*wakeup = pm_wakeup_pending();
-		if (!(suspend_test(TEST_CORE) || *wakeup)) {
+		if (!(suspend_test(TEST_CORE) || pm_wakeup_pending())) {
 			error = suspend_ops->enter(state);
 			events_check_enabled = false;
 		}
@@ -198,9 +186,6 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
-
- Enable_cpus:
-	enable_nonboot_cpus();
 
  Platform_wake:
 	if (suspend_ops->wake)
@@ -223,7 +208,6 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 int suspend_devices_and_enter(suspend_state_t state)
 {
 	int error;
-	bool wakeup = false;
 
 	if (!suspend_ops)
 		return -ENOSYS;
@@ -235,6 +219,7 @@ int suspend_devices_and_enter(suspend_state_t state)
 			goto Close;
 	}
 	suspend_console();
+	ftrace_stop();
 	suspend_test_start();
 	error = dpm_suspend_start(PMSG_SUSPEND);
 	if (error) {
@@ -245,15 +230,13 @@ int suspend_devices_and_enter(suspend_state_t state)
 	if (suspend_test(TEST_DEVICES))
 		goto Recover_platform;
 
-	do {
-		error = suspend_enter(state, &wakeup);
-	} while (!error && !wakeup
-		&& suspend_ops->suspend_again && suspend_ops->suspend_again());
+	error = suspend_enter(state);
 
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
 	suspend_test_finish("resume devices");
+	ftrace_start();
 	resume_console();
  Close:
 	if (suspend_ops->end)
@@ -281,39 +264,17 @@ static void suspend_finish(void)
 	pm_restore_console();
 }
 
-#ifdef CONFIG_PM_WATCHDOG_TIMEOUT
-void pm_wd_timeout(unsigned long data)
+static int plug_secondary_cpus(void *data)
 {
-	struct pm_wd_data *wd_data = (void *)data;
-	struct task_struct *tsk = wd_data->tsk;
+	if (!(suspend_test(TEST_FREEZER) ||
+	      suspend_test(TEST_DEVICES) ||
+	      suspend_test(TEST_PLATFORM)))
+		enable_nonboot_cpus();
 
-	pr_emerg("%s: PM watchdog timeout: %d seconds\n",  __func__,
-			wd_data->timeout);
+	complete(&second_cpu_complete);
 
-	pr_emerg("stack:\n");
-	show_stack(tsk, NULL);
-
-	BUG();
+	return 0;
 }
-
-void pm_wd_add_timer(struct timer_list *timer, struct pm_wd_data *data,
-			int timeout)
-{
-	data->timeout = timeout;
-	data->tsk = get_current();
-	init_timer_on_stack(timer);
-	timer->expires = jiffies + HZ * data->timeout;
-	timer->function = pm_wd_timeout;
-	timer->data = (unsigned long)data;
-	add_timer(timer);
-}
-
-void pm_wd_del_timer(struct timer_list *timer)
-{
-	del_timer_sync(timer);
-	destroy_timer_on_stack(timer);
-}
-#endif
 
 /**
  *	enter_state - Do common work of entering low-power state.
@@ -328,14 +289,21 @@ void pm_wd_del_timer(struct timer_list *timer)
 int enter_state(suspend_state_t state)
 {
 	int error;
-	struct timer_list timer;
-	struct pm_wd_data data;
+	struct task_struct *cpu_task;
 
 	if (!valid_state(state))
 		return -ENODEV;
 
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
+
+	/*
+	 * Assure that previous started thread is completed before
+	 * attempting to suspend again.
+	 */
+	error = wait_for_completion_timeout(&second_cpu_complete,
+					    msecs_to_jiffies(500));
+	WARN_ON(error == 0);
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
@@ -355,13 +323,14 @@ int enter_state(suspend_state_t state)
 	pm_restore_gfp_mask();
 
  Finish:
-	pm_wd_add_timer(&timer, &data, 15);
-
 	pr_debug("PM: Finishing wakeup.\n");
 	suspend_finish();
-
-	pm_wd_del_timer(&timer);
  Unlock:
+
+	cpu_task = kthread_run(plug_secondary_cpus,
+			       NULL, "cpu-plug");
+	BUG_ON(IS_ERR(cpu_task));
+
 	mutex_unlock(&pm_mutex);
 	return error;
 }
@@ -375,7 +344,7 @@ int enter_state(suspend_state_t state)
  */
 int pm_suspend(suspend_state_t state)
 {
-	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
+	if (state > PM_SUSPEND_ON && state < PM_SUSPEND_MAX)
 		return enter_state(state);
 	return -EINVAL;
 }
