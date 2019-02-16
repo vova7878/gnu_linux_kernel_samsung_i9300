@@ -100,6 +100,10 @@ static char *usb_functions_mtp[] = {
 };
 #endif
 
+static char *usb_functions_ffs[] = {
+	"ffs",
+};
+
 #ifdef	CONFIG_USB_ANDROID_ADB
 static char *usb_functions_adb[] = {
 	"adb",
@@ -129,6 +133,7 @@ static char *usb_functions_ums_adb_acm[] = {
 #endif
 
 static char *usb_functions_all[] = {
+        "ffs",
 #ifdef	CONFIG_USB_ANDROID_RNDIS
 	"rndis",
 #endif
@@ -147,6 +152,11 @@ static char *usb_functions_all[] = {
 };
 
 static struct android_usb_product usb_products[] = {
+	{
+		.product_id	= SAMSUNG_MTP_ONLY_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_ffs),
+		.functions	= usb_functions_ffs,
+	},
 #ifdef	CONFIG_USB_ANDROID_MASS_STORAGE
 	{
 		.product_id	= SAMSUNG_UMS_ONLY_PRODUCT_ID,
