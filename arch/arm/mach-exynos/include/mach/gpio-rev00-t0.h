@@ -110,6 +110,25 @@ extern int s3c_gpio_slp_setpull_updown(unsigned int pin, unsigned int config);
 #define GPIO_GPS_nRST		EXYNOS4_GPL2(1)
 #define GPIO_GPS_PWR_EN		EXYNOS4_GPL2(2)
 
+#define GPIO_MSENSOR_INT	EXYNOS4212_GPJ0(7)
+#define GPIO_MSENSOR_SDA_18V	EXYNOS4_GPY2(4)
+#define GPIO_MSENSOR_SCL_18V	EXYNOS4_GPY2(5)
+#define GPIO_MSENSE_RST_N	EXYNOS4_GPC1(1)
+
+#define GPIO_BENSE_SCL_18V	EXYNOS4_GPY2(3)
+#define GPIO_BSENSE_SDA_18V	EXYNOS4_GPY2(2)
+#define GPIO_BARO_INT		EXYNOS4_GPF0(5)
+
+#define GPIO_PS_ALS_EN		EXYNOS4212_GPJ0(5)
+#define GPIO_PS_ALS_SDA_28V	EXYNOS4_GPK1(1)
+#define GPIO_PS_ALS_SCL_28V	EXYNOS4_GPK2(2)
+#define GPIO_PS_ALS_INT		EXYNOS4_GPX0(2)
+
+#define GPIO_ACC_INT		EXYNOS4_GPX0(0)
+
+#define GPIO_GYRO_DE		EXYNOS4_GPL2(0)
+#define GPIO_GYRO_INT		EXYNOS4_GPF0(3)
+
 
 /* WIFI */
 #define GPIO_WLAN_EN		EXYNOS4212_GPJ0(0)
@@ -156,6 +175,9 @@ extern int s3c_gpio_slp_setpull_updown(unsigned int pin, unsigned int config);
 #define GPIO_TSP_INT		EXYNOS4212_GPM2(3)
 #define GPIO_TSP_LDO_28V_EN		EXYNOS4212_GPM4(0)
 
+#define GPIO_RGB_SDA_1_8V	EXYNOS4_GPF0(0)
+#define GPIO_RGB_SCL_1_8V	EXYNOS4_GPF0(1)
+#define GPIO_RGB_INT		EXYNOS4_GPX2(2)
 
 /* Keys */
 #define GPIO_OK_KEY		EXYNOS4_GPX0(1) /* above 0.1 */
