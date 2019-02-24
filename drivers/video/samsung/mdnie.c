@@ -975,8 +975,6 @@ static struct device_attribute mdnie_attributes[] = {
 #if defined(CONFIG_FB_MDNIE_PWM)
 static void mdnie_fb_suspend(struct mdnie_info *mdnie)
 {
-	return;
-#if 0
 	if (mdnie->fb_suspended)
 		return;
 
@@ -997,14 +995,11 @@ static void mdnie_fb_suspend(struct mdnie_info *mdnie)
 	dev_info(mdnie->dev, "-%s\n", __func__);
 
 	return;
-#endif
 }
 #endif
 
 static void mdnie_fb_resume(struct mdnie_info *mdnie)
 {
-	return;
-#if 0
 	if (!mdnie->fb_suspended)
 		return;
 
@@ -1035,7 +1030,6 @@ static void mdnie_fb_resume(struct mdnie_info *mdnie)
 	dev_info(mdnie->dev, "-%s\n", __func__);
 
 	return;
-#endif
 }
 #endif
 
