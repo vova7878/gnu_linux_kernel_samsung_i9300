@@ -367,7 +367,6 @@ static void exynos4_cpu_prepare(void)
 
 	/* Set value of power down register for sleep mode */
 
-	exynos4_sys_powerdown_conf(SYS_SLEEP);
 	__raw_writel(S5P_CHECK_SLEEP, REG_INFORM1);
 
 	/* ensure at least INFORM0 has the resume address */

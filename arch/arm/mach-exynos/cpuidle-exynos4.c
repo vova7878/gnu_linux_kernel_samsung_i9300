@@ -628,9 +628,6 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 	__raw_writel(virt_to_phys(exynos4_idle_resume), REG_DIRECTGO_ADDR);
 	__raw_writel(0xfcba0d10, REG_DIRECTGO_FLAG);
 
-	/* Set value of power down register for aftr mode */
-	exynos4_sys_powerdown_conf(SYS_AFTR);
-
 	if (!soc_is_exynos4210())
 		exynos4_reset_assert_ctrl(0);
 
@@ -698,7 +695,7 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	int idle_time;
 	unsigned long tmp, abb_val, abb_val_int;
 
-	s3c_pm_do_save(exynos4_lpa_save, ARRAY_SIZE(exynos4_lpa_save));
+	//s3c_pm_do_save(exynos4_lpa_save, ARRAY_SIZE(exynos4_lpa_save));
 
 	/*
 	 * Before enter central sequence mode, clock src register have to set
@@ -746,7 +743,6 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	__raw_writel(0xfcba0d10, REG_DIRECTGO_FLAG);
 
 	__raw_writel(S5P_CHECK_LPA, S5P_INFORM1);
-	exynos4_sys_powerdown_conf(SYS_LPA);
 
 	/* Should be fixed on EVT1 */
 	if (!soc_is_exynos4210())
@@ -791,8 +787,8 @@ static int exynos4_enter_core0_lpa(struct cpuidle_device *dev,
 	__raw_writel((1 << 28), S5P_PAD_RET_EBIB_OPTION);
 
 early_wakeup:
-	s3c_pm_do_restore_core(exynos4_lpa_save,
-			       ARRAY_SIZE(exynos4_lpa_save));
+	//s3c_pm_do_restore_core(exynos4_lpa_save,
+	//		       ARRAY_SIZE(exynos4_lpa_save));
 
 #ifdef CONFIG_EXYNOS4_CPUFREQ
 	if (!soc_is_exynos4210()) {

@@ -2912,12 +2912,6 @@ static void __init midas_machine_init(void)
 #endif
 #endif
 
-	/*
-	  * prevent 4x12 ISP power off problem
-	  * ISP_SYS Register has to be 0 before ISP block power off.
-	  */
-	__raw_writel(0x0, S5P_CMU_RESET_ISP_SYS);
-
 	/* initialise the gpios */
 	midas_config_gpio_table();
 	exynos4_sleep_gpio_table_set = midas_config_sleep_gpio_table;

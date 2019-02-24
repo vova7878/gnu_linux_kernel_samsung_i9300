@@ -141,8 +141,6 @@ int exynos_pd_disable(struct device *dev)
 				timeout--;
 				udelay(1);
 			}
-			/* CMU_RESET_ISP_ARM off */
-			__raw_writel(0x0, EXYNOS5_CMU_RESET_ISP_SYS_PWR_REG);
 		}
 	}
 

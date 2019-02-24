@@ -126,12 +126,15 @@ static struct map_desc s5p_iodesc[] __initdata = {
 
 /* Initial IO mappings */
 static struct map_desc exynos4_iodesc[] __initdata = {
+#if 1
 	{
 		.virtual	= (unsigned long)S5P_VA_CMU,
 		.pfn		= __phys_to_pfn(EXYNOS4_PA_CMU),
 		.length		= SZ_128K,
 		.type		= MT_DEVICE,
-	}, {
+	},
+#endif
+	{
 		.virtual	= (unsigned long)S5P_VA_PMU,
 		.pfn		= __phys_to_pfn(EXYNOS4_PA_PMU),
 		.length		= SZ_64K,
@@ -467,11 +470,6 @@ static void exynos4_sw_reset(void)
 	}
 }
 
-static void __iomem *exynos4_pmu_init_zero[] = {
-	S5P_CMU_RESET_ISP_SYS,
-	S5P_CMU_SYSCLK_ISP_SYS,
-};
-
 int __init exynos4_init(void)
 {
 	unsigned int value;
@@ -482,14 +480,6 @@ int __init exynos4_init(void)
 
 	/* set idle function */
 	pm_idle = exynos4_idle;
-
-	/*
-	 * on exynos4x12, CMU reset system power register should to be set 0x0
-	 */
-	if (!soc_is_exynos4210()) {
-		for (i = 0; i < ARRAY_SIZE(exynos4_pmu_init_zero); i++)
-			__raw_writel(0x0, exynos4_pmu_init_zero[i]);
-	}
 
 	/* set sw_reset function */
 	s5p_reset_hook = exynos4_sw_reset;

@@ -1084,15 +1084,6 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 	info->set_freq = exynos4x12_set_frequency;
 	info->need_apll_change = exynos4x12_pms_change;
 
-#ifdef ENABLE_CLKOUT
-	tmp = __raw_readl(EXYNOS4_CLKOUT_CMU_CPU);
-	tmp &= ~0xffff;
-	tmp |= 0x1904;
-	__raw_writel(tmp, EXYNOS4_CLKOUT_CMU_CPU);
-
-	exynos4_pmu_xclkout_set(1, XCLKOUT_CMU_CPU);
-#endif
-
 	return 0;
 
 err_mout_apll:
