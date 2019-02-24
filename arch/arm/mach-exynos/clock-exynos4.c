@@ -630,14 +630,6 @@ static struct clksrc_clk *exynos4_sclk_tv[] = {
 
 static struct clk exynos4_init_clocks_off[] = {
 	{
-		.name		= "ppmuright",
-		.enable		= exynos4_clk_ip_rightbus_ctrl,
-		.ctrlbit	= (1 << 1),
-	}, {
-		.name		= "ppmuleft",
-		.enable		= exynos4_clk_ip_leftbus_ctrl,
-		.ctrlbit	= (1 << 1),
-	}, {
 		.name		= "timers",
 		.parent		= &exynos4_clk_aclk_100.clk,
 		.enable		= exynos4_clk_ip_peril_ctrl,
@@ -684,10 +676,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.name		= "pxl_async1",
 		.enable		= exynos4_clk_ip_cam_ctrl,
 		.ctrlbit	= (1 << 18),
-	}, {
-		.name		= "ppmucamif",
-		.enable		= exynos4_clk_ip_cam_ctrl,
-		.ctrlbit	= (1 << 16),
 	}, {
 		.name		= "jpeg",
 		.enable		= exynos4_clk_ip_cam_ctrl,
@@ -797,10 +785,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.enable		= exynos4_clk_ip_peril_ctrl,
 		.ctrlbit	= (1 << 14),
 	}, {
-		.name		= "ppmutv",
-		.enable		= exynos4_clk_ip_tv_ctrl,
-		.ctrlbit	= (1 << 5),
-	}, {
 		.name		= "hdmi",
 		.enable		= exynos4_clk_ip_tv_ctrl,
 		.ctrlbit	= (1 << 3),
@@ -817,10 +801,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.name		= "vp",
 		.enable		= exynos4_clk_ip_tv_ctrl,
 		.ctrlbit	= (1 << 0),
-	}, {
-		.name		= "ppmuimage",
-		.enable		= exynos4_clk_ip_image_ctrl,
-		.ctrlbit	= (1 << 9),
 	}, {
 		.name		= "qerotator",
 		.enable		= exynos4_clk_ip_image_ctrl,
@@ -910,10 +890,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.enable		= exynos4_clk_ip_gps_ctrl,
 		.ctrlbit	= (1 << 0),
 	}, {
-		.name		= "ppmumfc",
-		.enable		= exynos4_clk_ip_mfc_ctrl,
-		.ctrlbit	= ((0x1 << 4) | (0x1 << 3)),
-	}, {
 		.name		= "mfc",
 		.devname	= "s3c-mfc",
 		.enable		= exynos4_clk_ip_mfc_ctrl,
@@ -931,18 +907,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.enable		= exynos4_clk_ip_fsys_ctrl,
 		.ctrlbit	= (1 << 16),
 	}, {
-		.name		= "ppmufsys",
-		.enable		= exynos4_clk_ip_fsys_ctrl,
-		.ctrlbit	= (1 << 17),
-	}, {
-		.name		= "ppmug3d",
-		.enable		= exynos4_clk_ip_g3d_ctrl,
-		.ctrlbit	= (1 << 1),
-	}, {
-		.name		= "ppmucam",
-		.enable		= exynos4_clk_ip_cam_ctrl,
-		.ctrlbit	= (1 << 16),
-	}, {
 		.name		= "hpm",
 		.enable		= exynos4_clk_ip_cpu_ctrl,
 		.ctrlbit	= (1 << 0),
@@ -954,21 +918,6 @@ static struct clk exynos4_init_clocks_off[] = {
 		.name		= "apc",
 		.enable		= exynos4_clk_ip_dmc_ctrl,
 		.ctrlbit	= (1 << 17),
-	}, {
-		.name		= "ppmuacp",
-		.enable		= exynos4_clk_ip_dmc_ctrl,
-		.ctrlbit	= (1 << 16),
-	}, {
-		.name		= "ppmucpu",
-		.enable		= exynos4_clk_ip_dmc_ctrl,
-		.ctrlbit	= (1 << 10),
-	}, {
-		.name		= "ppmudmc1",
-		.enable		= exynos4_clk_ip_dmc_ctrl,
-		.ctrlbit	= (1 << 9),
-	}, {
-		.name		= "ppmudmc0",
-		.enable		= exynos4_clk_ip_dmc_ctrl,
 		.ctrlbit	= (1 << 8),
 #ifdef CONFIG_CPU_EXYNOS4210
 	}, {
@@ -1273,10 +1222,6 @@ static struct clk exynos4_init_clocks[] = {
 		.name		= "dsim0",
 		.enable 	= exynos4_clk_ip_lcd0_ctrl,
 		.ctrlbit	= (1 << 3),
-	}, {
-		.name		= "ppmulcd",
-		.enable 	= exynos4_clk_ip_lcd0_ctrl,
-		.ctrlbit	= (1 << 5),
 	},
 #endif
 #ifdef CONFIG_INTERNAL_MODEM_IF
