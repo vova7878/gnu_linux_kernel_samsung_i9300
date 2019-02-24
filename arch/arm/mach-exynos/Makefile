@@ -160,7 +160,7 @@ ifeq ($(CONFIG_MACH_M3),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-lcd.o
 else
 ifeq ($(CONFIG_MACH_T0),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o \
@@ -174,14 +174,14 @@ ifeq ($(CONFIG_MACH_P4NOTELTE_USA_VZW),y)
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o\
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-lcd.o
 
 obj-$(CONFIG_GPS_BRCM_475X)		+= board-gps-bcm475x.o
 else
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o\
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-lcd.o
 
 obj-$(CONFIG_GPS_BRCM_475X)		+= board-gps-bcm475x.o
 endif #CONFIG_MACH_P4NOTELTE_USA_VZW
@@ -190,7 +190,7 @@ ifeq ($(CONFIG_MACH_KONA),y)
 obj-$(CONFIG_MIDAS_COMMON)              += sec-common.o\
                                            midas-tsp.o board-midas-wlan.o \
                                            midas-camera.o midas-thermistor.o \
-                                           midas-mhl.o midas-lcd.o midas-sound.o \
+                                           midas-mhl.o midas-lcd.o \
                                            midas-wacom.o board-gps-bcm4752.o
 else
 ifeq ($(CONFIG_MACH_SLP_T0_LTE),y)
@@ -208,7 +208,7 @@ else
 obj-$(CONFIG_MIDAS_COMMON)		+= sec-common.o board-gps-bcm475x.o \
 					   midas-tsp.o board-midas-wlan.o \
 					   midas-camera.o midas-thermistor.o \
-					   midas-mhl.o midas-lcd.o midas-sound.o
+					   midas-mhl.o midas-lcd.o
 endif
 endif
 endif
@@ -264,7 +264,7 @@ obj-$(CONFIG_MACH_U1)			+= sec-reboot.o
 obj-$(CONFIG_MACH_PX)			+= sec-reboot.o
 
 obj-$(CONFIG_MACH_P10)			+= mach-p10.o p10-gpio.o sec-common.o p10-input.o \
-					   p10-switch.o p10-battery.o midas-sound.o p10-mhl.o
+					   p10-switch.o p10-battery.o p10-mhl.o
 
 # device support
 

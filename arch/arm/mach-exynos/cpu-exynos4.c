@@ -49,11 +49,6 @@ extern void combiner_cascade_irq(unsigned int combiner_nr, unsigned int irq);
 /* Initial IO mappings */
 static struct map_desc exynos4_iodesc[] __initdata = {
 	{
-		.virtual	= (unsigned long)S5P_VA_SYSTIMER,
-		.pfn		= __phys_to_pfn(EXYNOS4_PA_SYSTIMER),
-		.length		= SZ_4K,
-		.type		= MT_DEVICE,
-	}, {
 		.virtual	= (unsigned long)S5P_VA_CMU,
 		.pfn		= __phys_to_pfn(EXYNOS4_PA_CMU),
 		.length		= SZ_128K,
@@ -109,6 +104,11 @@ static struct map_desc exynos4_iodesc[] __initdata = {
 		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	}, {
+		.virtual	= (unsigned long)S5P_VA_SYSTIMER,
+		.pfn		= __phys_to_pfn(EXYNOS4_PA_SYSTIMER),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE,
+	}, {
 		.virtual	= (unsigned long)S3C_VA_USB_HSPHY,
 		.pfn		= __phys_to_pfn(EXYNOS4_PA_HSPHY),
 		.length		= SZ_4K,
@@ -123,37 +123,41 @@ static struct map_desc exynos4_iodesc[] __initdata = {
 		.pfn		= __phys_to_pfn(EXYNOS4_PA_GIC_DIST),
 		.length		= SZ_64K,
 		.type		= MT_DEVICE,
-	}, {
-		.virtual        = (unsigned long)S5P_VA_AUDSS,
-		.pfn            = __phys_to_pfn(EXYNOS4_PA_AUDSS),
-		.length         = SZ_4K,
-		.type           = MT_DEVICE,
-	}, {
+	},
+#if 1
+	{
 		.virtual        = (unsigned long)S5P_VA_PPMU_CPU,
 		.pfn            = __phys_to_pfn(EXYNOS4_PA_PPMU_CPU),
 		.length         = SZ_8K,
 		.type           = MT_DEVICE,
-	}, {
+	},
+#endif
+#if 1
+	{
 		.virtual        = (unsigned long)S5P_VA_PPMU_DMC0,
 		.pfn            = __phys_to_pfn(EXYNOS4_PA_PPMU_DMC0),
 		.length         = SZ_8K,
 		.type           = MT_DEVICE,
-	}, {
+	},
+	{
 		.virtual        = (unsigned long)S5P_VA_PPMU_DMC1,
 		.pfn            = __phys_to_pfn(EXYNOS4_PA_PPMU_DMC1),
 		.length         = SZ_8K,
 		.type           = MT_DEVICE,
-	}, {
+	},
+	{
 		.virtual        = (unsigned long)S5P_VA_GDL,
 		.pfn            = __phys_to_pfn(EXYNOS4_PA_GDL),
 		.length         = SZ_4K,
 		.type           = MT_DEVICE,
-	}, {
+	},
+	{
 		.virtual        = (unsigned long)S5P_VA_GDR,
 		.pfn            = __phys_to_pfn(EXYNOS4_PA_GDR),
 		.length         = SZ_4K,
 		.type           = MT_DEVICE,
 	},
+#endif
 };
 
 static struct map_desc exynos4210_iodesc[] __initdata = {

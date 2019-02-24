@@ -2260,12 +2260,6 @@ static struct platform_device *midas_devices[] __initdata = {
 #ifdef CONFIG_SND_SAMSUNG_I2S
 	&exynos_device_i2s0,
 #endif
-#ifdef CONFIG_SND_SAMSUNG_PCM
-	&exynos_device_pcm0,
-#endif
-#ifdef CONFIG_SND_SAMSUNG_SPDIF
-	&exynos_device_spdif,
-#endif
 #if defined(CONFIG_SND_SAMSUNG_RP) || defined(CONFIG_SND_SAMSUNG_ALP)
 	&exynos_device_srp,
 #endif
@@ -2966,7 +2960,6 @@ static void __init midas_machine_init(void)
 	}
 #endif
 #endif /* CONFIG_S3C_DEV_I2C4 */
-	midas_sound_init();
 
 #ifdef CONFIG_S3C_DEV_I2C5
 #if defined(CONFIG_MACH_T0_EUR_OPEN) || defined(CONFIG_MACH_T0_CHN_OPEN)
