@@ -1461,11 +1461,6 @@ void invalidate_bh_lrus(void)
 }
 EXPORT_SYMBOL_GPL(invalidate_bh_lrus);
 
-void evict_bh_lrus(struct buffer_head *bh)
-{
-	on_each_cpu_cond(bh_exists_in_lru, __evict_bh_lru, bh, 1, GFP_ATOMIC);
-}
-
 #ifdef CONFIG_DMA_CMA
 static void evict_bh_lru(void *arg)
 {
@@ -1475,8 +1470,6 @@ static void evict_bh_lru(void *arg)
 
 	for (i = 0; i < BH_LRU_SIZE; i++) {
 		if (b->bhs[i] == bh) {
-			printk(KERN_INFO "%s[%d] drop buffer head %p.\n",
-				__func__, __LINE__, b->bhs[i]);
 			brelse(b->bhs[i]);
 			b->bhs[i] = NULL;
 			break;
