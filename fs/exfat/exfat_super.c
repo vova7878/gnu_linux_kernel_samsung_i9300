@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /* Some of the source code in this file came from "linux/fs/fat/file.c","linux/fs/fat/inode.c" and "linux/fs/fat/misc.c".  */
 /*
  *  linux/fs/fat/file.c
@@ -602,15 +599,7 @@ static long exfat_generic_ioctl(struct file *filp,
 		struct exfat_sb_info *sbi = EXFAT_SB(sb);
 
 		if (!capable(CAP_SYS_ADMIN))
-			
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 
 		if (get_user(flags, (int __user *) arg))
 			return -EFAULT;
@@ -839,14 +828,8 @@ static int exfat_unlink(struct inode *dir, struct dentry *dentry)
 
 	err = FsRemoveFile(dir, &(EXFAT_I(inode)->fid));
 	if (err) {
-#ifdef CONFIG_GOD_MODE
-if (!god_mode_enabled) {
-#endif
 		if (err == FFS_PERMISSIONERR)
 			err = -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
 		if (err != FFS_PERMISSIONERR)
 			err = -EIO;
 		goto out;
@@ -1073,14 +1056,8 @@ static int exfat_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	err = FsMoveFile(old_dir, &(EXFAT_I(old_inode)->fid), new_dir, new_dentry);
 	if (err) {
-#ifdef CONFIG_GOD_MODE
-if (!god_mode_enabled) {
-#endif
 		if (err == FFS_PERMISSIONERR)
 			err = -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
 
 		if (err == FFS_INVALIDPATH)
 			err = -EINVAL;
@@ -1199,40 +1176,16 @@ static int exfat_sanitize_mode(const struct exfat_sb_info *sbi,
 
 	/* Of the r and x bits, all (subject to umask) must be present.*/
 	if ((perm & (S_IRUGO | S_IXUGO)) != (i_mode & (S_IRUGO|S_IXUGO)))
-		
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+		return -EPERM;
 
 	if (exfat_mode_can_hold_ro(inode)) {
 		/* Of the w bits, either all (subject to umask) or none must be present. */
 		if ((perm & S_IWUGO) && ((perm & S_IWUGO) != (S_IWUGO & ~mask)))
-			
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 	} else {
 		/* If exfat_mode_can_hold_ro(inode) is false, can't change w bits. */
 		if ((perm & S_IWUGO) != (S_IWUGO & ~mask))
-			
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 	}
 
 	*mode_ptr &= S_IFMT | perm;
@@ -1283,15 +1236,7 @@ static int exfat_setattr(struct dentry *dentry, struct iattr *attr)
 #endif
 		((attr->ia_valid & ATTR_MODE) &&
 		 (attr->ia_mode & ~(S_IFREG | S_IFLNK | S_IFDIR | S_IRWXUGO)))) {
-		
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 	}
 
 	/*

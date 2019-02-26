@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  * JFFS2 -- Journalling Flash File System, Version 2.
  *
@@ -275,15 +272,7 @@ static int jffs2_link (struct dentry *old_dentry, struct inode *dir_i, struct de
 		return -EIO;
 
 	if (S_ISDIR(old_dentry->d_inode->i_mode))
-		
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+		return -EPERM;
 
 	/* XXX: This is ugly */
 	type = (old_dentry->d_inode->i_mode & S_IFMT) >> 12;

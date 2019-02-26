@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  *  linux/fs/super.c
  *
@@ -715,14 +712,8 @@ int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int flags, void
 		return -EBUSY;
 
 #ifdef CONFIG_BLOCK
-#ifdef CONFIG_GOD_MODE
-if (!god_mode_enabled) {
-#endif
 	if (!(flags & MS_RDONLY) && bdev_read_only(sb->s_bdev))
 		return -EACCES;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
 #endif
 
 	if (flags & MS_RDONLY)

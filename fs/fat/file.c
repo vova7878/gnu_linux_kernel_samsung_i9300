@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  *  linux/fs/fat/file.c
  *
@@ -79,18 +76,13 @@ static int fat_ioctl_set_attributes(struct file *file, u32 __user *user_attr)
 		err = -EINVAL;
 		goto out_drop_write;
 	}
-#ifdef CONFIG_GOD_MODE
-if (!god_mode_enabled) {
-#endif
+
 	if (sbi->options.sys_immutable &&
 	    ((attr | oldattr) & ATTR_SYS) &&
 	    !capable(CAP_LINUX_IMMUTABLE)) {
 		err = -EPERM;
 		goto out_drop_write;
 	}
-#ifdef CONFIG_GOD_MODE
-}
-#endif
 
 	/*
 	 * The security check is questionable...  We single
@@ -402,37 +394,13 @@ static int fat_sanitize_mode(const struct msdos_sb_info *sbi,
 	 * If fat_mode_can_hold_ro(inode) is false, can't change w bits.
 	 */
 	if ((perm & (S_IRUGO | S_IXUGO)) != (inode->i_mode & (S_IRUGO|S_IXUGO)))
-		
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+		return -EPERM;
 	if (fat_mode_can_hold_ro(inode)) {
 		if ((perm & S_IWUGO) && ((perm & S_IWUGO) != (S_IWUGO & ~mask)))
-			
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 	} else {
 		if ((perm & S_IWUGO) != (S_IWUGO & ~mask))
-			
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 	}
 
 	*mode_ptr &= S_IFMT | perm;
@@ -498,9 +466,6 @@ int fat_setattr(struct dentry *dentry, struct iattr *attr)
 		}
 	}
 
-#ifdef CONFIG_GOD_MODE
-if (!god_mode_enabled) {
-#endif
 	if (((attr->ia_valid & ATTR_UID) &&
 	     (attr->ia_uid != sbi->options.fs_uid)) ||
 	    ((attr->ia_valid & ATTR_GID) &&
@@ -508,9 +473,6 @@ if (!god_mode_enabled) {
 	    ((attr->ia_valid & ATTR_MODE) &&
 	     (attr->ia_mode & ~FAT_VALID_MODE)))
 		error = -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
 
 	if (error) {
 		if (sbi->options.quiet)
