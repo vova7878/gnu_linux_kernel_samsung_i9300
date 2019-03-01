@@ -1095,18 +1095,13 @@ static void cpu_down_work(struct work_struct *work)
 {
 	int cpu;
 	int online = num_online_cpus();
-	int nr_down = online - 2;
+	int nr_down = online - 1;
 
 	if (nr_down <= 0)
 		return;
 
 	if (is_boosted() && dbs_tuners_ins.boost_mincpus)
 		nr_down = min(nr_down, online - (int)dbs_tuners_ins.boost_mincpus);
-
-	if ((online - nr_down) == 1) {
-		nr_down--;
-		pr_err("%s: forcing at least 2 CPU cores online: online=%d, nr_down=%d\n", __func__, online, nr_down);
-	}
 
 	for_each_online_cpu(cpu) {
 		if (cpu == 0)
