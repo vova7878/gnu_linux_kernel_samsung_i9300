@@ -118,10 +118,6 @@ struct workqueue_struct *incall_boost_queue;
 
 bool is_incall = false;
 static bool prev_incall_state = false;
-
-bool is_playback = false;
-static bool prev_playback_state = false;
-
 static bool bootdone = false;
 
 #define INCALL_BOOST_FREQ 1000000
@@ -137,8 +133,6 @@ static bool debug(int level);
 static bool check_for_call(void);
 static bool check_for_headphone(void);
 static bool check_for_fmradio(void);
-static bool check_for_speaker(void);
-static bool check_for_playback(void);
 
 static void set_headphone(void);
 static unsigned int get_headphone_l(unsigned int val);
@@ -173,22 +167,15 @@ static void reset_boeffla_sound(void);
 // incall hook by arter97
 static void wm8994_incall_hook(void)
 {
-	bool run_boost_queue;
 	// fall-out early when boot is not finished
 	// (a dirty workaround for early kernel-panic)
 	if (!bootdone)
 		return;
 
 	is_incall = check_for_call();
-	is_playback = check_for_playback();
-
-	run_boost_queue = (is_incall != prev_playback_state) ||
-			  (is_playback != prev_playback_state);
-
-	if (run_boost_queue) {
+	if (is_incall != prev_incall_state) {
 		queue_work(incall_boost_queue, &incall_boost_work);
 		prev_incall_state = is_incall;
-		prev_playback_state = is_playback;
 	}
 }
 
@@ -196,10 +183,9 @@ static void incall_boost(struct work_struct *work)
 {
 	int cpu;
 
-	if (is_incall || is_playback) {
+	if (is_incall) {
 		pr_info("%s: locking cpufreq for incall boost\n", __func__);
-		if (!is_playback)
-			exynos_cpufreq_lock_free(DVFS_LOCK_ID_INCALL);
+		exynos_cpufreq_lock_free(DVFS_LOCK_ID_INCALL);
 
 		for_each_cpu_not(cpu, cpu_online_mask) {
 			if (cpu == 0)
@@ -207,12 +193,10 @@ static void incall_boost(struct work_struct *work)
 			cpu_up(cpu);
 		}
 
-		if (!is_playback)
-			exynos_cpufreq_lock(DVFS_LOCK_ID_INCALL, exynos_cpufreq_get_level_ret(INCALL_BOOST_FREQ));
+		exynos_cpufreq_lock(DVFS_LOCK_ID_INCALL, exynos_cpufreq_get_level_ret(INCALL_BOOST_FREQ));
 	} else {
 		pr_info("%s: freeing incall cpufreq lock\n", __func__);
-		if (!is_playback)
-			exynos_cpufreq_lock_free(DVFS_LOCK_ID_INCALL);
+		exynos_cpufreq_lock_free(DVFS_LOCK_ID_INCALL);
 	}
 }
 
@@ -604,15 +588,12 @@ bool check_for_fmradio(void)
 #endif
 }
 
+
 bool check_for_call(void)
 {
 	return check_for_dapm(snd_soc_dapm_spk, "RCV");
 }
 
-bool check_for_speaker(void)
-{
-	return check_for_dapm(snd_soc_dapm_spk, "SPK");
-}
 
 bool check_for_headphone(void)
 {
@@ -631,12 +612,6 @@ bool check_for_headphone(void)
 #endif
 }
 
-bool check_for_playback(void)
-{
-	return check_for_headphone() ||
-	       check_for_speaker()   ||
-	       check_for_fmradio();
-}
 
 static bool debug (int level)
 {
