@@ -171,7 +171,7 @@ static unsigned int min_sampling_rate;
 
 
 #define DEF_MAX_CPU_LOCK			(0)
-#define DEF_MIN_CPU_LOCK			(2)
+#define DEF_MIN_CPU_LOCK			(4)
 #define DEF_CPU_UP_FREQ				(500000)
 #define DEF_CPU_DOWN_FREQ			(200000)
 #define DEF_UP_NR_CPUS				(1)
