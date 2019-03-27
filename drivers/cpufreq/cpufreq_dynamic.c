@@ -1362,16 +1362,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		}
 	}
 
-	/* Check for CPU hotplug */
-	if (check_up()) {
-		queue_work_on(this_dbs_info->cpu, dbs_wq,
-			      &this_dbs_info->up_work);
-	} else if (check_down()) {
-		if (standby || suspend)
-			queue_work_on(this_dbs_info->cpu, dbs_wq,
-			      &this_dbs_info->down_work);
-	}
-
 	if (hotplug_history->num_hist  == max_hotplug_rate)
 		hotplug_history->num_hist = 0;
 
