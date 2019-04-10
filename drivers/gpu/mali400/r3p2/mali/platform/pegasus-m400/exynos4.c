@@ -41,7 +41,7 @@
 //#define USE_PM_NOTIFIER
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#if 0
 struct exynos_pm_domain;
 extern struct exynos_pm_domain exynos4_pd_g3d;
 void exynos_pm_add_dev_to_genpd(struct platform_device *pdev, struct exynos_pm_domain *pd);
@@ -74,7 +74,7 @@ static int mali_runtime_idle(struct device *device);
 #else
 
 /* This is for the Odroid boards */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0))
+#if 1
 #define MALI_BASE_IRQ 182
 #else
 #define MALI_BASE_IRQ 150
@@ -141,7 +141,7 @@ static struct platform_device mali_gpu_device =
 {
 	.name = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 	.id = 0,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#if 0
 	/* Set in mali_platform_device_register() for these kernels */
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	.dev.parent = &exynos4_device_pd[PD_G3D].dev,
@@ -175,7 +175,7 @@ int mali_platform_device_register(void)
 
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#if 0
 	exynos_pm_add_dev_to_genpd(&mali_gpu_device, &exynos4_pd_g3d);
 #endif
 
