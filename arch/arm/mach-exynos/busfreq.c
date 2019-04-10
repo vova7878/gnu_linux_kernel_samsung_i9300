@@ -72,10 +72,16 @@ const char *const cpufreq_lock_name[DVFS_LOCK_ID_END] = {
 	[DVFS_LOCK_ID_USER] = "USER",
 	[DVFS_LOCK_ID_LCD] = "LCD",
 	[DVFS_LOCK_ID_ROTATION_BOOSTER] = "ROTATION_BOOSTER",
-	[DVFS_LOCK_ID_MM] = "MM",
 };
 
 static DEFINE_MUTEX(set_bus_freq_lock);
+
+enum busfreq_level_idx {
+	LV_0,
+	LV_1,
+	LV_2,
+	LV_END
+};
 
 #ifdef SYSFS_DEBUG_BUSFREQ
 static unsigned int time_in_state[LV_END];

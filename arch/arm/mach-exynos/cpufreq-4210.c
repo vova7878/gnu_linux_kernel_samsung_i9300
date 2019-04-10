@@ -11,7 +11,6 @@
 */
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/export.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -24,6 +23,12 @@
 #include <mach/sec_debug.h>
 
 #include <plat/clock.h>
+
+#if defined(CONFIG_EXYNOS4210_1200MHZ_SUPPORT)
+#define CPUFREQ_LEVEL_END	L14
+#else
+#define CPUFREQ_LEVEL_END	L6
+#endif
 
 static int max_support_idx;
 static int min_support_idx = (CPUFREQ_LEVEL_END - 1);

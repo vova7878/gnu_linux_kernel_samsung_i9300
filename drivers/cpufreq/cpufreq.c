@@ -32,16 +32,6 @@
 
 #include <trace/events/power.h>
 
-#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4)
-#define CONFIG_DVFS_LIMIT
-#endif
-
-#ifdef CONFIG_DVFS_LIMIT
-#include <mach/cpufreq.h>
-#include <../kernel/power/power.h>
-#define VALID_LEVEL 1
-#endif
-
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -412,36 +402,7 @@ static ssize_t store_##file_name					\
 }
 
 store_one(scaling_min_freq, min);
-
-/* Yank555.lu - while storing scaling_max also set cpufreq_max_limit accordingly */
-/* store_one(scaling_max_freq, max); */
-static ssize_t store_scaling_max_freq
-(struct cpufreq_policy *policy, const char *buf, size_t count)
-{
-#ifdef CONFIG_DVFS_LIMIT
-	unsigned int cpufreq_level;
-	int lock_ret;
-#endif
-	unsigned int ret = -EINVAL;
-	struct cpufreq_policy new_policy;
-
-	ret = cpufreq_get_policy(&new_policy, policy->cpu);
-	if (ret)
-		return -EINVAL;
-
-	ret = sscanf(buf, "%u", &new_policy.max);
-	if (ret != 1)
-		return -EINVAL;
-
-	// andip71: 1700 is not available, convert everyone still using it to 1704
-	if (new_policy.max == 1700000)
-		new_policy.max = 1704000;
-
-	ret = __cpufreq_set_policy(policy, &new_policy);
-	policy->user_policy.max = policy->max;
-
-	return ret ? ret : count;
-}
+store_one(scaling_max_freq, max);
 
 /**
  * show_cpuinfo_cur_freq - current CPU frequency as detected by hardware
@@ -601,17 +562,6 @@ static ssize_t show_scaling_setspeed(struct cpufreq_policy *policy, char *buf)
 	return policy->governor->show_setspeed(policy, buf);
 }
 
-
-/* sysfs interface for UV control */
-extern ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf);
-extern ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
-                                      const char *buf, size_t count);
-
-/* sysfs interface for ASV level */
-extern ssize_t show_asv_level(struct cpufreq_policy *policy, char *buf);
-extern ssize_t store_asv_level(struct cpufreq_policy *policy,
-                                      const char *buf, size_t count);
-
 /**
  * show_scaling_driver - show the current cpufreq HW/BIOS limitation
  */
@@ -641,10 +591,6 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
-/* UV table */
-cpufreq_freq_attr_rw(UV_mV_table);
-/* ASV level */
-cpufreq_freq_attr_rw(asv_level);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -658,8 +604,6 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
-	&UV_mV_table.attr,
-	&asv_level.attr,
 	NULL
 };
 

@@ -1359,6 +1359,18 @@ int fimc_querybuf_capture(void *fh, struct v4l2_buffer *b)
 	return 0;
 }
 
+int fimc_noti_ctrl_capture(void *fh, struct v4l2_noti_control *c)
+{
+       struct fimc_control *ctrl = fh;
+       int ret = 0;
+
+       if (ctrl->cam->sd)
+               ret = subdev_call(ctrl, core, noti_ctrl, c);
+
+       return ret;
+}
+
+
 int fimc_g_ctrl_capture(void *fh, struct v4l2_control *c)
 {
 	struct fimc_control *ctrl = fh;
@@ -2256,3 +2268,4 @@ int fimc_enum_frameintervals(struct file *filp, void *fh,
 
 	return 0;
 }
+

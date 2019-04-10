@@ -2411,3 +2411,4 @@ MODULE_AUTHOR("Jinsung,	Yang <jsgood.yang@samsung.com>");
 MODULE_AUTHOR("Jonghun,	Han <jonghun.han@samsung.com>");
 MODULE_DESCRIPTION("Samsung Camera Interface (FIMC) driver");
 MODULE_LICENSE("GPL");
+

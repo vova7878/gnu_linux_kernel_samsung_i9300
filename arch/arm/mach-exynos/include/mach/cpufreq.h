@@ -14,31 +14,12 @@
  * This should be same with cpufreq_frequency_table
 */
 
-#ifndef __MACH_CPUFREQ_H
-#define __MACH_CPUFREQ_H
-
-#if defined(CONFIG_MACH_T0)
-#define CPUFREQ_LEVEL_END	(L19 + 1)
-
-#elif defined(CONFIG_MACH_U1)
-#define CPUFREQ_LEVEL_END	(L13 + 1)
-#else
-#define CPUFREQ_LEVEL_END	(L17 + 1)
-#endif
-
 enum cpufreq_level_index {
 	L0, L1, L2, L3, L4,
 	L5, L6, L7, L8, L9,
 	L10, L11, L12, L13, L14,
 	L15, L16, L17, L18, L19,
 	L20,
-};
-
-enum busfreq_level_idx {
-	LV_0,
-	LV_1,
-	LV_2,
-	LV_END
 };
 
 enum busfreq_level_request {
@@ -70,7 +51,6 @@ enum cpufreq_lock_ID {
 	DVFS_LOCK_ID_LCD,	/* LCD */
 	DVFS_LOCK_ID_DRM,	/* DRM */
 	DVFS_LOCK_ID_ROTATION_BOOSTER,	/* ROTATION_BOOSTER */
-	DVFS_LOCK_ID_MM,	/* MM */
 
 	/*
 	 * QoS Request on DMA Latency.
@@ -84,34 +64,19 @@ enum cpufreq_lock_ID {
 	 */
 	DVFS_LOCK_ID_QOS_DMA_LATENCY,
 	DVFS_LOCK_ID_END,
-	DVFS_LOCK_ID_INCALL,
 };
 
 int exynos_cpufreq_get_level(unsigned int freq,
 			unsigned int *level);
-int exynos_cpufreq_get_level_ret(unsigned int freq);
 int exynos_find_cpufreq_level_by_volt(unsigned int arm_volt,
 			unsigned int *level);
 int exynos_cpufreq_lock(unsigned int nId,
 			enum cpufreq_level_index cpufreq_level);
 void exynos_cpufreq_lock_free(unsigned int nId);
 
-
-#ifndef CONFIG_BUSFREQ
-static inline int exynos4_busfreq_lock(unsigned int nId,
-			enum cpufreq_level_index cpufreq_level)
-{
-	return -ENOENT;
-}
-
-static inline void exynos4_busfreq_lock_free(unsigned int nId)
-{
-}
-#else
 int exynos4_busfreq_lock(unsigned int nId,
 			enum busfreq_level_request busfreq_level);
 void exynos4_busfreq_lock_free(unsigned int nId);
-#endif
 
 int exynos_cpufreq_upper_limit(unsigned int nId,
 			enum cpufreq_level_index cpufreq_level);
@@ -189,7 +154,3 @@ extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
 /* These function and variables should be removed in EVT1 */
 void exynos5250_set_arm_abbg(unsigned int arm_volt, unsigned int int_volt);
 #endif
-
-extern int exynos_pm_hook_add(void);
-extern void exynos_pm_hook_remove(void);
-#endif /* __MACH_CPUFREQ_H */
