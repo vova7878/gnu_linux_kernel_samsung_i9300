@@ -10,7 +10,6 @@
  * published by the Free Software Foundation
  */
 
-/dts-v1/;
 #include "exynos4412-midas.dtsi"
 
 // TODO: do we need to explicitly configure gpx pins used as interrupts?
