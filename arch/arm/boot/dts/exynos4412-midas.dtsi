@@ -14,7 +14,6 @@
  * published by the Free Software Foundation.
 */
 
-/dts-v1/;
 #include "exynos4412.dtsi"
 #include "exynos4412-ppmu-common.dtsi"
 #include <dt-bindings/gpio/gpio.h>
