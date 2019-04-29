@@ -655,8 +655,7 @@ static void max77693_extcon_evt_worker(struct work_struct *work)
 	int ret;
 
 	/* Determine cable/charger type */
-	if (extcon_get_state(edev, EXTCON_CHG_USB_SDP) ||
-	extcon_get_state(edev, EXTCON_CHG_USB_DCP)) {
+	if (extcon_get_state(edev)) {
 		dev_dbg(chg->dev, "USB charger is connected");
 		chg->cable.connected = true;
 	} else {
