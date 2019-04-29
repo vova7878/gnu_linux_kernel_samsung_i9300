@@ -759,6 +759,28 @@ int mmc_bus_test(struct mmc_card *card, u8 bus_width)
 	return mmc_send_bus_test(card, card->host, MMC_BUS_TEST_R, width);
 }
 
+static int mmc_send_cmd(struct mmc_host *host,
+                       u32 opcode, u32 arg, unsigned int flags, u32 *resp)
+{
+       int err;
+       struct mmc_command cmd;
+
+       memset(&cmd, 0, sizeof(struct mmc_command));
+
+       cmd.opcode = opcode;
+       cmd.arg = arg;
+       cmd.flags = flags;
+       *resp = 0;
+
+       err = mmc_wait_for_cmd(host, &cmd, 0);
+       if (!err)
+               *resp = cmd.resp[0];
+       else
+               printk(KERN_ERR "[CMD%d] FAILED!!\n", cmd.opcode);
+
+       return err;
+}
+
 static int mmc_movi_cmd(struct mmc_host *host, u32 arg)
 {
 	int err;
