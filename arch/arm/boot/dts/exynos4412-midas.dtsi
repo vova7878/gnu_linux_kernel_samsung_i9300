@@ -1204,26 +1204,3 @@
 	vtmu-supply = <&ldo10_reg>;
 	status = "okay";
 };
-
-&pmu {
-	compatible = "syscon", "simple-mfd";
-
-	reboot-mode {
-		compatible = "syscon-reboot-mode";
-		offset = <0x80c>;
-
-		mode-normal	 = <0x12345670>;
-		mode-bootloader	= <0x12345671>;
-		mode-download	= <0x12345671>;
-		mode-upload	 = <0x12345672>;
-		mode-charging   = <0x12345673>;
-		mode-recovery	= <0x12345674>;
-		mode-fota	   = <0x12345675>;
-		mode-fota_bl	= <0x12345676>;
-		mode-secure	 = <0x12345677>;
-
-		mode-debug	  = <0xabcd0000>;
-		mode-swsel	  = <0xabce0000>;
-		mode-sud		= <0xabcf0000>;
-	};
-};
