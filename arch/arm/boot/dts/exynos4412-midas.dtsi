@@ -796,13 +796,14 @@
 &pinctrl_0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sleep0>;
-
+/*
 	wlan_en: wlan-en {
 		samsung,pins = "gpj0-0";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-drv = <EXYNOS4_PIN_DRV_LV4>;
 	};
+*/
 
 	sleep0: sleep-states {
 		PIN_SLP(gpa0-0, INPUT, NONE);
@@ -906,14 +907,14 @@
 &pinctrl_1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sleep1>;
-
+/*
 	pmic_dvs1: pmic-dvs1 {
 		samsung,pins = "gpm3-0";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-drv = <EXYNOS4_PIN_DRV_LV1>;
 	};
-
+*/
 	sleep1: sleep-states {
 		PIN_SLP(gpk0-0, PREV, NONE);
 		PIN_SLP(gpk0-1, PREV, NONE);
