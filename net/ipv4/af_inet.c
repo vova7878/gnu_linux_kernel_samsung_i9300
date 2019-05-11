@@ -123,9 +123,12 @@
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
 #include <linux/android_aid.h>
 
+static kgid_t aid_net;
+
 static inline int current_has_network(void)
 {
-	return in_egroup_p(AID_INET) || capable(CAP_NET_RAW);
+	aid_net.val = AID_INET;
+	return in_egroup_p(aid_net) || capable(CAP_NET_RAW);
 }
 #else
 static inline int current_has_network(void)
