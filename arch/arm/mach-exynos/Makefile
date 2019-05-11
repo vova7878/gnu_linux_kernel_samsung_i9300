@@ -26,6 +26,7 @@ obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
 
 obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-smc.o
 obj-$(CONFIG_ARCH_EXYNOS)	+= firmware.o
+obj-$(CONFIG_SEC_DEBUG)		+= sec_debug.o
 
 plus_sec := $(call as-instr,.arch_extension sec,+sec)
 AFLAGS_exynos-smc.o		:=-Wa,-march=armv7-a$(plus_sec)
@@ -42,8 +43,12 @@ obj-$(CONFIG_MACH_ORIGEN)		+= mach-origen.o
 obj-$(CONFIG_MACH_SMDK4212)		+= mach-smdk4x12.o
 obj-$(CONFIG_MACH_SMDK4412)		+= mach-smdk4x12.o
 
+obj-$(CONFIG_MACH_EXYNOS3_DT)		+= mach-exynos3-dt.o
 obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
 obj-$(CONFIG_MACH_EXYNOS5_DT)		+= mach-exynos5-dt.o
+
+obj-$(CONFIG_ARCH_EXYNOS4)		+= sec-reboot.o
+obj-$(CONFIG_ARCH_EXYNOS4)		+= odroid-reboot.o
 
 # device support
 

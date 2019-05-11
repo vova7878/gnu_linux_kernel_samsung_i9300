@@ -95,10 +95,12 @@ static int i915_setup_compression(struct drm_device *dev, int size)
 
 	/* Try to over-allocate to reduce reallocations and fragmentation */
 	compressed_fb = drm_mm_search_free(&dev_priv->mm.stolen,
-					   size <<= 1, 4096, 0);
+					   size <<= 1, 4096,
+					   DRM_MM_SEARCH_DEFAULT);
 	if (!compressed_fb)
 		compressed_fb = drm_mm_search_free(&dev_priv->mm.stolen,
-						   size >>= 1, 4096, 0);
+						   size >>= 1, 4096,
+						   DRM_MM_SEARCH_DEFAULT);
 	if (compressed_fb)
 		compressed_fb = drm_mm_get_block(compressed_fb, size, 4096);
 	if (!compressed_fb)
@@ -110,7 +112,8 @@ static int i915_setup_compression(struct drm_device *dev, int size)
 		I915_WRITE(DPFC_CB_BASE, compressed_fb->start);
 	} else {
 		compressed_llb = drm_mm_search_free(&dev_priv->mm.stolen,
-						    4096, 4096, 0);
+						    4096, 4096,
+						    DRM_MM_SEARCH_DEFAULT);
 		if (compressed_llb)
 			compressed_llb = drm_mm_get_block(compressed_llb,
 							  4096, 4096);
@@ -259,9 +262,7 @@ _i915_gem_object_create_stolen(struct drm_device *dev,
 	if (obj == NULL)
 		return NULL;
 
-	if (drm_gem_private_object_init(dev, &obj->base, stolen->size))
-		goto cleanup;
-
+	drm_gem_private_object_init(dev, &obj->base, stolen->size);
 	i915_gem_object_init(obj, &i915_gem_object_stolen_ops);
 
 	obj->pages = i915_pages_create_for_stolen(dev,
@@ -298,7 +299,8 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	if (size == 0)
 		return NULL;
 
-	stolen = drm_mm_search_free(&dev_priv->mm.stolen, size, 4096, 0);
+	stolen = drm_mm_search_free(&dev_priv->mm.stolen, size, 4096,
+				    DRM_MM_SEARCH_DEFAULT);
 	if (stolen)
 		stolen = drm_mm_get_block(stolen, size, 4096);
 	if (stolen == NULL)

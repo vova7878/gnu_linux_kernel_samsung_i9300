@@ -235,7 +235,6 @@ static int soc_camera_enum_input(struct file *file, void *priv,
 
 	/* default is camera */
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
-	inp->std  = V4L2_STD_UNKNOWN;
 	strcpy(inp->name, "Camera");
 
 	return 0;
@@ -261,7 +260,7 @@ static int soc_camera_s_std(struct file *file, void *priv, v4l2_std_id a)
 	struct soc_camera_device *icd = file->private_data;
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 
-	return v4l2_subdev_call(sd, core, s_std, a);
+	return v4l2_subdev_call(sd, video, s_std, a);
 }
 
 static int soc_camera_g_std(struct file *file, void *priv, v4l2_std_id *a)
@@ -269,7 +268,7 @@ static int soc_camera_g_std(struct file *file, void *priv, v4l2_std_id *a)
 	struct soc_camera_device *icd = file->private_data;
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 
-	return v4l2_subdev_call(sd, core, g_std, a);
+	return v4l2_subdev_call(sd, video, g_std, a);
 }
 
 static int soc_camera_enum_framesizes(struct file *file, void *fh,
@@ -505,6 +504,46 @@ static int soc_camera_set_fmt(struct soc_camera_device *icd,
 	return ici->ops->set_bus_param(icd);
 }
 
+static int soc_camera_add_device(struct soc_camera_device *icd)
+{
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	int ret;
+
+	if (ici->icd)
+		return -EBUSY;
+
+	ret = ici->ops->clock_start(ici);
+	if (ret < 0)
+		return ret;
+
+	if (ici->ops->add) {
+		ret = ici->ops->add(icd);
+		if (ret < 0)
+			goto eadd;
+	}
+
+	ici->icd = icd;
+
+	return 0;
+
+eadd:
+	ici->ops->clock_stop(ici);
+	return ret;
+}
+
+static void soc_camera_remove_device(struct soc_camera_device *icd)
+{
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+
+	if (WARN_ON(icd != ici->icd))
+		return;
+
+	if (ici->ops->remove)
+		ici->ops->remove(icd);
+	ici->ops->clock_stop(ici);
+	ici->icd = NULL;
+}
+
 static int soc_camera_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
@@ -525,7 +564,7 @@ static int soc_camera_open(struct file *file)
 		return -ENODEV;
 	}
 
-	icd = dev_get_drvdata(vdev->parent);
+	icd = video_get_drvdata(vdev);
 	ici = to_soc_camera_host(icd->parent);
 
 	ret = try_module_get(ici->ops->owner) ? 0 : -ENODEV;
@@ -568,7 +607,7 @@ static int soc_camera_open(struct file *file)
 		if (sdesc->subdev_desc.reset)
 			sdesc->subdev_desc.reset(icd->pdev);
 
-		ret = ici->ops->add(icd);
+		ret = soc_camera_add_device(icd);
 		if (ret < 0) {
 			dev_err(icd->pdev, "Couldn't activate the camera: %d\n", ret);
 			goto eiciadd;
@@ -619,7 +658,7 @@ esfmt:
 eresume:
 	__soc_camera_power_off(icd);
 epower:
-	ici->ops->remove(icd);
+	soc_camera_remove_device(icd);
 eiciadd:
 	icd->use_count--;
 	mutex_unlock(&ici->host_lock);
@@ -645,7 +684,7 @@ static int soc_camera_close(struct file *file)
 			vb2_queue_release(&icd->vb2_vidq);
 		__soc_camera_power_off(icd);
 
-		ici->ops->remove(icd);
+		soc_camera_remove_device(icd);
 	}
 
 	if (icd->streamer == file)
@@ -1036,35 +1075,6 @@ static int soc_camera_s_parm(struct file *file, void *fh,
 	return -ENOIOCTLCMD;
 }
 
-static int soc_camera_g_chip_ident(struct file *file, void *fh,
-				   struct v4l2_dbg_chip_ident *id)
-{
-	struct soc_camera_device *icd = file->private_data;
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-
-	return v4l2_subdev_call(sd, core, g_chip_ident, id);
-}
-
-#ifdef CONFIG_VIDEO_ADV_DEBUG
-static int soc_camera_g_register(struct file *file, void *fh,
-				 struct v4l2_dbg_register *reg)
-{
-	struct soc_camera_device *icd = file->private_data;
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-
-	return v4l2_subdev_call(sd, core, g_register, reg);
-}
-
-static int soc_camera_s_register(struct file *file, void *fh,
-				 const struct v4l2_dbg_register *reg)
-{
-	struct soc_camera_device *icd = file->private_data;
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-
-	return v4l2_subdev_call(sd, core, s_register, reg);
-}
-#endif
-
 static int soc_camera_probe(struct soc_camera_device *icd);
 
 /* So far this function cannot fail */
@@ -1167,7 +1177,7 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 		ssdd->reset(icd->pdev);
 
 	mutex_lock(&ici->host_lock);
-	ret = ici->ops->add(icd);
+	ret = ici->ops->clock_start(ici);
 	mutex_unlock(&ici->host_lock);
 	if (ret < 0)
 		goto eadd;
@@ -1240,7 +1250,7 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 		icd->field		= mf.field;
 	}
 
-	ici->ops->remove(icd);
+	ici->ops->clock_stop(ici);
 
 	mutex_unlock(&ici->host_lock);
 
@@ -1263,7 +1273,7 @@ eadddev:
 	icd->vdev = NULL;
 evdc:
 	mutex_lock(&ici->host_lock);
-	ici->ops->remove(icd);
+	ici->ops->clock_stop(ici);
 	mutex_unlock(&ici->host_lock);
 eadd:
 	v4l2_ctrl_handler_free(&icd->ctrl_handler);
@@ -1372,8 +1382,8 @@ int soc_camera_host_register(struct soc_camera_host *ici)
 	    ((!ici->ops->init_videobuf ||
 	      !ici->ops->reqbufs) &&
 	     !ici->ops->init_videobuf2) ||
-	    !ici->ops->add ||
-	    !ici->ops->remove ||
+	    !ici->ops->clock_start ||
+	    !ici->ops->clock_stop ||
 	    !ici->ops->poll ||
 	    !ici->v4l2_dev.dev)
 		return -EINVAL;
@@ -1495,11 +1505,6 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_s_selection	 = soc_camera_s_selection,
 	.vidioc_g_parm		 = soc_camera_g_parm,
 	.vidioc_s_parm		 = soc_camera_s_parm,
-	.vidioc_g_chip_ident     = soc_camera_g_chip_ident,
-#ifdef CONFIG_VIDEO_ADV_DEBUG
-	.vidioc_g_register	 = soc_camera_g_register,
-	.vidioc_s_register	 = soc_camera_s_register,
-#endif
 };
 
 static int video_dev_create(struct soc_camera_device *icd)
@@ -1512,12 +1517,10 @@ static int video_dev_create(struct soc_camera_device *icd)
 
 	strlcpy(vdev->name, ici->drv_name, sizeof(vdev->name));
 
-	vdev->parent		= icd->pdev;
-	vdev->current_norm	= V4L2_STD_UNKNOWN;
+	vdev->v4l2_dev		= &ici->v4l2_dev;
 	vdev->fops		= &soc_camera_fops;
 	vdev->ioctl_ops		= &soc_camera_ioctl_ops;
 	vdev->release		= video_device_release;
-	vdev->tvnorms		= V4L2_STD_UNKNOWN;
 	vdev->ctrl_handler	= &icd->ctrl_handler;
 	vdev->lock		= &ici->host_lock;
 
@@ -1537,6 +1540,7 @@ static int soc_camera_video_start(struct soc_camera_device *icd)
 	if (!icd->parent)
 		return -ENODEV;
 
+	video_set_drvdata(icd->vdev, icd);
 	ret = video_register_device(icd->vdev, VFL_TYPE_GRABBER, -1);
 	if (ret < 0) {
 		dev_err(icd->pdev, "video_register_device failed: %d\n", ret);

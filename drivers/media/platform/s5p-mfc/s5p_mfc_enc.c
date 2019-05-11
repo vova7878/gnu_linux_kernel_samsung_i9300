@@ -663,7 +663,7 @@ static int enc_post_seq_start(struct s5p_mfc_ctx *ctx)
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 	}
 
-	if (!IS_MFCV6(dev)) {
+	if (!IS_MFCV6_PLUS(dev)) {
 		ctx->state = MFCINST_RUNNING;
 		if (s5p_mfc_ctx_ready(ctx))
 			set_work_bit_irqsave(ctx);
@@ -993,11 +993,11 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EINVAL;
 		}
 
-		if (!IS_MFCV6(dev) &&
+		if (!IS_MFCV6_PLUS(dev) &&
 				(fmt->fourcc == V4L2_PIX_FMT_NV12MT_16X16)) {
 			mfc_err("Not supported format.\n");
 			return -EINVAL;
-		} else if (IS_MFCV6(dev) &&
+		} else if (IS_MFCV6_PLUS(dev) &&
 				(fmt->fourcc == V4L2_PIX_FMT_NV12MT)) {
 			mfc_err("Not supported format.\n");
 			return -EINVAL;
@@ -1040,9 +1040,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
 	int ret = 0;
 
-	/* if memory is not mmp or userptr return error */
-	if ((reqbufs->memory != V4L2_MEMORY_MMAP) &&
-		(reqbufs->memory != V4L2_MEMORY_USERPTR))
+	/* if memory is not mmp, userptr or dmabuf return error */
+	if (!s5p_mfc_supported_mem_type(reqbufs->memory))
 		return -EINVAL;
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (ctx->capture_state != QUEUE_FREE) {
@@ -1072,7 +1071,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			return -EINVAL;
 		}
 
-		if (IS_MFCV6(dev)) {
+		if (IS_MFCV6_PLUS(dev)) {
 			/* Check for min encoder buffers */
 			if (ctx->pb_count &&
 				(reqbufs->count < ctx->pb_count)) {
@@ -1103,9 +1102,8 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
 	int ret = 0;
 
-	/* if memory is not mmp or userptr return error */
-	if ((buf->memory != V4L2_MEMORY_MMAP) &&
-		(buf->memory != V4L2_MEMORY_USERPTR))
+	/* if memory is not mmp, userptr or dmabuf return error */
+	if (!s5p_mfc_supported_mem_type(buf->memory))
 		return -EINVAL;
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (ctx->state != MFCINST_GOT_INST) {
@@ -1353,7 +1351,7 @@ static int s5p_mfc_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 				S5P_FIMV_ENC_PROFILE_H264_BASELINE;
 			break;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
-			if (IS_MFCV6(dev))
+			if (IS_MFCV6_PLUS(dev))
 				p->codec.h264.profile =
 				S5P_FIMV_ENC_PROFILE_H264_CONSTRAINED_BASELINE;
 			else
@@ -1637,11 +1635,12 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(vq->drv_priv);
 	struct s5p_mfc_dev *dev = ctx->dev;
 
-	if (ctx->state != MFCINST_GOT_INST) {
-		mfc_err("inavlid state: %d\n", ctx->state);
-		return -EINVAL;
-	}
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (ctx->state != MFCINST_GOT_INST) {
+			mfc_err("inavlid state: %d\n", ctx->state);
+			return -EINVAL;
+		}
+
 		if (ctx->dst_fmt)
 			*plane_count = ctx->dst_fmt->num_planes;
 		else
@@ -1662,9 +1661,11 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			*buf_count = 1;
 		if (*buf_count > MFC_MAX_BUFFERS)
 			*buf_count = MFC_MAX_BUFFERS;
+
 		psize[0] = ctx->luma_size;
 		psize[1] = ctx->chroma_size;
-		if (IS_MFCV6(dev)) {
+
+		if (IS_MFCV6_PLUS(dev)) {
 			allocators[0] =
 				ctx->dev->alloc_ctx[MFC_BANK1_ALLOC_CTX];
 			allocators[1] =
@@ -1773,7 +1774,8 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(q->drv_priv);
 	struct s5p_mfc_dev *dev = ctx->dev;
 
-	if (IS_MFCV6(dev) && (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+	if (IS_MFCV6_PLUS(dev) &&
+			(q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
 
 		if ((ctx->state == MFCINST_GOT_INST) &&
 			(dev->curr_ctx == ctx->num) && dev->hw_lock) {
@@ -1785,7 +1787,7 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 		if (ctx->src_bufs_cnt < ctx->pb_count) {
 			mfc_err("Need minimum %d OUTPUT buffers\n",
 					ctx->pb_count);
-			return -EINVAL;
+			return -ENOBUFS;
 		}
 	}
 
@@ -1797,7 +1799,7 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
-static int s5p_mfc_stop_streaming(struct vb2_queue *q)
+static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 {
 	unsigned long flags;
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(q->drv_priv);
@@ -1826,7 +1828,6 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 		ctx->src_queue_cnt = 0;
 	}
 	spin_unlock_irqrestore(&dev->irqlock, flags);
-	return 0;
 }
 
 static void s5p_mfc_buf_queue(struct vb2_buffer *vb)

@@ -22,17 +22,18 @@
 #include "exynos-cpufreq.h"
 
 static struct clk *cpu_clk;
-static struct clk *moutcore;
-static struct clk *mout_mpll;
+static struct clk *mout_core;
+static struct clk *sclk_mpll;
 static struct clk *mout_apll;
 
 static unsigned int exynos4x12_volt_table[] = {
-	1350000, 1287500, 1250000, 1187500, 1137500, 1087500, 1037500,
-	1000000,  987500,  975000,  950000,  925000,  900000,  900000
+	1400000, 1350000, 1350000, 1300000, 1225000, 1175000,
+	1125000, 1075000, 1037500, 1012500, 1000000, 987500,
+	975000, 925000, 925000, 925000, 900000
 };
 
 static struct cpufreq_frequency_table exynos4x12_freq_table[] = {
-	{L0, CPUFREQ_ENTRY_INVALID},
+	{CPUFREQ_BOOST_FREQ, 1500 * 1000},
 	{L1, 1400 * 1000},
 	{L2, 1300 * 1000},
 	{L3, 1200 * 1000},
@@ -83,6 +84,9 @@ static struct apll_freq apll_freq_4412[] = {
 	 * clock divider for COPY, HPM, CORES
 	 * PLL M, P, S
 	 */
+	APLL_FREQ(1800, 0, 3, 7, 0, 6, 1, 2, 0, 7, 0, 7, 300, 4, 0),
+	APLL_FREQ(1704, 0, 3, 7, 0, 6, 1, 2, 0, 7, 0, 7, 213, 3, 0),
+	APLL_FREQ(1600, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 7, 200, 3, 0),
 	APLL_FREQ(1500, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 7, 250, 4, 0),
 	APLL_FREQ(1400, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 6, 175, 3, 0),
 	APLL_FREQ(1300, 0, 3, 7, 0, 5, 1, 2, 0, 5, 0, 6, 325, 6, 0),
@@ -128,11 +132,13 @@ static void exynos4x12_set_clkdiv(unsigned int div_index)
 
 static void exynos4x12_set_apll(unsigned int index)
 {
-	unsigned int tmp, pdiv;
+	unsigned int tmp, freq = apll_freq_4x12[index].freq * 1000;
+	struct clk *clk;
 
-	/* 1. MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
-	clk_set_parent(moutcore, mout_mpll);
+	clk = clk_get_parent(mout_apll);
 
+	/* MUX_CORE_SEL = MPLL, ARMCLK uses MPLL for lock time */
+	clk_set_parent(mout_core, sclk_mpll);
 	do {
 		cpu_relax();
 		tmp = (__raw_readl(EXYNOS4_CLKMUX_STATCPU)
@@ -140,26 +146,10 @@ static void exynos4x12_set_apll(unsigned int index)
 		tmp &= 0x7;
 	} while (tmp != 0x2);
 
-	/* 2. Set APLL Lock time */
-	pdiv = ((apll_freq_4x12[index].mps >> 8) & 0x3f);
+	clk_set_rate(clk, freq);
 
-	__raw_writel((pdiv * 250), EXYNOS4_APLL_LOCK);
-
-	/* 3. Change PLL PMS values */
-	tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	tmp &= ~((0x3ff << 16) | (0x3f << 8) | (0x7 << 0));
-	tmp |= apll_freq_4x12[index].mps;
-	__raw_writel(tmp, EXYNOS4_APLL_CON0);
-
-	/* 4. wait_lock_time */
-	do {
-		cpu_relax();
-		tmp = __raw_readl(EXYNOS4_APLL_CON0);
-	} while (!(tmp & (0x1 << EXYNOS4_APLLCON0_LOCKED_SHIFT)));
-
-	/* 5. MUX_CORE_SEL = APLL */
-	clk_set_parent(moutcore, mout_apll);
-
+	/* MUX_CORE_SEL = APLL */
+	clk_set_parent(mout_core, mout_apll);
 	do {
 		cpu_relax();
 		tmp = __raw_readl(EXYNOS4_CLKMUX_STATCPU);
@@ -167,97 +157,72 @@ static void exynos4x12_set_apll(unsigned int index)
 	} while (tmp != (0x1 << EXYNOS4_CLKSRC_CPU_MUXCORE_SHIFT));
 }
 
-static bool exynos4x12_pms_change(unsigned int old_index, unsigned int new_index)
-{
-	unsigned int old_pm = apll_freq_4x12[old_index].mps >> 8;
-	unsigned int new_pm = apll_freq_4x12[new_index].mps >> 8;
-
-	return (old_pm == new_pm) ? 0 : 1;
-}
-
 static void exynos4x12_set_frequency(unsigned int old_index,
 				  unsigned int new_index)
 {
-	unsigned int tmp;
-
 	if (old_index > new_index) {
-		if (!exynos4x12_pms_change(old_index, new_index)) {
-			/* 1. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-			/* 2. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS4_APLL_CON0);
-			tmp &= ~(0x7 << 0);
-			tmp |= apll_freq_4x12[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS4_APLL_CON0);
-
-		} else {
-			/* Clock Configuration Procedure */
-			/* 1. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-			/* 2. Change the apll m,p,s value */
-			exynos4x12_set_apll(new_index);
-		}
+		exynos4x12_set_clkdiv(new_index);
+		exynos4x12_set_apll(new_index);
 	} else if (old_index < new_index) {
-		if (!exynos4x12_pms_change(old_index, new_index)) {
-			/* 1. Change just s value in apll m,p,s value */
-			tmp = __raw_readl(EXYNOS4_APLL_CON0);
-			tmp &= ~(0x7 << 0);
-			tmp |= apll_freq_4x12[new_index].mps & 0x7;
-			__raw_writel(tmp, EXYNOS4_APLL_CON0);
-			/* 2. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-		} else {
-			/* Clock Configuration Procedure */
-			/* 1. Change the apll m,p,s value */
-			exynos4x12_set_apll(new_index);
-			/* 2. Change the system clock divider values */
-			exynos4x12_set_clkdiv(new_index);
-		}
+		exynos4x12_set_apll(new_index);
+		exynos4x12_set_clkdiv(new_index);
 	}
 }
 
 int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
 {
 	unsigned long rate;
-
-	cpu_clk = clk_get(NULL, "armclk");
+	cpu_clk = clk_get(info->dev, "arm_clk");
 	if (IS_ERR(cpu_clk))
 		return PTR_ERR(cpu_clk);
 
-	moutcore = clk_get(NULL, "moutcore");
-	if (IS_ERR(moutcore))
+	mout_core = clk_get(info->dev, "mout_core");
+	if (IS_ERR(mout_core))
 		goto err_moutcore;
 
-	mout_mpll = clk_get(NULL, "mout_mpll");
-	if (IS_ERR(mout_mpll))
-		goto err_mout_mpll;
+	sclk_mpll = clk_get(info->dev, "mout_mpll_user_c");
+	if (IS_ERR(sclk_mpll))
+		goto err_sclk_mpll;
 
-	rate = clk_get_rate(mout_mpll) / 1000;
+	rate = clk_get_rate(sclk_mpll) / 1000;
 
-	mout_apll = clk_get(NULL, "mout_apll");
+	mout_apll = clk_get(info->dev, "mout_apll");
 	if (IS_ERR(mout_apll))
 		goto err_mout_apll;
 
-	if (soc_is_exynos4212())
+	if (soc_is_exynos4212()) {
+		info->freq_levels = ARRAY_SIZE(apll_freq_4212);
 		apll_freq_4x12 = apll_freq_4212;
-	else
+	} else {
+		info->freq_levels = ARRAY_SIZE(apll_freq_4412);
 		apll_freq_4x12 = apll_freq_4412;
+	}
 
 	info->mpll_freq_khz = rate;
 	/* 800Mhz */
 	info->pll_safe_idx = L7;
 	info->cpu_clk = cpu_clk;
-	info->volt_table = exynos4x12_volt_table;
-	info->freq_table = exynos4x12_freq_table;
+
+	info->volt_table = exynos_of_parse_volt_table(info, "volt_table");
+	if (!info->volt_table)
+		info->volt_table = exynos4x12_volt_table;
+
+	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
+	if (!info->freq_table)
+		info->freq_table = exynos4x12_freq_table;
+#ifdef CONFIG_CPU_FREQ_BOOST_SW
+	else
+		exynos_of_parse_boost(info, "boost_freq");
+#endif
+
 	info->set_freq = exynos4x12_set_frequency;
-	info->need_apll_change = exynos4x12_pms_change;
 
 	return 0;
 
 err_mout_apll:
-	clk_put(mout_mpll);
-err_mout_mpll:
-	clk_put(moutcore);
+	clk_put(sclk_mpll);
+err_sclk_mpll:
+	clk_put(mout_core);
 err_moutcore:
 	clk_put(cpu_clk);
 

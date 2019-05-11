@@ -3,6 +3,7 @@ config SND_SOC_SAMSUNG
 	depends on PLAT_SAMSUNG
 	select S3C64XX_DMA if ARCH_S3C64XX
 	select S3C2410_DMA if ARCH_S3C24XX
+	select SND_SOC_GENERIC_DMAENGINE_PCM
 	help
 	  Say Y or M if you want to add support for codecs attached to
 	  the Samsung SoCs' Audio interfaces. You will also need to
@@ -69,6 +70,10 @@ config SND_SOC_SAMSUNG_SMDK_WM8994
 	select SND_SAMSUNG_I2S
 	help
 		Say Y if you want to add support for SoC audio on the SMDKs.
+
+config SND_SAMSUNG_I2S_MASTER
+	bool "I2S Master Mode"
+	depends on SND_SAMSUNG_I2S
 
 config SND_SOC_SAMSUNG_SMDK2443_WM9710
 	tristate "SoC AC97 Audio support for SMDK2443 - WM9710"
@@ -199,6 +204,12 @@ config SND_SOC_TOBERMORY
 	select SND_SAMSUNG_I2S
 	select SND_SOC_WM8962
 
+config SND_SOC_TRATS
+	tristate "Audio support for Samsung Trats"
+	depends on SND_SOC_SAMSUNG && CPU_EXYNOS4210
+	select SND_SAMSUNG_I2S
+	select SND_SOC_MC1N2
+
 config SND_SOC_BELLS
 	tristate "Audio support for Wolfson Bells"
 	depends on SND_SOC_SAMSUNG && MACH_WLF_CRAGG_6410
@@ -222,3 +233,28 @@ config SND_SOC_LITTLEMILL
 	select SND_SAMSUNG_I2S
 	select MFD_WM8994
 	select SND_SOC_WM8994
+
+config SND_SOC_SAMSUNG_TRATS2_WM1811
+	tristate "SoC I2S Audio support for WM1811 on Tizen Trats2 board"
+	depends on SND_SOC_SAMSUNG
+	select SND_SOC_WM8994
+	select SND_SAMSUNG_I2S
+	help
+	  Say Y if you want to add support for SoC audio on the Tizen Trats2 board.
+
+config SND_SOC_ODROIDX2
+	tristate "Audio support for Odroidx2"
+	depends on SND_SOC_SAMSUNG
+	select SND_SOC_MAX98090
+	select SND_SAMSUNG_I2S
+	help
+	  Say Y here to enable audio support for the Odroidx2.
+
+config SND_SOC_RINATO_YMU831
+	tristate "SoC I2S Audio support for Rinato - YMU831"
+	depends on SND_SOC_SAMSUNG
+	select SND_SAMSUNG_I2S
+	select SND_SOC_YAMAHA_YMU831
+	help
+	   Say Y if you want to add support for SoC audio on Rinato Board
+	   with the YMU831

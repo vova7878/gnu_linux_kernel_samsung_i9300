@@ -74,6 +74,7 @@
 #include <asm/pgalloc.h>
 #include <drm/drm.h>
 #include <drm/drm_sarea.h>
+#include <drm/drm_vma_manager.h>
 
 #include <linux/idr.h>
 
@@ -87,6 +88,7 @@ struct drm_device;
 
 struct device_node;
 struct videomode;
+struct reservation_object;
 
 #include <drm/drm_os_linux.h>
 #include <drm/drm_hashtab.h>
@@ -590,7 +592,6 @@ struct drm_map_list {
 	struct drm_local_map *map;	/**< mapping */
 	uint64_t user_token;
 	struct drm_master *master;
-	struct drm_mm_node *file_offset_node;	/**< fake offset */
 };
 
 /**
@@ -625,8 +626,7 @@ struct drm_ati_pcigart_info {
  * GEM specific mm private for tracking GEM objects
  */
 struct drm_gem_mm {
-	struct drm_mm offset_manager;	/**< Offset mgmt for buffer objects */
-	struct drm_open_hash offset_hash; /**< User token hash table for maps */
+	struct drm_vma_offset_manager vma_manager;
 };
 
 /**
@@ -637,8 +637,16 @@ struct drm_gem_object {
 	/** Reference count of this object */
 	struct kref refcount;
 
-	/** Handle count of this object. Each handle also holds a reference */
-	atomic_t handle_count; /* number of handles on this object */
+	/**
+	 * handle_count - gem file_priv handle count of this object
+	 *
+	 * Each handle also holds a reference. Note that when the handle_count
+	 * drops to 0 any global names (e.g. the id in the flink namespace) will
+	 * be cleared.
+	 *
+	 * Protected by dev->object_name_lock.
+	 * */
+	unsigned handle_count;
 
 	/** Related drm device */
 	struct drm_device *dev;
@@ -647,7 +655,7 @@ struct drm_gem_object {
 	struct file *filp;
 
 	/* Mapping info for this object */
-	struct drm_map_list map_list;
+	struct drm_vma_offset_node vma_node;
 
 	/**
 	 * Size of the object, in bytes.  Immutable over the object's
@@ -681,10 +689,32 @@ struct drm_gem_object {
 
 	void *driver_private;
 
-	/* dma buf exported from this GEM object */
-	struct dma_buf *export_dma_buf;
+	/**
+	 * dma_buf - dma buf associated with this GEM object
+	 *
+	 * Pointer to the dma-buf associated with this gem object (either
+	 * through importing or exporting). We break the resulting reference
+	 * loop when the last gem handle for this object is released.
+	 *
+	 * Protected by obj->object_name_lock
+	 */
+	struct dma_buf *dma_buf;
 
-	/* dma buf attachment backing this object */
+	/**
+	 * import_attach - dma buf attachment backing this object
+	 *
+	 * Any foreign dma_buf imported as a gem object has this set to the
+	 * attachment point for the device. This is invariant over the lifetime
+	 * of a gem object.
+	 *
+	 * The driver's ->gem_free_object callback is responsible for cleaning
+	 * up the dma_buf attachment and references acquired at import time.
+	 *
+	 * Note that the drm gem/prime core does not depend upon drivers setting
+	 * this field any more. So for drivers where this doesn't make sense
+	 * (e.g. virtual devices or a displaylink behind an usb bus) they can
+	 * simply leave it as NULL.
+	 */
 	struct dma_buf_attachment *import_attach;
 };
 
@@ -933,12 +963,17 @@ struct drm_driver {
 				struct dma_buf *dma_buf);
 	/* low-level interface used by drm_gem_prime_{import,export} */
 	int (*gem_prime_pin)(struct drm_gem_object *obj);
+	void (*gem_prime_unpin)(struct drm_gem_object *obj);
+	struct reservation_object * (*gem_prime_res_obj)(
+				struct drm_gem_object *obj);
 	struct sg_table *(*gem_prime_get_sg_table)(struct drm_gem_object *obj);
 	struct drm_gem_object *(*gem_prime_import_sg_table)(
 				struct drm_device *dev, size_t size,
 				struct sg_table *sgt);
 	void *(*gem_prime_vmap)(struct drm_gem_object *obj);
 	void (*gem_prime_vunmap)(struct drm_gem_object *obj, void *vaddr);
+	int (*gem_prime_mmap)(struct drm_gem_object *obj,
+				struct vm_area_struct *vma);
 
 	/* vga arb irq handler */
 	void (*vgaarb_irq)(struct drm_device *dev, bool state);
@@ -1212,7 +1247,7 @@ struct drm_device {
 
 	/** \name GEM information */
 	/*@{ */
-	spinlock_t object_name_lock;
+	struct mutex object_name_lock;
 	struct idr object_name_idr;
 	/*@} */
 	int switch_power_state;
@@ -1579,6 +1614,7 @@ extern struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
 		struct dma_buf *dma_buf);
 extern int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
+extern void drm_gem_dmabuf_release(struct dma_buf *dma_buf);
 
 extern int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 					struct drm_file *file_priv);
@@ -1590,11 +1626,13 @@ extern int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **
 extern struct sg_table *drm_prime_pages_to_sg(struct page **pages, int nr_pages);
 extern void drm_prime_gem_destroy(struct drm_gem_object *obj, struct sg_table *sg);
 
+int drm_gem_dumb_destroy(struct drm_file *file,
+			 struct drm_device *dev,
+			 uint32_t handle);
 
 void drm_prime_init_file_private(struct drm_prime_file_private *prime_fpriv);
 void drm_prime_destroy_file_private(struct drm_prime_file_private *prime_fpriv);
-int drm_prime_lookup_buf_handle(struct drm_prime_file_private *prime_fpriv, struct dma_buf *dma_buf, uint32_t *handle);
-void drm_prime_remove_buf_handle(struct drm_prime_file_private *prime_fpriv, struct dma_buf *dma_buf);
+void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpriv, struct dma_buf *dma_buf);
 
 int drm_prime_add_dma_buf(struct drm_device *dev, struct drm_gem_object *obj);
 int drm_prime_lookup_obj(struct drm_device *dev, struct dma_buf *buf,
@@ -1643,11 +1681,12 @@ struct drm_gem_object *drm_gem_object_alloc(struct drm_device *dev,
 					    size_t size);
 int drm_gem_object_init(struct drm_device *dev,
 			struct drm_gem_object *obj, size_t size);
-int drm_gem_private_object_init(struct drm_device *dev,
-			struct drm_gem_object *obj, size_t size);
-void drm_gem_object_handle_free(struct drm_gem_object *obj);
+void drm_gem_private_object_init(struct drm_device *dev,
+				 struct drm_gem_object *obj, size_t size);
 void drm_gem_vm_open(struct vm_area_struct *vma);
 void drm_gem_vm_close(struct vm_area_struct *vma);
+int drm_gem_mmap_obj(struct drm_gem_object *obj, unsigned long obj_size,
+		     struct vm_area_struct *vma);
 int drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 
 #include <drm/drm_global.h>
@@ -1676,58 +1715,22 @@ drm_gem_object_unreference_unlocked(struct drm_gem_object *obj)
 	}
 }
 
+int drm_gem_handle_create_tail(struct drm_file *file_priv,
+			       struct drm_gem_object *obj,
+			       u32 *handlep);
 int drm_gem_handle_create(struct drm_file *file_priv,
 			  struct drm_gem_object *obj,
 			  u32 *handlep);
 int drm_gem_handle_delete(struct drm_file *filp, u32 handle);
 
-static inline void
-drm_gem_object_handle_reference(struct drm_gem_object *obj)
-{
-	drm_gem_object_reference(obj);
-	atomic_inc(&obj->handle_count);
-}
-
-static inline void
-drm_gem_object_handle_unreference(struct drm_gem_object *obj)
-{
-	if (obj == NULL)
-		return;
-
-	if (atomic_read(&obj->handle_count) == 0)
-		return;
-	/*
-	 * Must bump handle count first as this may be the last
-	 * ref, in which case the object would disappear before we
-	 * checked for a name
-	 */
-	if (atomic_dec_and_test(&obj->handle_count))
-		drm_gem_object_handle_free(obj);
-	drm_gem_object_unreference(obj);
-}
-
-static inline void
-drm_gem_object_handle_unreference_unlocked(struct drm_gem_object *obj)
-{
-	if (obj == NULL)
-		return;
-
-	if (atomic_read(&obj->handle_count) == 0)
-		return;
-
-	/*
-	* Must bump handle count first as this may be the last
-	* ref, in which case the object would disappear before we
-	* checked for a name
-	*/
-
-	if (atomic_dec_and_test(&obj->handle_count))
-		drm_gem_object_handle_free(obj);
-	drm_gem_object_unreference_unlocked(obj);
-}
 
 void drm_gem_free_mmap_offset(struct drm_gem_object *obj);
 int drm_gem_create_mmap_offset(struct drm_gem_object *obj);
+int drm_gem_create_mmap_offset_size(struct drm_gem_object *obj, size_t size);
+
+struct page **drm_gem_get_pages(struct drm_gem_object *obj, gfp_t gfpmask);
+void drm_gem_put_pages(struct drm_gem_object *obj, struct page **pages,
+		bool dirty, bool accessed);
 
 struct drm_gem_object *drm_gem_object_lookup(struct drm_device *dev,
 					     struct drm_file *filp,

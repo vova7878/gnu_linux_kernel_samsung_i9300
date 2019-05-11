@@ -170,6 +170,14 @@ config REGULATOR_88PM8607
 	help
 	  This driver supports 88PM8607 voltage regulator chips.
 
+config REGULATOR_MAX14577
+	tristate "Maxim 14577/77836 regulator"
+	depends on MFD_MAX14577
+	help
+	  This driver controls a Maxim MAX14577/77836 regulator via I2C bus.
+	  The MAX14577 regulators include safeout LDO and charger current
+	  regulator. The MAX77836 has two additional LDOs.
+
 config REGULATOR_MAX1586
 	tristate "Maxim 1586/1587 voltage regulator"
 	depends on I2C
@@ -249,6 +257,14 @@ config REGULATOR_MAX77686
 	  This driver controls a Maxim 77686 regulator
 	  via I2C bus. The provided regulator is suitable for
 	  Exynos-4 chips to control VARM and VINT voltages.
+
+config REGULATOR_MAX77693
+	tristate "Maxim 77693 regulator"
+	depends on MFD_MAX77693
+	help
+	  This driver controls a Maxim 77693 regulator
+	  via I2C bus. The provided regulator supports Safeout LDOs
+	  and can be used to supply low voltage related to USB systems.
 
 config REGULATOR_PCAP
 	tristate "Motorola PCAP2 regulator driver"

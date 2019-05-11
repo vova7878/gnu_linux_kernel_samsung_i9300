@@ -248,12 +248,15 @@ struct samsung_pmx_func {
 	const char		*name;
 	const char		**groups;
 	u8			num_groups;
+	u32			val;
 };
 
 /* list of all exported SoC specific data */
+extern struct samsung_pin_ctrl exynos3250_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4210_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4x12_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos5250_pin_ctrl[];
+extern struct samsung_pin_ctrl exynos5420_pin_ctrl[];
 extern struct samsung_pin_ctrl s3c64xx_pin_ctrl[];
 
 #endif /* __PINCTRL_SAMSUNG_H */

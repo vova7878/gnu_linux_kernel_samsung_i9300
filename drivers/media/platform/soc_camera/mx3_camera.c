@@ -94,7 +94,6 @@ struct mx3_camera_dev {
 	 * Interface. If anyone ever builds hardware to enable more than one
 	 * camera _simultaneously_, they will have to modify this driver too
 	 */
-	struct soc_camera_device *icd;
 	struct clk		*clk;
 
 	void __iomem		*base;
@@ -267,7 +266,6 @@ static void mx3_videobuf_queue(struct vb2_buffer *vb)
 	struct idmac_channel *ichan = mx3_cam->idmac_channel[0];
 	struct idmac_video_param *video = &ichan->params.video;
 	const struct soc_mbus_pixelfmt *host_fmt = icd->current_fmt->host_fmt;
-	unsigned long flags;
 	dma_cookie_t cookie;
 	size_t new_size;
 
@@ -329,7 +327,7 @@ static void mx3_videobuf_queue(struct vb2_buffer *vb)
 		memset(vb2_plane_vaddr(vb, 0), 0xaa, vb2_get_plane_payload(vb, 0));
 #endif
 
-	spin_lock_irqsave(&mx3_cam->lock, flags);
+	spin_lock_irq(&mx3_cam->lock);
 	list_add_tail(&buf->queue, &mx3_cam->capture);
 
 	if (!mx3_cam->active)
@@ -352,7 +350,7 @@ static void mx3_videobuf_queue(struct vb2_buffer *vb)
 	if (mx3_cam->active == buf)
 		mx3_cam->active = NULL;
 
-	spin_unlock_irqrestore(&mx3_cam->lock, flags);
+	spin_unlock_irq(&mx3_cam->lock);
 error:
 	vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
 }
@@ -408,7 +406,7 @@ static int mx3_videobuf_init(struct vb2_buffer *vb)
 	return 0;
 }
 
-static int mx3_stop_streaming(struct vb2_queue *q)
+static void mx3_stop_streaming(struct vb2_queue *q)
 {
 	struct soc_camera_device *icd = soc_camera_from_vb2q(q);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
@@ -432,8 +430,6 @@ static int mx3_stop_streaming(struct vb2_queue *q)
 	}
 
 	spin_unlock_irqrestore(&mx3_cam->lock, flags);
-
-	return 0;
 }
 
 static struct vb2_ops mx3_videobuf_ops = {
@@ -455,14 +451,13 @@ static int mx3_camera_init_videobuf(struct vb2_queue *q,
 	q->ops = &mx3_videobuf_ops;
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->buf_struct_size = sizeof(struct mx3_camera_buffer);
-	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 
 	return vb2_queue_init(q);
 }
 
 /* First part of ipu_csi_init_interface() */
-static void mx3_camera_activate(struct mx3_camera_dev *mx3_cam,
-				struct soc_camera_device *icd)
+static void mx3_camera_activate(struct mx3_camera_dev *mx3_cam)
 {
 	u32 conf;
 	long rate;
@@ -506,39 +501,42 @@ static void mx3_camera_activate(struct mx3_camera_dev *mx3_cam,
 
 	clk_prepare_enable(mx3_cam->clk);
 	rate = clk_round_rate(mx3_cam->clk, mx3_cam->mclk);
-	dev_dbg(icd->parent, "Set SENS_CONF to %x, rate %ld\n", conf, rate);
+	dev_dbg(mx3_cam->soc_host.v4l2_dev.dev, "Set SENS_CONF to %x, rate %ld\n", conf, rate);
 	if (rate)
 		clk_set_rate(mx3_cam->clk, rate);
 }
 
-/* Called with .host_lock held */
 static int mx3_camera_add_device(struct soc_camera_device *icd)
 {
-	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
-	struct mx3_camera_dev *mx3_cam = ici->priv;
-
-	if (mx3_cam->icd)
-		return -EBUSY;
-
-	mx3_camera_activate(mx3_cam, icd);
-
-	mx3_cam->buf_total = 0;
-	mx3_cam->icd = icd;
-
 	dev_info(icd->parent, "MX3 Camera driver attached to camera %d\n",
 		 icd->devnum);
 
 	return 0;
 }
 
-/* Called with .host_lock held */
 static void mx3_camera_remove_device(struct soc_camera_device *icd)
 {
-	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	dev_info(icd->parent, "MX3 Camera driver detached from camera %d\n",
+		 icd->devnum);
+}
+
+/* Called with .host_lock held */
+static int mx3_camera_clock_start(struct soc_camera_host *ici)
+{
+	struct mx3_camera_dev *mx3_cam = ici->priv;
+
+	mx3_camera_activate(mx3_cam);
+
+	mx3_cam->buf_total = 0;
+
+	return 0;
+}
+
+/* Called with .host_lock held */
+static void mx3_camera_clock_stop(struct soc_camera_host *ici)
+{
 	struct mx3_camera_dev *mx3_cam = ici->priv;
 	struct idmac_channel **ichan = &mx3_cam->idmac_channel[0];
-
-	BUG_ON(icd != mx3_cam->icd);
 
 	if (*ichan) {
 		dma_release_channel(&(*ichan)->dma_chan);
@@ -546,11 +544,6 @@ static void mx3_camera_remove_device(struct soc_camera_device *icd)
 	}
 
 	clk_disable_unprepare(mx3_cam->clk);
-
-	mx3_cam->icd = NULL;
-
-	dev_info(icd->parent, "MX3 Camera driver detached from camera %d\n",
-		 icd->devnum);
 }
 
 static int test_platform_param(struct mx3_camera_dev *mx3_cam,
@@ -676,7 +669,7 @@ static int mx3_camera_get_formats(struct soc_camera_device *icd, unsigned int id
 	fmt = soc_mbus_get_fmtdesc(code);
 	if (!fmt) {
 		dev_warn(icd->parent,
-			 "Unsupported format code #%u: %d\n", idx, code);
+			 "Unsupported format code #%u: 0x%x\n", idx, code);
 		return 0;
 	}
 
@@ -692,7 +685,7 @@ static int mx3_camera_get_formats(struct soc_camera_device *icd, unsigned int id
 			xlate->host_fmt	= &mx3_camera_formats[0];
 			xlate->code	= code;
 			xlate++;
-			dev_dbg(dev, "Providing format %s using code %d\n",
+			dev_dbg(dev, "Providing format %s using code 0x%x\n",
 				mx3_camera_formats[0].name, code);
 		}
 		break;
@@ -702,7 +695,7 @@ static int mx3_camera_get_formats(struct soc_camera_device *icd, unsigned int id
 			xlate->host_fmt	= &mx3_camera_formats[1];
 			xlate->code	= code;
 			xlate++;
-			dev_dbg(dev, "Providing format %s using code %d\n",
+			dev_dbg(dev, "Providing format %s using code 0x%x\n",
 				mx3_camera_formats[1].name, code);
 		}
 		break;
@@ -1133,6 +1126,8 @@ static struct soc_camera_host_ops mx3_soc_camera_host_ops = {
 	.owner		= THIS_MODULE,
 	.add		= mx3_camera_add_device,
 	.remove		= mx3_camera_remove_device,
+	.clock_start	= mx3_camera_clock_start,
+	.clock_stop	= mx3_camera_clock_stop,
 	.set_crop	= mx3_camera_set_crop,
 	.set_fmt	= mx3_camera_set_fmt,
 	.try_fmt	= mx3_camera_try_fmt,
@@ -1153,23 +1148,19 @@ static int mx3_camera_probe(struct platform_device *pdev)
 	struct soc_camera_host *soc_host;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		err = -ENODEV;
-		goto egetres;
-	}
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
-	mx3_cam = vzalloc(sizeof(*mx3_cam));
+	mx3_cam = devm_kzalloc(&pdev->dev, sizeof(*mx3_cam), GFP_KERNEL);
 	if (!mx3_cam) {
 		dev_err(&pdev->dev, "Could not allocate mx3 camera object\n");
-		err = -ENOMEM;
-		goto ealloc;
+		return -ENOMEM;
 	}
 
-	mx3_cam->clk = clk_get(&pdev->dev, NULL);
-	if (IS_ERR(mx3_cam->clk)) {
-		err = PTR_ERR(mx3_cam->clk);
-		goto eclkget;
-	}
+	mx3_cam->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(mx3_cam->clk))
+		return PTR_ERR(mx3_cam->clk);
 
 	mx3_cam->pdata = pdev->dev.platform_data;
 	mx3_cam->platform_flags = mx3_cam->pdata->flags;
@@ -1203,13 +1194,6 @@ static int mx3_camera_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mx3_cam->capture);
 	spin_lock_init(&mx3_cam->lock);
 
-	base = ioremap(res->start, resource_size(res));
-	if (!base) {
-		pr_err("Couldn't map %x@%x\n", resource_size(res), res->start);
-		err = -ENOMEM;
-		goto eioremap;
-	}
-
 	mx3_cam->base	= base;
 
 	soc_host		= &mx3_cam->soc_host;
@@ -1220,10 +1204,8 @@ static int mx3_camera_probe(struct platform_device *pdev)
 	soc_host->nr		= pdev->id;
 
 	mx3_cam->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
-	if (IS_ERR(mx3_cam->alloc_ctx)) {
-		err = PTR_ERR(mx3_cam->alloc_ctx);
-		goto eallocctx;
-	}
+	if (IS_ERR(mx3_cam->alloc_ctx))
+		return PTR_ERR(mx3_cam->alloc_ctx);
 
 	err = soc_camera_host_register(soc_host);
 	if (err)
@@ -1236,14 +1218,6 @@ static int mx3_camera_probe(struct platform_device *pdev)
 
 ecamhostreg:
 	vb2_dma_contig_cleanup_ctx(mx3_cam->alloc_ctx);
-eallocctx:
-	iounmap(base);
-eioremap:
-	clk_put(mx3_cam->clk);
-eclkget:
-	vfree(mx3_cam);
-ealloc:
-egetres:
 	return err;
 }
 
@@ -1253,11 +1227,7 @@ static int mx3_camera_remove(struct platform_device *pdev)
 	struct mx3_camera_dev *mx3_cam = container_of(soc_host,
 					struct mx3_camera_dev, soc_host);
 
-	clk_put(mx3_cam->clk);
-
 	soc_camera_host_unregister(soc_host);
-
-	iounmap(mx3_cam->base);
 
 	/*
 	 * The channel has either not been allocated,
@@ -1267,8 +1237,6 @@ static int mx3_camera_remove(struct platform_device *pdev)
 		dma_release_channel(&mx3_cam->idmac_channel[0]->dma_chan);
 
 	vb2_dma_contig_cleanup_ctx(mx3_cam->alloc_ctx);
-
-	vfree(mx3_cam);
 
 	dmaengine_put();
 

@@ -36,11 +36,32 @@
 #define EXYNOS4210_FIXED_CIU_CLK_DIV	2
 #define EXYNOS4412_FIXED_CIU_CLK_DIV	4
 
+/* Block number in eMMC */
+#define DWMCI_BLOCK_NUM		0xFFFFFFFF
+
+#define SDMMC_EMMCP_BASE	0x1000
+#define SDMMC_MPSECURITY	(SDMMC_EMMCP_BASE + 0x0010)
+#define SDMMC_MPSBEGIN0		(SDMMC_EMMCP_BASE + 0x0200)
+#define SDMMC_MPSEND0		(SDMMC_EMMCP_BASE + 0x0204)
+#define SDMMC_MPSCTRL0		(SDMMC_EMMCP_BASE + 0x020C)
+
+/* SMU control bits */
+#define DWMCI_MPSCTRL_SECURE_READ_BIT		BIT(7)
+#define DWMCI_MPSCTRL_SECURE_WRITE_BIT		BIT(6)
+#define DWMCI_MPSCTRL_NON_SECURE_READ_BIT	BIT(5)
+#define DWMCI_MPSCTRL_NON_SECURE_WRITE_BIT	BIT(4)
+#define DWMCI_MPSCTRL_USE_FUSE_KEY		BIT(3)
+#define DWMCI_MPSCTRL_ECB_MODE			BIT(2)
+#define DWMCI_MPSCTRL_ENCRYPTION		BIT(1)
+#define DWMCI_MPSCTRL_VALID			BIT(0)
+
 /* Variations in Exynos specific dw-mshc controller */
 enum dw_mci_exynos_type {
 	DW_MCI_TYPE_EXYNOS4210,
 	DW_MCI_TYPE_EXYNOS4412,
 	DW_MCI_TYPE_EXYNOS5250,
+	DW_MCI_TYPE_EXYNOS5420,
+	DW_MCI_TYPE_EXYNOS5420_SMU,
 };
 
 /* Exynos implementation specific driver private data */
@@ -64,27 +85,28 @@ static struct dw_mci_exynos_compatible {
 	}, {
 		.compatible	= "samsung,exynos5250-dw-mshc",
 		.ctrl_type	= DW_MCI_TYPE_EXYNOS5250,
+	}, {
+		.compatible	= "samsung,exynos5420-dw-mshc",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420,
+	}, {
+		.compatible	= "samsung,exynos5420-dw-mshc-smu",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420_SMU,
 	},
 };
 
 static int dw_mci_exynos_priv_init(struct dw_mci *host)
 {
-	struct dw_mci_exynos_priv_data *priv;
-	int idx;
+	struct dw_mci_exynos_priv_data *priv = host->priv;
 
-	priv = devm_kzalloc(host->dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
-		dev_err(host->dev, "mem alloc failed for private data\n");
-		return -ENOMEM;
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS5420_SMU) {
+		mci_writel(host, MPSBEGIN0, 0);
+		mci_writel(host, MPSEND0, DWMCI_BLOCK_NUM);
+		mci_writel(host, MPSCTRL0, DWMCI_MPSCTRL_SECURE_WRITE_BIT |
+			   DWMCI_MPSCTRL_NON_SECURE_READ_BIT |
+			   DWMCI_MPSCTRL_VALID |
+			   DWMCI_MPSCTRL_NON_SECURE_WRITE_BIT);
 	}
 
-	for (idx = 0; idx < ARRAY_SIZE(exynos_compat); idx++) {
-		if (of_device_is_compatible(host->dev->of_node,
-					exynos_compat[idx].compatible))
-			priv->ctrl_type = exynos_compat[idx].ctrl_type;
-	}
-
-	host->priv = priv;
 	return 0;
 }
 
@@ -92,7 +114,9 @@ static int dw_mci_exynos_setup_clock(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
 
-	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS5250)
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS5250 ||
+	    priv->ctrl_type == DW_MCI_TYPE_EXYNOS5420 ||
+	    priv->ctrl_type == DW_MCI_TYPE_EXYNOS5420_SMU)
 		host->bus_hz /= (priv->ciu_div + 1);
 	else if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS4412)
 		host->bus_hz /= EXYNOS4412_FIXED_CIU_CLK_DIV;
@@ -127,11 +151,23 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 
 static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 {
-	struct dw_mci_exynos_priv_data *priv = host->priv;
+	struct dw_mci_exynos_priv_data *priv;
 	struct device_node *np = host->dev->of_node;
 	u32 timing[2];
 	u32 div = 0;
+	int idx;
 	int ret;
+
+	priv = devm_kzalloc(host->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
+		dev_err(host->dev, "mem alloc failed for private data\n");
+		return -ENOMEM;
+	}
+
+	for (idx = 0; idx < ARRAY_SIZE(exynos_compat); idx++) {
+		if (of_device_is_compatible(np, exynos_compat[idx].compatible))
+			priv->ctrl_type = exynos_compat[idx].ctrl_type;
+	}
 
 	of_property_read_u32(np, "samsung,dw-mshc-ciu-div", &div);
 	priv->ciu_div = div;
@@ -149,20 +185,26 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 		return ret;
 
 	priv->ddr_timing = SDMMC_CLKSEL_TIMING(timing[0], timing[1], div);
+	host->priv = priv;
 	return 0;
 }
 
 /* Common capabilities of Exynos4/Exynos5 SoC */
 static unsigned long exynos_dwmmc_caps[4] = {
-	MMC_CAP_UHS_DDR50 | MMC_CAP_1_8V_DDR |
+	MMC_CAP_UHS_DDR50 | MMC_CAP_1_8V_DDR | MMC_CAP_ERASE |
 		MMC_CAP_8_BIT_DATA | MMC_CAP_CMD23,
-	MMC_CAP_CMD23,
-	MMC_CAP_CMD23,
-	MMC_CAP_CMD23,
+	MMC_CAP_ERASE | MMC_CAP_CMD23,
+	MMC_CAP_ERASE | MMC_CAP_CMD23,
+	MMC_CAP_ERASE | MMC_CAP_CMD23,
+};
+
+static unsigned long exynos_dwmmc_caps2[4] = {
+	MMC_CAP2_PACKED_CMD,
 };
 
 static const struct dw_mci_drv_data exynos_drv_data = {
 	.caps			= exynos_dwmmc_caps,
+	.caps2			= exynos_dwmmc_caps2,
 	.init			= dw_mci_exynos_priv_init,
 	.setup_clock		= dw_mci_exynos_setup_clock,
 	.prepare_command	= dw_mci_exynos_prepare_command,
@@ -174,6 +216,10 @@ static const struct of_device_id dw_mci_exynos_match[] = {
 	{ .compatible = "samsung,exynos4412-dw-mshc",
 			.data = &exynos_drv_data, },
 	{ .compatible = "samsung,exynos5250-dw-mshc",
+			.data = &exynos_drv_data, },
+	{ .compatible = "samsung,exynos5420-dw-mshc",
+			.data = &exynos_drv_data, },
+	{ .compatible = "samsung,exynos5420-dw-mshc-smu",
 			.data = &exynos_drv_data, },
 	{},
 };

@@ -32,6 +32,15 @@ way around.
 
 The 'camera' node must include at least one 'fimc' child node.
 
+Optional properties:
+
+- #clock-cells: from the common clock bindings (../clock/clock-bindings.txt),
+  must be 1. A clock provider is associated with the camera node and it should
+  be referenced by external sensors that use clocks provided by the SoC on
+  CAM_*_CLKOUT pins. The second cell of the clock specifier is a clock's index.
+  The indexes are 0, 1 for CAM_A_CLKOUT, CAM_B_CLKOUT clocks respectively.
+
+
 'fimc' device nodes
 -------------------
 
@@ -97,8 +106,8 @@ Image sensor nodes
 The sensor device nodes should be added to their control bus controller (e.g.
 I2C0) nodes and linked to a port node in the csis or the parallel-ports node,
 using the common video interfaces bindings, defined in video-interfaces.txt.
-The implementation of this bindings requires clock-frequency property to be
-present in the sensor device nodes.
+An optional clock-frequency property needs to be present in the sensor device
+nodes. Default value when this property is not present is 24 MHz.
 
 Example:
 
@@ -114,7 +123,7 @@ Example:
 			vddio-supply = <...>;
 
 			clock-frequency = <24000000>;
-			clocks = <...>;
+			clocks = <&camclk 1>;
 			clock-names = "mclk";
 
 			port {
@@ -127,22 +136,22 @@ Example:
 				};
 			};
 		};
-	};
 
-	/* MIPI CSI-2 bus IF sensor */
-	s5c73m3: sensor@0x1a {
-		compatible = "samsung,s5c73m3";
-		reg = <0x1a>;
-		vddio-supply = <...>;
+		/* MIPI CSI-2 bus IF sensor */
+		s5c73m3: sensor@0x1a {
+			compatible = "samsung,s5c73m3";
+			reg = <0x1a>;
+			vddio-supply = <...>;
 
-		clock-frequency = <24000000>;
-		clocks = <...>;
-		clock-names = "mclk";
+			clock-frequency = <24000000>;
+			clocks = <&camclk 0>;
+			clock-names = "mclk";
 
-		port {
-			s5c73m3_1: endpoint {
-				data-lanes = <1 2 3 4>;
-				remote-endpoint = <&csis0_ep>;
+			port {
+				s5c73m3_1: endpoint {
+					data-lanes = <1 2 3 4>;
+					remote-endpoint = <&csis0_ep>;
+				};
 			};
 		};
 	};
@@ -151,8 +160,8 @@ Example:
 		compatible = "samsung,fimc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		#clock-cells = <1>;
 		status = "okay";
-
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam_port_a_clk_active>;
 

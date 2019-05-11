@@ -90,6 +90,9 @@ extern void *of_get_flat_dt_prop(unsigned long node, const char *name,
 extern int of_flat_dt_is_compatible(unsigned long node, const char *name);
 extern int of_flat_dt_match(unsigned long node, const char *const *matches);
 extern unsigned long of_get_flat_dt_root(void);
+extern int of_scan_flat_dt_by_path(const char *path,
+	int (*it)(unsigned long node, const char *name, int depth, void *data),
+	void *data);
 
 /*
  * early_init_dt_scan_chosen - scan the device tree for ramdisk and bootargs
@@ -135,10 +138,16 @@ extern void early_init_dt_setup_initrd_arch(unsigned long start,
 extern int early_init_dt_scan_root(unsigned long node, const char *uname,
 				   int depth, void *data);
 
+extern unsigned int of_flat_dt_get_machine_rev(void);
+extern char *of_flat_dt_get_machine_name(void);
+extern void *of_flat_dt_match_machine(void *default_match,
+	void * (*get_next_compat)(const char * const**));
+
 /* Other Prototypes */
 extern void unflatten_device_tree(void);
 extern void early_init_devtree(void *);
 #else /* CONFIG_OF_FLATTREE */
+static inline const char *of_flat_dt_get_machine_name(void) { return NULL; }
 static inline void unflatten_device_tree(void) {}
 #endif /* CONFIG_OF_FLATTREE */
 

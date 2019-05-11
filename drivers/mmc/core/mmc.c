@@ -17,6 +17,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
+#include <linux/string.h>
 
 #include "core.h"
 #include "bus.h"
@@ -293,7 +294,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
-	if (card->ext_csd.rev > 6) {
+	if (card->ext_csd.rev > 7) {
 		pr_err("%s: unrecognised EXT_CSD revision %d\n",
 			mmc_hostname(card->host), card->ext_csd.rev);
 		err = -EINVAL;
@@ -1457,6 +1458,15 @@ static int mmc_resume(struct mmc_host *host)
 
 	mmc_claim_host(host);
 	err = mmc_init_card(host, host->ocr, host->card);
+
+	if (host->card->movi_ops == 0x2) {
+		err = mmc_start_movi_operation(host->card);
+		if (err) {
+			pr_warning("%s: movi operation is failed\n",
+							mmc_hostname(host));
+		}
+	}
+
 	mmc_release_host(host);
 
 	return err;
@@ -1602,8 +1612,23 @@ int mmc_attach_mmc(struct mmc_host *host)
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);
 	mmc_claim_host(host);
+
 	if (err)
 		goto remove_card;
+
+	if (!strncmp(host->card->cid.prod_name, "VTU00M", 6) &&
+		(host->card->cid.prv == 0xf1) &&
+		(mmc_start_movi_smart(host->card) == 0x2))
+		host->card->movi_ops = 0x2;
+
+	if (host->card->movi_ops == 0x2) {
+		err = mmc_start_movi_operation(host->card);
+		if (err) {
+			pr_warning("%s: movi operation is failed\n",
+							mmc_hostname(host));
+			goto remove_card;
+		}
+	}
 
 	return 0;
 

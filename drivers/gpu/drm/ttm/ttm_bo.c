@@ -1619,9 +1619,7 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 		goto out_no_sys;
 
 	bdev->addr_space_rb = RB_ROOT;
-	ret = drm_mm_init(&bdev->addr_space_mm, file_page_offset, 0x10000000);
-	if (unlikely(ret != 0))
-		goto out_no_addr_mm;
+	drm_mm_init(&bdev->addr_space_mm, file_page_offset, 0x10000000);
 
 	INIT_DELAYED_WORK(&bdev->wq, ttm_bo_delayed_workqueue);
 	INIT_LIST_HEAD(&bdev->ddestroy);
@@ -1635,8 +1633,6 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 	mutex_unlock(&glob->device_list_mutex);
 
 	return 0;
-out_no_addr_mm:
-	ttm_bo_clean_mm(bdev, 0);
 out_no_sys:
 	return ret;
 }
@@ -1666,12 +1662,8 @@ bool ttm_mem_reg_is_pci(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 void ttm_bo_unmap_virtual_locked(struct ttm_buffer_object *bo)
 {
 	struct ttm_bo_device *bdev = bo->bdev;
-	loff_t offset = (loff_t) bo->addr_space_offset;
-	loff_t holelen = ((loff_t) bo->mem.num_pages) << PAGE_SHIFT;
 
-	if (!bdev->dev_mapping)
-		return;
-	unmap_mapping_range(bdev->dev_mapping, offset, holelen, 1);
+	drm_vma_node_unmap(&bo->vma_node, bdev->dev_mapping);
 	ttm_mem_io_free_vm(bo);
 }
 

@@ -1,0 +1,25 @@
+menuconfig DISPLAY_CORE
+	tristate "Display Core"
+	---help---
+	  Support common display framework for graphics devices.
+
+if DISPLAY_CORE
+
+config DISPLAY_PANEL_S6D6AA1
+	tristate "S6D6AA1 DSI video mode panel"
+	select OF_VIDEOMODE
+
+config DISPLAY_PANEL_S6E8AA0
+	tristate "S6E8AA0 DSI video mode panel"
+	select OF_VIDEOMODE
+
+config DISPLAY_PANEL_L5F31188
+	tristate "L5F31188 DSI video mode panel"
+	depends on OF
+	select VIDEOMODE_HELPERS
+
+config DISPLAY_SOURCE_EXYNOS_DSI
+	tristate "Samsung SoC MIPI DSI Master"
+
+
+endif # DISPLAY_CORE

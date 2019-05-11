@@ -710,7 +710,7 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	 * Ask the core to calculate the divisor for us.
 	 */
 
-	baud = uart_get_baud_rate(port, termios, old, 0, 115200*8);
+	baud = uart_get_baud_rate(port, termios, old, 0, 3000000);
 	quot = s3c24xx_serial_getclk(ourport, baud, &clk, &clk_sel);
 	if (baud == 38400 && (port->flags & UPF_SPD_MASK) == UPF_SPD_CUST)
 		quot = port->custom_divisor;
@@ -1307,8 +1307,7 @@ static int s3c24xx_serial_suspend(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 
-	if (port)
-		uart_suspend_port(&s3c24xx_uart_drv, port);
+	uart_suspend_port(&s3c24xx_uart_drv, port);
 
 	return 0;
 }
@@ -1318,13 +1317,11 @@ static int s3c24xx_serial_resume(struct device *dev)
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (port) {
-		clk_prepare_enable(ourport->clk);
-		s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
-		clk_disable_unprepare(ourport->clk);
+	clk_prepare_enable(ourport->clk);
+	s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
+	clk_disable_unprepare(ourport->clk);
 
-		uart_resume_port(&s3c24xx_uart_drv, port);
-	}
+	uart_resume_port(&s3c24xx_uart_drv, port);
 
 	return 0;
 }
@@ -1333,16 +1330,14 @@ static int s3c24xx_serial_resume_noirq(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 
-	if (port) {
-		/* restore IRQ mask */
-		if (s3c24xx_serial_has_interrupt_mask(port)) {
-			unsigned int uintm = 0xf;
-			if (tx_enabled(port))
-				uintm &= ~S3C64XX_UINTM_TXD_MSK;
-			if (rx_enabled(port))
-				uintm &= ~S3C64XX_UINTM_RXD_MSK;
-			wr_regl(port, S3C64XX_UINTM, uintm);
-		}
+	/* restore IRQ mask */
+	if (s3c24xx_serial_has_interrupt_mask(port)) {
+		unsigned int uintm = 0xf;
+		if (tx_enabled(port))
+			uintm &= ~S3C64XX_UINTM_TXD_MSK;
+		if (rx_enabled(port))
+			uintm &= ~S3C64XX_UINTM_RXD_MSK;
+		wr_regl(port, S3C64XX_UINTM, uintm);
 	}
 
 	return 0;
@@ -1713,9 +1708,7 @@ static struct s3c24xx_serial_drv_data s5pv210_serial_drv_data = {
 #define S5PV210_SERIAL_DRV_DATA	(kernel_ulong_t)NULL
 #endif
 
-#if defined(CONFIG_CPU_EXYNOS4210) || defined(CONFIG_SOC_EXYNOS4212) || \
-	defined(CONFIG_SOC_EXYNOS4412) || defined(CONFIG_SOC_EXYNOS5250) || \
-	defined(CONFIG_SOC_EXYNOS5440)
+#if defined(CONFIG_ARCH_EXYNOS)
 static struct s3c24xx_serial_drv_data exynos4210_serial_drv_data = {
 	.info = &(struct s3c24xx_uart_info) {
 		.name		= "Samsung Exynos4 UART",

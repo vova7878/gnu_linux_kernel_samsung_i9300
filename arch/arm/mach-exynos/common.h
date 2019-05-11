@@ -20,6 +20,7 @@ extern unsigned long xxti_f, xusbxti_f;
 
 struct map_desc;
 void exynos_init_io(struct map_desc *mach_desc, int size);
+void exynos3_init_irq(void);
 void exynos4_init_irq(void);
 void exynos5_init_irq(void);
 void exynos4_restart(char mode, const char *cmd);
@@ -91,13 +92,15 @@ enum sys_powerdown {
 	NUM_SYS_POWERDOWN,
 };
 
-extern unsigned long l2x0_regs_phys;
 struct exynos_pmu_conf {
 	void __iomem *reg;
 	unsigned int val[NUM_SYS_POWERDOWN];
 };
 
 extern void exynos_sys_powerdown_conf(enum sys_powerdown mode);
+extern void exynos_cpu_power_down(int cpu);
+extern void exynos_cpu_power_up(int cpu);
+extern int  exynos_cpu_power_state(int cpu);
 extern void s3c_cpu_resume(void);
 
 #endif /* __ARCH_ARM_MACH_EXYNOS_COMMON_H */

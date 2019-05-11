@@ -19,6 +19,7 @@
 
 #include "exynos_drm_drv.h"
 #include "exynos_drm_fb.h"
+#include "exynos_drm_fbdev.h"
 #include "exynos_drm_gem.h"
 #include "exynos_drm_iommu.h"
 
@@ -42,8 +43,6 @@ static int exynos_drm_fb_mmap(struct fb_info *info,
 	struct exynos_drm_gem_buf *buffer = exynos_gem_obj->buffer;
 	unsigned long vm_size;
 	int ret;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	vma->vm_flags |= VM_IO | VM_DONTEXPAND | VM_DONTDUMP;
 
@@ -84,15 +83,13 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
 	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3);
 	unsigned long offset;
 
-	DRM_DEBUG_KMS("%s\n", __FILE__);
-
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(fbi, helper, fb->width, fb->height);
 
 	/* RGB formats use only one buffer */
 	buffer = exynos_drm_fb_buffer(fb, 0);
 	if (!buffer) {
-		DRM_LOG_KMS("buffer is null.\n");
+		DRM_DEBUG_KMS("buffer is null.\n");
 		return -EFAULT;
 	}
 
@@ -147,8 +144,6 @@ static int exynos_drm_fbdev_create(struct drm_fb_helper *helper,
 	struct platform_device *pdev = dev->platformdev;
 	unsigned long size;
 	int ret;
-
-	DRM_DEBUG_KMS("%s\n", __FILE__);
 
 	DRM_DEBUG_KMS("surface width(%d), height(%d) and bpp(%d\n",
 			sizes->surface_width, sizes->surface_height,
@@ -230,6 +225,24 @@ static struct drm_fb_helper_funcs exynos_drm_fb_helper_funcs = {
 	.fb_probe =	exynos_drm_fbdev_create,
 };
 
+bool exynos_drm_fbdev_is_anything_connected(struct drm_device *dev)
+{
+	struct drm_connector *connector;
+	bool ret = false;
+
+	mutex_lock(&dev->mode_config.mutex);
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector->status != connector_status_connected)
+			continue;
+
+		ret = true;
+		break;
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return ret;
+}
+
 int exynos_drm_fbdev_init(struct drm_device *dev)
 {
 	struct exynos_drm_fbdev *fbdev;
@@ -238,16 +251,15 @@ int exynos_drm_fbdev_init(struct drm_device *dev)
 	unsigned int num_crtc;
 	int ret;
 
-	DRM_DEBUG_KMS("%s\n", __FILE__);
-
 	if (!dev->mode_config.num_crtc || !dev->mode_config.num_connector)
 		return 0;
 
+	if (!exynos_drm_fbdev_is_anything_connected(dev))
+		return 0;
+
 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
-	if (!fbdev) {
-		DRM_ERROR("failed to allocate drm fbdev.\n");
+	if (!fbdev)
 		return -ENOMEM;
-	}
 
 	private->fb_helper = helper = &fbdev->drm_fb_helper;
 	helper->funcs = &exynos_drm_fb_helper_funcs;

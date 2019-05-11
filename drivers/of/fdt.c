@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
+#include <asm/system_info.h>
 #ifdef CONFIG_PPC
 #include <asm/machdep.h>
 #endif /* CONFIG_PPC */
@@ -543,6 +544,157 @@ int __init of_flat_dt_match(unsigned long node, const char *const *compat)
 	return of_fdt_match(initial_boot_params, node, compat);
 }
 
+struct fdt_scan_status {
+	const char *name;
+	int namelen;
+	int depth;
+	int found;
+	int (*iterator)(unsigned long node, const char *uname, int depth, void *data);
+	void *data;
+};
+
+/**
+ * fdt_scan_node_by_path - iterator for of_scan_flat_dt_by_path function
+ */
+static int __init fdt_scan_node_by_path(unsigned long node, const char *uname,
+					int depth, void *data)
+{
+	struct fdt_scan_status *st = data;
+
+	/*
+	 * if scan at the requested fdt node has been completed,
+	 * return -ENXIO to abort further scanning
+	 */
+	if (depth <= st->depth)
+		return -ENXIO;
+
+	/* requested fdt node has been found, so call iterator function */
+	if (st->found)
+		return st->iterator(node, uname, depth, st->data);
+
+	/* check if scanning automata is entering next level of fdt nodes */
+	if (depth == st->depth + 1 &&
+	    strncmp(st->name, uname, st->namelen) == 0 &&
+	    uname[st->namelen] == 0) {
+		st->depth += 1;
+		if (st->name[st->namelen] == 0) {
+			st->found = 1;
+		} else {
+			const char *next = st->name + st->namelen + 1;
+			st->name = next;
+			st->namelen = strcspn(next, "/");
+		}
+		return 0;
+	}
+
+	/* scan next fdt node */
+	return 0;
+}
+
+/**
+ * of_scan_flat_dt_by_path - scan flattened tree blob and call callback on each
+ *			     child of the given path.
+ * @path: path to start searching for children
+ * @it: callback function
+ * @data: context data pointer
+ *
+ * This function is used to scan the flattened device-tree starting from the
+ * node given by path. It is used to extract information (like reserved
+ * memory), which is required on ealy boot before we can unflatten the tree.
+ */
+int __init of_scan_flat_dt_by_path(const char *path,
+	int (*it)(unsigned long node, const char *name, int depth, void *data),
+	void *data)
+{
+	struct fdt_scan_status st = {path, 0, -1, 0, it, data};
+	int ret = 0;
+
+	if (initial_boot_params)
+                ret = of_scan_flat_dt(fdt_scan_node_by_path, &st);
+
+	if (!st.found)
+		return -ENOENT;
+	else if (ret == -ENXIO)	/* scan has been completed */
+		return 0;
+	else
+		return ret;
+}
+
+unsigned int __init of_flat_dt_get_machine_rev(void)
+{
+	const __be32 *revision;
+	unsigned long dt_root = of_get_flat_dt_root();
+	unsigned int machine_rev = 0;
+
+	revision = of_get_flat_dt_prop(dt_root, "revision", NULL);
+	if (revision != NULL)
+		machine_rev = be32_to_cpu(*revision);
+
+	return machine_rev;
+}
+
+char * __init of_flat_dt_get_machine_name(void)
+{
+	char *name;
+	unsigned long dt_root = of_get_flat_dt_root();
+
+	name = of_get_flat_dt_prop(dt_root, "model", NULL);
+	if (!name)
+		name = of_get_flat_dt_prop(dt_root, "compatible", NULL);
+	return name;
+}
+
+/**
+ * of_flat_dt_match_machine - Iterate match tables to find matching machine.
+ *
+ * @default_match: A machine specific ptr to return in case of no match.
+ * @get_next_compat: callback function to return next compatible match table.
+ *
+ * Iterate through machine match tables to find the best match for the machine
+ * compatible string in the FDT.
+ */
+void * __init of_flat_dt_match_machine(void *default_match,
+		void * (*get_next_compat)(const char * const**))
+{
+	void *data = NULL;
+	void *best_data = default_match;
+	const char *const *compat;
+	unsigned long dt_root;
+	unsigned int best_score = ~1, score = 0;
+
+	dt_root = of_get_flat_dt_root();
+	while ((data = get_next_compat(&compat))) {
+		score = of_flat_dt_match(dt_root, compat);
+		if (score > 0 && score < best_score) {
+			best_data = data;
+			best_score = score;
+		}
+	}
+	if (!best_data) {
+		const char *prop;
+		long size;
+
+		pr_err("\n unrecognized device tree list:\n[ ");
+
+		prop = of_get_flat_dt_prop(dt_root, "compatible", &size);
+		if (prop) {
+			while (size > 0) {
+				printk("'%s' ", prop);
+				size -= strlen(prop) + 1;
+				prop += strlen(prop) + 1;
+			}
+		}
+		printk("]\n\n");
+		return NULL;
+	}
+
+	pr_info("Machine model: %s, Machine revision: %04x\n",
+					of_flat_dt_get_machine_name(),
+					of_flat_dt_get_machine_rev());
+
+	return best_data;
+}
+
 #ifdef CONFIG_BLK_DEV_INITRD
 /**
  * early_init_dt_check_for_initrd - Decode initrd location from flat tree
@@ -659,66 +811,44 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 	return 0;
 }
 
-/*
- * Convert configs to something easy to use in C code
- */
-#if defined(CONFIG_CMDLINE_FORCE)
-static const int overwrite_incoming_cmdline = 1;
-static const int read_dt_cmdline;
-static const int concat_cmdline;
-#elif defined(CONFIG_CMDLINE_EXTEND)
-static const int overwrite_incoming_cmdline;
-static const int read_dt_cmdline = 1;
-static const int concat_cmdline = 1;
-#else /* CMDLINE_FROM_BOOTLOADER */
-static const int overwrite_incoming_cmdline;
-static const int read_dt_cmdline = 1;
-static const int concat_cmdline;
-#endif
-
-#ifdef CONFIG_CMDLINE
-static const char *config_cmdline = CONFIG_CMDLINE;
-#else
-static const char *config_cmdline = "";
-#endif
-
 int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 				     int depth, void *data)
 {
-	unsigned long l = 0;
-	char *p = NULL;
-	char *cmdline = data;
+	unsigned long l;
+	__be32 *serial;
+	char *p;
 
 	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
 
-	if (depth != 1 || !cmdline ||
+	if (depth != 1 || !data ||
 	    (strcmp(uname, "chosen") != 0 && strcmp(uname, "chosen@0") != 0))
 		return 0;
 
 	early_init_dt_check_for_initrd(node);
 
-	/* Put CONFIG_CMDLINE in if forced or if data had nothing in it to start */
-	if (overwrite_incoming_cmdline || !cmdline[0])
-		strlcpy(cmdline, config_cmdline, COMMAND_LINE_SIZE);
-
-	/* Retrieve command line unless forcing */
-	if (read_dt_cmdline)
-		p = of_get_flat_dt_prop(node, "bootargs", &l);
-
-	if (p != NULL && l > 0) {
-		if (concat_cmdline) {
-			int cmdline_len;
-			int copy_len;
-			strlcat(cmdline, " ", COMMAND_LINE_SIZE);
-			cmdline_len = strlen(cmdline);
-			copy_len = COMMAND_LINE_SIZE - cmdline_len - 1;
-			copy_len = min((int)l, copy_len);
-			strncpy(cmdline + cmdline_len, p, copy_len);
-			cmdline[cmdline_len + copy_len] = '\0';
-		} else {
-			strlcpy(cmdline, p, min((int)l, COMMAND_LINE_SIZE));
-		}
+	/* Retrieve serial number */
+	serial = of_get_flat_dt_prop(node, "linux,serial-number", &l);
+	if (serial != NULL && l == 2 * sizeof(u32)) {
+		system_serial_high = be32_to_cpu(serial[0]);
+		system_serial_low = be32_to_cpu(serial[1]);
 	}
+
+	/* Retrieve command line */
+	p = of_get_flat_dt_prop(node, "bootargs", &l);
+	if (p != NULL && l > 0)
+		strlcpy(data, p, min((int)l, COMMAND_LINE_SIZE));
+
+	/*
+	 * CONFIG_CMDLINE is meant to be a default in case nothing else
+	 * managed to set the command line, unless CONFIG_CMDLINE_FORCE
+	 * is set in which case we override whatever was found earlier.
+	 */
+#ifdef CONFIG_CMDLINE
+#ifndef CONFIG_CMDLINE_FORCE
+	if (!((char *)data)[0])
+#endif
+		strlcpy(data, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
+#endif /* CONFIG_CMDLINE */
 
 	pr_debug("Command line is: %s\n", (char*)data);
 

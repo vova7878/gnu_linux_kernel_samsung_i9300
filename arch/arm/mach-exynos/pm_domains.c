@@ -107,6 +107,9 @@ static void exynos_remove_device_from_domain(struct device *dev)
 	struct generic_pm_domain *genpd = dev_to_genpd(dev);
 	int ret;
 
+	if (IS_ERR(genpd))
+		return;
+
 	dev_dbg(dev, "removing from power domain %s\n", genpd->name);
 
 	while (1) {
@@ -121,6 +124,7 @@ static void exynos_read_domain_from_dt(struct device *dev)
 {
 	struct platform_device *pd_pdev;
 	struct exynos_pm_domain *pd;
+	struct exynos_pm_domain *master_pd;
 	struct device_node *node;
 
 	node = of_parse_phandle(dev->of_node, "samsung,power-domain", 0);
@@ -131,6 +135,16 @@ static void exynos_read_domain_from_dt(struct device *dev)
 		return;
 	pd = platform_get_drvdata(pd_pdev);
 	exynos_add_device_to_domain(pd, dev);
+
+	/* make master and slave hierarchy */
+	node = of_parse_phandle(dev->of_node, "samsung,power-domain-master", 0);
+	if (!node)
+		return;
+	pd_pdev = of_find_device_by_node(node);
+	if (!pd_pdev)
+		return;
+	master_pd = platform_get_drvdata(pd_pdev);
+	pm_genpd_add_subdomain(&master_pd->pd, &pd->pd);
 }
 
 static int exynos_pm_notifier_call(struct notifier_block *nb,

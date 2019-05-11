@@ -228,6 +228,7 @@ static int s5p_mfc_alloc_instance_buffer_v5(struct s5p_mfc_ctx *ctx)
 	ret = s5p_mfc_alloc_priv_buf(dev->mem_dev_l, &ctx->shm);
 	if (ret) {
 		mfc_err("Failed to allocate shared memory buffer\n");
+		s5p_mfc_release_priv_buf(dev->mem_dev_l, &ctx->ctx);
 		return ret;
 	}
 
@@ -288,30 +289,47 @@ static void s5p_mfc_dec_calc_dpb_size_v5(struct s5p_mfc_ctx *ctx)
 		ctx->luma_size = ALIGN(ctx->buf_width * ctx->buf_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
 		ctx->chroma_size = ALIGN(ctx->buf_width *
-				ALIGN((ctx->img_height >> 1),
+				ALIGN((ctx->buf_height >> 1),
 					S5P_FIMV_NV12MT_VALIGN),
 				S5P_FIMV_DEC_BUF_ALIGN);
 		ctx->mv_size = ALIGN(ctx->buf_width *
 				ALIGN((ctx->buf_height >> 2),
 					S5P_FIMV_NV12MT_VALIGN),
 				S5P_FIMV_DEC_BUF_ALIGN);
+		ctx->luma_size_to_report = ctx->luma_size;
+		ctx->chroma_size_to_report = ctx->chroma_size;
 	} else {
 		guard_width =
-			ALIGN(ctx->img_width + 24, S5P_FIMV_NV12MT_HALIGN);
+			ALIGN(ctx->buf_width + 24, S5P_FIMV_NV12MT_HALIGN);
 		guard_height =
-			ALIGN(ctx->img_height + 16, S5P_FIMV_NV12MT_VALIGN);
+			ALIGN(ctx->buf_height + 16, S5P_FIMV_NV12MT_VALIGN);
 		ctx->luma_size = ALIGN(guard_width * guard_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
 
 		guard_width =
-			ALIGN(ctx->img_width + 16, S5P_FIMV_NV12MT_HALIGN);
+			ALIGN(ctx->buf_width + 16, S5P_FIMV_NV12MT_HALIGN);
 		guard_height =
-			ALIGN((ctx->img_height >> 1) + 4,
+			ALIGN((ctx->buf_height >> 1) + 4,
 					S5P_FIMV_NV12MT_VALIGN);
 		ctx->chroma_size = ALIGN(guard_width * guard_height,
 				S5P_FIMV_DEC_BUF_ALIGN);
 
 		ctx->mv_size = 0;
+
+		ctx->luma_size_to_report = ctx->luma_size;
+		ctx->chroma_size_to_report = ctx->chroma_size;
+		if (mfc_is_iommu_used(ctx)) {
+			ctx->luma_size_to_report *= 2;
+			ctx->chroma_size_to_report *= 2;
+		}
+
+		/* If interlace is deteced for MPEG2 decoding the size of the
+		 * luma and chroma buffers should be doubled */
+		if (mfc_is_iommu_used(ctx) && ctx->interlace && ctx->codec_mode
+		    == S5P_MFC_CODEC_MPEG2_DEC) {
+			ctx->luma_size *= 2;
+			ctx->chroma_size *= 2;
+		}
 	}
 }
 
@@ -377,7 +395,7 @@ static int s5p_mfc_set_dec_stream_buffer_v5(struct s5p_mfc_ctx *ctx,
 /* Set decoding frame buffer */
 static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 {
-	unsigned int frame_size, i;
+	unsigned int frame_size_lu, i;
 	unsigned int frame_size_ch, frame_size_mv;
 	struct s5p_mfc_dev *dev = ctx->dev;
 	unsigned int dpb;
@@ -465,10 +483,10 @@ static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 			ctx->codec_mode);
 		return -EINVAL;
 	}
-	frame_size = ctx->luma_size;
+	frame_size_lu = ctx->luma_size;
 	frame_size_ch = ctx->chroma_size;
 	frame_size_mv = ctx->mv_size;
-	mfc_debug(2, "Frm size: %d ch: %d mv: %d\n", frame_size, frame_size_ch,
+	mfc_debug(2, "Frm size: %d ch: %d mv: %d\n", frame_size_lu, frame_size_ch,
 								frame_size_mv);
 	for (i = 0; i < ctx->total_dpb_count; i++) {
 		/* Bank2 */
@@ -496,8 +514,8 @@ static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 		mfc_debug(2, "Not enough memory has been allocated\n");
 		return -ENOMEM;
 	}
-	s5p_mfc_write_info_v5(ctx, frame_size, ALLOC_LUMA_DPB_SIZE);
-	s5p_mfc_write_info_v5(ctx, frame_size_ch, ALLOC_CHROMA_DPB_SIZE);
+	s5p_mfc_write_info_v5(ctx, ctx->luma_size_to_report, ALLOC_LUMA_DPB_SIZE);
+	s5p_mfc_write_info_v5(ctx, ctx->chroma_size_to_report, ALLOC_CHROMA_DPB_SIZE);
 	if (ctx->codec_mode == S5P_MFC_CODEC_H264_DEC)
 		s5p_mfc_write_info_v5(ctx, frame_size_mv, ALLOC_MV_SIZE);
 	mfc_write(dev, ((S5P_FIMV_CH_INIT_BUFS & S5P_FIMV_CH_MASK)
@@ -1582,7 +1600,7 @@ static int s5p_mfc_get_int_reason_v5(struct s5p_mfc_dev *dev)
 		break;
 	default:
 		reason = S5P_MFC_R2H_CMD_EMPTY;
-	};
+	}
 	return reason;
 }
 

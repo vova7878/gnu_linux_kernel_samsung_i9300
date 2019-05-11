@@ -19,6 +19,7 @@
 /* VIDCON0 */
 
 #define VIDCON0					0x00
+#define VIDCON0_DSI_EN				(1 << 30)
 #define VIDCON0_INTERLACE			(1 << 29)
 #define VIDCON0_VIDOUT_MASK			(0x7 << 26)
 #define VIDCON0_VIDOUT_SHIFT			26
@@ -96,7 +97,12 @@
 
 #define VIDCON2					0x08
 #define VIDCON2_EN601				(1 << 23)
+#define VIDCON2_WB_ENABLE			(1 << 15)
+#define VIDCON2_WB_MASK				(1 << 15)
+#define VIDCON2_WB_DISABLE			(0 << 15)
 #define VIDCON2_TVFMTSEL_SW			(1 << 14)
+#define VIDCON2_TVFMTSEL_SW_MASK		(1 << 14)
+#define VIDCON2_TVFORMATSEL_MASK		(0x3 << 12)
 
 #define VIDCON2_TVFMTSEL1_MASK			(0x3 << 12)
 #define VIDCON2_TVFMTSEL1_SHIFT			12
@@ -106,6 +112,12 @@
 
 #define VIDCON2_ORGYCbCr			(1 << 8)
 #define VIDCON2_YUVORDCrCb			(1 << 7)
+
+#define VIDCON2_WB_SKIP_1_2			(0x1 << 0)
+#define VIDCON2_WB_SKIP_1_3			(0x2 << 0)
+#define VIDCON2_WB_SKIP_1_4			(0x3 << 0)
+#define VIDCON2_WB_SKIP_1_5			(0x4 << 0)
+#define VIDCON2_WB_SKIP_MASK			(0x1f << 0)
 
 /* PRTCON (S3C6410, S5PC100)
  * Might not be present in the S3C6410 documentation,
@@ -355,7 +367,7 @@
 #define VIDINTCON0_INT_ENABLE			(1 << 0)
 
 #define VIDINTCON1				0x134
-#define VIDINTCON1_INT_I180			(1 << 2)
+#define VIDINTCON1_INT_I80			(1 << 2)
 #define VIDINTCON1_INT_FRAME			(1 << 1)
 #define VIDINTCON1_INT_FIFO			(1 << 0)
 

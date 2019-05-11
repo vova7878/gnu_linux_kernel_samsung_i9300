@@ -60,17 +60,31 @@ static const struct spi_device_id st_gyro_id_table[] = {
 	{ LSM330DL_GYRO_DEV_NAME },
 	{ LSM330DLC_GYRO_DEV_NAME },
 	{ L3GD20_GYRO_DEV_NAME },
-	{ L3GD20H_GYRO_DEV_NAME },
 	{ L3G4IS_GYRO_DEV_NAME },
 	{ LSM330_GYRO_DEV_NAME },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, st_gyro_id_table);
 
+#ifdef CONFIG_OF
+static struct of_device_id st_gyro_dt_match[] = {
+	{ .compatible = "st,l3g4200d" },
+	{ .compatible = "st,lsm330d-gyro" },
+	{ .compatible = "st,lsm330dl-gyro" },
+	{ .compatible = "st,lsm330dlc-gyro" },
+	{ .compatible = "st,l3gd20" },
+	{ .compatible = "st,l3gd20h" },
+	{ .compatible = "st,l3g4is-ui" },
+	{ .compatible = "st,lsm330-gyro" },
+	{ },
+};
+#endif
+
 static struct spi_driver st_gyro_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "st-gyro-spi",
+		.of_match_table = of_match_ptr(st_gyro_dt_match),
 	},
 	.probe = st_gyro_spi_probe,
 	.remove = st_gyro_spi_remove,

@@ -365,6 +365,9 @@
 #define S5P_FIMV_H2R_CMD_SLEEP		5
 #define S5P_FIMV_H2R_CMD_WAKEUP		6
 
+/* Host to RISC command options */
+#define S5P_FIMV_H2R_MPEG2_PADDING	BIT(30)
+
 #define S5P_FIMV_R2H_CMD_EMPTY			0
 #define S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET	1
 #define S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET	2
@@ -382,7 +385,7 @@
 #define S5P_FIMV_R2H_CMD_EDFU_INIT_RET		16
 #define S5P_FIMV_R2H_CMD_ERR_RET		32
 
-/* Dummy definition for MFCv6 compatibilty */
+/* Dummy definition for MFCv6 compatibility */
 #define S5P_FIMV_CODEC_H264_MVC_DEC		-1
 #define S5P_FIMV_R2H_CMD_FIELD_DONE_RET		-1
 #define S5P_FIMV_MFC_RESET			-1
@@ -393,6 +396,7 @@
 #define S5P_FIMV_REG_CLEAR_COUNT		0
 
 /* Error handling defines */
+#define S5P_FIMV_ERR_INCOMPLETE_FRAME		124
 #define S5P_FIMV_ERR_WARNINGS_START		145
 #define S5P_FIMV_ERR_DEC_MASK			0xFFFF
 #define S5P_FIMV_ERR_DEC_SHIFT			0

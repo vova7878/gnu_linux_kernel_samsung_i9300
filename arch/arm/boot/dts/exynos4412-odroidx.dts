@@ -19,7 +19,7 @@
 	compatible = "hardkernel,odroid-x", "samsung,exynos4412";
 
 	memory {
-		reg = <0x40000000 0x40000000>;
+		reg = <0x40000000 0x3FF00000>;
 	};
 
 	leds {
@@ -36,6 +36,17 @@
 			default-state = "on";
 			linux,default-trigger = "mmc0";
 		};
+	};
+
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vbus_det>;
+		gpio-vbus-det = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
 	};
 
 	mshc@12550000 {
@@ -107,5 +118,12 @@
 			compatible = "samsung,clock-xusbxti";
 			clock-frequency = <24000000>;
 		};
+	};
+};
+
+&pinctrl_1 {
+	vbus_det: vbus-det {
+		  samsung,pins = "gpx1-6";
+		  samsung,pin-pud = <0>;
 	};
 };

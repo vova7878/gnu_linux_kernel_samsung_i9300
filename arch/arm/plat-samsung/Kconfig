@@ -22,6 +22,7 @@ config PLAT_S5P
 	select ARM_VIC if !ARCH_EXYNOS
 	select GIC_NON_BANKED if ARCH_EXYNOS4
 	select NO_IOPORT
+	select ARM_HAS_SG_CHAIN
 	select PLAT_SAMSUNG
 	select S3C_GPIO_TRACK
 	select S5P_GPIO_DRVSTR
@@ -394,11 +395,6 @@ config S3C24XX_PWM
 	help
 	  Support for exporting the PWM timer blocks via the pwm device
 	  system
-
-config S5P_SETUP_MIPIPHY
-	bool
-	help
-	  Compile in common setup code for MIPI-CSIS and MIPI-DSIM devices
 
 config S3C_SETUP_CAMIF
 	bool

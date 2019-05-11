@@ -1372,7 +1372,7 @@ static int vidioc_g_register (struct file *file, void *fh,
 	if (!v4l2_chip_match_host(&reg->match))
 		return -EINVAL;
 	/* cx2388x has a 24-bit register space */
-	reg->val = cx_read(reg->reg & 0xffffff);
+	reg->val = cx_read(reg->reg & 0xfffffc);
 	reg->size = 4;
 	return 0;
 }
@@ -1384,7 +1384,7 @@ static int vidioc_s_register (struct file *file, void *fh,
 
 	if (!v4l2_chip_match_host(&reg->match))
 		return -EINVAL;
-	cx_write(reg->reg & 0xffffff, reg->val);
+	cx_write(reg->reg & 0xfffffc, reg->val);
 	return 0;
 }
 #endif
@@ -1755,7 +1755,7 @@ static int cx8800_initdev(struct pci_dev *pci_dev,
 
 	/* get irq */
 	err = request_irq(pci_dev->irq, cx8800_irq,
-			  IRQF_SHARED | IRQF_DISABLED, core->name, dev);
+			  IRQF_SHARED, core->name, dev);
 	if (err < 0) {
 		printk(KERN_ERR "%s/0: can't get IRQ %d\n",
 		       core->name,pci_dev->irq);
@@ -1939,7 +1939,6 @@ static void cx8800_finidev(struct pci_dev *pci_dev)
 
 	free_irq(pci_dev->irq, dev);
 	cx8800_unregister_video(dev);
-	pci_set_drvdata(pci_dev, NULL);
 
 	/* free memory */
 	btcx_riscmem_free(dev->pci,&dev->vidq.stopper);
@@ -2056,17 +2055,4 @@ static struct pci_driver cx8800_pci_driver = {
 #endif
 };
 
-static int __init cx8800_init(void)
-{
-	printk(KERN_INFO "cx88/0: cx2388x v4l2 driver version %s loaded\n",
-	       CX88_VERSION);
-	return pci_register_driver(&cx8800_pci_driver);
-}
-
-static void __exit cx8800_fini(void)
-{
-	pci_unregister_driver(&cx8800_pci_driver);
-}
-
-module_init(cx8800_init);
-module_exit(cx8800_fini);
+module_pci_driver(cx8800_pci_driver);

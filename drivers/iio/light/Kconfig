@@ -52,6 +52,18 @@ config VCNL4000
 	 To compile this driver as a module, choose M here: the
 	 module will be called vcnl4000.
 
+config GP2AP002A00F
+	tristate "Sharp GP2AP002A00F I2C Proximity/Opto sensor driver"
+	depends on I2C
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say Y here if you have a Sharp GP2AP002A00F proximity/als combo-chip
+	  hooked to an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gp2ap002a00f.
+
 config HID_SENSOR_ALS
 	depends on HID_SENSOR_HUB
 	select IIO_BUFFER
@@ -62,5 +74,16 @@ config HID_SENSOR_ALS
 	help
 	  Say yes here to build support for the HID SENSOR
 	  Ambient light sensor.
+
+config CM36651
+	depends on I2C
+	tristate "CM36651 driver"
+	default n
+	help
+	  Sya Y here if you use cm36651.
+	  This option enables proximity & RGB sensor using
+	  Capella cm36651 device driver.
+
+	  Say N here if you do not use cm36651.
 
 endmenu

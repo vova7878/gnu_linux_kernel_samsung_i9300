@@ -20,20 +20,36 @@ enum pll45xx_type {
 
 enum pll46xx_type {
 	pll_4600,
+	pll_4600x,	/* For exynos3250 EPLL */
 	pll_4650,
 	pll_4650c,
 };
 
+struct pll_pms {
+	unsigned int f_out;
+	int p;
+	int m;
+	int s;
+	int k;
+	int afc;
+	int mfr;
+	int mrr;
+};
+
+#define F_OUT_INVAL ~0
+
 extern struct clk * __init samsung_clk_register_pll35xx(const char *name,
-			const char *pname, const void __iomem *con_reg);
+			const char *pname, const void __iomem *base_reg,
+			struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll36xx(const char *name,
-			const char *pname, const void __iomem *con_reg);
+			const char *pname, void __iomem *base,
+			struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll45xx(const char *name,
-			const char *pname, const void __iomem *con_reg,
-			enum pll45xx_type type);
+			const char *pname, void __iomem *base_reg,
+			enum pll45xx_type type, struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll46xx(const char *name,
-			const char *pname, const void __iomem *con_reg,
-			enum pll46xx_type type);
+			const char *pname, void __iomem *base,
+			enum pll46xx_type type, struct pll_pms *pms);
 extern struct clk * __init samsung_clk_register_pll2550x(const char *name,
 			const char *pname, const void __iomem *reg_base,
 			const unsigned long offset);

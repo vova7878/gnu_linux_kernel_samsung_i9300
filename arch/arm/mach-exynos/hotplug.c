@@ -92,11 +92,12 @@ static inline void cpu_leave_lowpower(void)
 
 static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
-	for (;;) {
+	u32 mpidr = cpu_logical_map(cpu);
+	u32 core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 
-		/* make cpu1 to be turned off at next WFI command */
-		if (cpu == 1)
-			__raw_writel(0, S5P_ARM_CORE1_CONFIGURATION);
+	for (;;) {
+		/* Turn the CPU off on next WFI instruction. */
+		exynos_cpu_power_down(core_id);
 
 		/*
 		 * here's the WFI
@@ -106,7 +107,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		    :
 		    : "memory", "cc");
 
-		if (pen_release == cpu_logical_map(cpu)) {
+		if (pen_release == core_id) {
 			/*
 			 * OK, proper wakeup, we're done
 			 */
@@ -136,12 +137,19 @@ void __ref exynos_cpu_die(unsigned int cpu)
 
 	/*
 	 * we're ready for shutdown now, so do it.
-	 * Exynos4 is A9 based while Exynos5 is A15; check the CPU part
+	 * Exynos4 is A9 based while Exynos3/Exynos5 is A15; check the CPU part
 	 * number by reading the Main ID register and then perform the
 	 * appropriate sequence for entering low power.
 	 */
 	asm("mrc p15, 0, %0, c0, c0, 0" : "=r"(primary_part) : : "cc");
-	if ((primary_part & 0xfff0) == 0xc0f0)
+
+	/*
+	 * Main ID register of Cortex series
+	 * - Cortex-a7  : 0x410F_C07x
+	 * - Cortex-a15 : 0x410F_C0Fx
+	 */
+	primary_part = primary_part & 0xfff0;
+	if (primary_part == 0xc0f0 || primary_part == 0xc070)
 		cpu_enter_lowpower_a15();
 	else
 		cpu_enter_lowpower_a9();

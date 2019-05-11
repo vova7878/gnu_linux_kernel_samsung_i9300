@@ -31,6 +31,7 @@
 #include <linux/extcon.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
+#include <linux/of.h>
 
 /*
  * extcon_cable_name suggests the standard cable names for commonly used
@@ -501,6 +502,7 @@ int extcon_register_interest(struct extcon_specific_cable_nb *obj,
 		return -ENODEV;
 	}
 }
+EXPORT_SYMBOL_GPL(extcon_register_interest);
 
 /**
  * extcon_unregister_interest() - Unregister the notifier registered by
@@ -515,6 +517,7 @@ int extcon_unregister_interest(struct extcon_specific_cable_nb *obj)
 
 	return raw_notifier_chain_unregister(&obj->edev->nh, &obj->internal_nb);
 }
+EXPORT_SYMBOL_GPL(extcon_unregister_interest);
 
 /**
  * extcon_register_notifier() - Register a notifiee to get notified by
@@ -620,7 +623,8 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 	edev->dev->class = extcon_class;
 	edev->dev->release = extcon_dev_release;
 
-	dev_set_name(edev->dev, edev->name ? edev->name : dev_name(dev));
+	edev->name = edev->name ? edev->name : dev_name(dev);
+	dev_set_name(edev->dev, edev->name);
 
 	if (edev->max_supported) {
 		char buf[10];
@@ -834,11 +838,52 @@ void extcon_dev_unregister(struct extcon_dev *edev)
 }
 EXPORT_SYMBOL_GPL(extcon_dev_unregister);
 
+#ifdef CONFIG_OF
+/*
+ * extcon_get_edev_by_phandle - Get the extcon device from devicetree
+ * @dev - instance to the given device
+ * @index - index into list of extcon_dev
+ *
+ * return the instance of extcon device
+ */
+struct extcon_dev *extcon_get_edev_by_phandle(struct device *dev, int index)
+{
+	struct device_node *node;
+	struct extcon_dev *edev;
+
+	if (!dev->of_node) {
+		dev_err(dev, "device does not have a device node entry\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	node = of_parse_phandle(dev->of_node, "extcon", index);
+	if (!node) {
+		dev_err(dev, "failed to get phandle in %s node\n",
+			dev->of_node->full_name);
+		return ERR_PTR(-ENODEV);
+	}
+
+	edev = extcon_get_extcon_dev(node->name);
+	if (!edev) {
+		dev_err(dev, "unable to get extcon device : %s\n", node->name);
+		return ERR_PTR(-ENODEV);
+	}
+
+	return edev;
+}
+#else
+struct extcon_dev *extcon_get_edev_by_phandle(struct device *dev, int index)
+{
+	return ERR_PTR(-ENOSYS);
+}
+#endif /* CONFIG_OF */
+EXPORT_SYMBOL_GPL(extcon_get_edev_by_phandle);
+
 static int __init extcon_class_init(void)
 {
 	return create_extcon_class();
 }
-module_init(extcon_class_init);
+subsys_initcall(extcon_class_init);
 
 static void __exit extcon_class_exit(void)
 {

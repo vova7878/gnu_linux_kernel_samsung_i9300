@@ -601,10 +601,18 @@ static int vidioc_s_std(struct file *file, void *priv, v4l2_std_id id)
 
 	usbvision->tvnorm_id = id;
 
-	call_all(usbvision, core, s_std, usbvision->tvnorm_id);
+	call_all(usbvision, video, s_std, usbvision->tvnorm_id);
 	/* propagate the change to the decoder */
 	usbvision_muxsel(usbvision, usbvision->ctl_input);
 
+	return 0;
+}
+
+static int vidioc_g_std(struct file *file, void *priv, v4l2_std_id *id)
+{
+	struct usb_usbvision *usbvision = video_drvdata(file);
+
+	*id = usbvision->tvnorm_id;
 	return 0;
 }
 
@@ -1248,6 +1256,7 @@ static const struct v4l2_ioctl_ops usbvision_ioctl_ops = {
 	.vidioc_qbuf          = vidioc_qbuf,
 	.vidioc_dqbuf         = vidioc_dqbuf,
 	.vidioc_s_std         = vidioc_s_std,
+	.vidioc_g_std         = vidioc_g_std,
 	.vidioc_enum_input    = vidioc_enum_input,
 	.vidioc_g_input       = vidioc_g_input,
 	.vidioc_s_input       = vidioc_s_input,
@@ -1274,7 +1283,6 @@ static struct video_device usbvision_video_template = {
 	.name           = "usbvision-video",
 	.release	= video_device_release,
 	.tvnorms        = USBVISION_NORMS,
-	.current_norm   = V4L2_STD_PAL
 };
 
 
@@ -1307,9 +1315,6 @@ static struct video_device usbvision_radio_template = {
 	.name		= "usbvision-radio",
 	.release	= video_device_release,
 	.ioctl_ops	= &usbvision_radio_ioctl_ops,
-
-	.tvnorms              = USBVISION_NORMS,
-	.current_norm         = V4L2_STD_PAL
 };
 
 
@@ -1459,6 +1464,7 @@ static void usbvision_release(struct usb_usbvision *usbvision)
 
 	usbvision_remove_sysfs(usbvision->vdev);
 	usbvision_unregister_video(usbvision);
+	kfree(usbvision->alt_max_pkt_size);
 
 	usb_free_urb(usbvision->ctrl_urb);
 
@@ -1574,6 +1580,7 @@ static int usbvision_probe(struct usb_interface *intf,
 	usbvision->alt_max_pkt_size = kmalloc(32 * usbvision->num_alt, GFP_KERNEL);
 	if (usbvision->alt_max_pkt_size == NULL) {
 		dev_err(&intf->dev, "usbvision: out of memory!\n");
+		usbvision_release(usbvision);
 		return -ENOMEM;
 	}
 

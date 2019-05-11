@@ -20,6 +20,9 @@
 
 #include "tda10071_priv.h"
 
+/* Max transfer size done by I2C transfer functions */
+#define MAX_XFER_SIZE  64
+
 static struct dvb_frontend_ops tda10071_ops;
 
 /* write multiple registers */
@@ -27,15 +30,22 @@ static int tda10071_wr_regs(struct tda10071_priv *priv, u8 reg, u8 *val,
 	int len)
 {
 	int ret;
-	u8 buf[len+1];
+	u8 buf[MAX_XFER_SIZE];
 	struct i2c_msg msg[1] = {
 		{
 			.addr = priv->cfg.demod_i2c_addr,
 			.flags = 0,
-			.len = sizeof(buf),
+			.len = 1 + len,
 			.buf = buf,
 		}
 	};
+
+	if (1 + len > sizeof(buf)) {
+		dev_warn(&priv->i2c->dev,
+			 "%s: i2c wr reg=%04x: len=%d is too big!\n",
+			 KBUILD_MODNAME, reg, len);
+		return -EINVAL;
+	}
 
 	buf[0] = reg;
 	memcpy(&buf[1], val, len);
@@ -56,7 +66,7 @@ static int tda10071_rd_regs(struct tda10071_priv *priv, u8 reg, u8 *val,
 	int len)
 {
 	int ret;
-	u8 buf[len];
+	u8 buf[MAX_XFER_SIZE];
 	struct i2c_msg msg[2] = {
 		{
 			.addr = priv->cfg.demod_i2c_addr,
@@ -66,10 +76,17 @@ static int tda10071_rd_regs(struct tda10071_priv *priv, u8 reg, u8 *val,
 		}, {
 			.addr = priv->cfg.demod_i2c_addr,
 			.flags = I2C_M_RD,
-			.len = sizeof(buf),
+			.len = len,
 			.buf = buf,
 		}
 	};
+
+	if (len > sizeof(buf)) {
+		dev_warn(&priv->i2c->dev,
+			 "%s: i2c wr reg=%04x: len=%d is too big!\n",
+			 KBUILD_MODNAME, reg, len);
+		return -EINVAL;
+	}
 
 	ret = i2c_transfer(priv->i2c, msg, 2);
 	if (ret == 2) {
@@ -474,10 +491,9 @@ static int tda10071_read_status(struct dvb_frontend *fe, fe_status_t *status)
 	if (ret)
 		goto error;
 
-	if (tmp & 0x01) /* tuner PLL */
-		*status |= FE_HAS_SIGNAL;
+	/* 0x39[0] tuner PLL */
 	if (tmp & 0x02) /* demod PLL */
-		*status |= FE_HAS_CARRIER;
+		*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER;
 	if (tmp & 0x04) /* viterbi or LDPC*/
 		*status |= FE_HAS_VITERBI;
 	if (tmp & 0x08) /* RS or BCH */
@@ -650,6 +666,7 @@ static int tda10071_set_frontend(struct dvb_frontend *fe)
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
 	int ret, i;
 	u8 mode, rolloff, pilot, inversion, div;
+	fe_modulation_t modulation;
 
 	dev_dbg(&priv->i2c->dev, "%s: delivery_system=%d modulation=%d " \
 		"frequency=%d symbol_rate=%d inversion=%d pilot=%d " \
@@ -684,10 +701,13 @@ static int tda10071_set_frontend(struct dvb_frontend *fe)
 
 	switch (c->delivery_system) {
 	case SYS_DVBS:
+		modulation = QPSK;
 		rolloff = 0;
 		pilot = 2;
 		break;
 	case SYS_DVBS2:
+		modulation = c->modulation;
+
 		switch (c->rolloff) {
 		case ROLLOFF_20:
 			rolloff = 2;
@@ -732,7 +752,7 @@ static int tda10071_set_frontend(struct dvb_frontend *fe)
 
 	for (i = 0, mode = 0xff; i < ARRAY_SIZE(TDA10071_MODCOD); i++) {
 		if (c->delivery_system == TDA10071_MODCOD[i].delivery_system &&
-			c->modulation == TDA10071_MODCOD[i].modulation &&
+			modulation == TDA10071_MODCOD[i].modulation &&
 			c->fec_inner == TDA10071_MODCOD[i].fec) {
 			mode = TDA10071_MODCOD[i].val;
 			dev_dbg(&priv->i2c->dev, "%s: mode found=%02x\n",
@@ -912,14 +932,8 @@ static int tda10071_init(struct dvb_frontend *fe)
 		{ 0xd5, 0x03, 0x03 },
 	};
 
-	/* firmware status */
-	ret = tda10071_rd_reg(priv, 0x51, &tmp);
-	if (ret)
-		goto error;
-
-	if (!tmp) {
+	if (priv->warm) {
 		/* warm state - wake up device from sleep */
-		priv->warm = 1;
 
 		for (i = 0; i < ARRAY_SIZE(tab); i++) {
 			ret = tda10071_wr_reg_mask(priv, tab[i].reg,
@@ -937,7 +951,6 @@ static int tda10071_init(struct dvb_frontend *fe)
 			goto error;
 	} else {
 		/* cold state - try to download firmware */
-		priv->warm = 0;
 
 		/* request the firmware, this will block and timeout */
 		ret = request_firmware(&fw, fw_file, priv->i2c->dev.parent);
@@ -996,8 +1009,7 @@ static int tda10071_init(struct dvb_frontend *fe)
 				dev_err(&priv->i2c->dev, "%s: firmware " \
 						"download failed=%d\n",
 						KBUILD_MODNAME, ret);
-				if (ret)
-					goto error_release_firmware;
+				goto error_release_firmware;
 			}
 		}
 		release_firmware(fw);

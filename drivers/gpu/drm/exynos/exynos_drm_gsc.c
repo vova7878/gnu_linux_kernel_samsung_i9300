@@ -12,7 +12,6 @@
  *
  */
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
@@ -21,6 +20,7 @@
 #include <drm/drmP.h>
 #include <drm/exynos_drm.h>
 #include "regs-gsc.h"
+#include "exynos_drm_drv.h"
 #include "exynos_drm_ipp.h"
 #include "exynos_drm_gsc.h"
 
@@ -400,8 +400,6 @@ static int gsc_sw_reset(struct gsc_context *ctx)
 	u32 cfg;
 	int count = GSC_RESET_TIMEOUT;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	/* s/w reset */
 	cfg = (GSC_SW_RESET_SRESET);
 	gsc_write(cfg, GSC_SW_RESET);
@@ -440,8 +438,6 @@ static int gsc_sw_reset(struct gsc_context *ctx)
 static void gsc_set_gscblk_fimd_wb(struct gsc_context *ctx, bool enable)
 {
 	u32 gscblk_cfg;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	gscblk_cfg = readl(SYSREG_GSCBLK_CFG1);
 
@@ -733,16 +729,16 @@ static int gsc_src_set_addr(struct device *dev,
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_Y],
-			GSC_IN_BASE_ADDR_Y(buf_id));
+			GSC_IN_BASE_ADDR_Y(0));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CB],
-			GSC_IN_BASE_ADDR_CB(buf_id));
+			GSC_IN_BASE_ADDR_CB(0));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CR],
-			GSC_IN_BASE_ADDR_CR(buf_id));
+			GSC_IN_BASE_ADDR_CR(0));
 		break;
 	case IPP_BUF_DEQUEUE:
-		gsc_write(0x0, GSC_IN_BASE_ADDR_Y(buf_id));
-		gsc_write(0x0, GSC_IN_BASE_ADDR_CB(buf_id));
-		gsc_write(0x0, GSC_IN_BASE_ADDR_CR(buf_id));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_Y(0));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_CB(0));
+		gsc_write(0x0, GSC_IN_BASE_ADDR_CR(0));
 		break;
 	default:
 		/* bypass */
@@ -1189,16 +1185,16 @@ static int gsc_dst_set_addr(struct device *dev,
 	switch (buf_type) {
 	case IPP_BUF_ENQUEUE:
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_Y],
-			GSC_OUT_BASE_ADDR_Y(buf_id));
+			GSC_OUT_BASE_ADDR_Y(0));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CB],
-			GSC_OUT_BASE_ADDR_CB(buf_id));
+			GSC_OUT_BASE_ADDR_CB(0));
 		gsc_write(buf_info->base[EXYNOS_DRM_PLANAR_CR],
-			GSC_OUT_BASE_ADDR_CR(buf_id));
+			GSC_OUT_BASE_ADDR_CR(0));
 		break;
 	case IPP_BUF_DEQUEUE:
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_Y(buf_id));
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_CB(buf_id));
-		gsc_write(0x0, GSC_OUT_BASE_ADDR_CR(buf_id));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_Y(0));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_CB(0));
+		gsc_write(0x0, GSC_OUT_BASE_ADDR_CR(0));
 		break;
 	default:
 		/* bypass */
@@ -1314,13 +1310,13 @@ static irqreturn_t gsc_irq_handler(int irq, void *dev_id)
 
 	status = gsc_read(GSC_IRQ);
 	if (status & GSC_IRQ_STATUS_OR_IRQ) {
-		dev_err(ippdrv->dev, "occured overflow at %d, status 0x%x.\n",
+		dev_err(ippdrv->dev, "occurred overflow at %d, status 0x%x.\n",
 			ctx->id, status);
 		return IRQ_NONE;
 	}
 
 	if (status & GSC_IRQ_STATUS_OR_FRM_DONE) {
-		dev_dbg(ippdrv->dev, "occured frame done at %d, status 0x%x.\n",
+		dev_dbg(ippdrv->dev, "occurred frame done at %d, status 0x%x.\n",
 			ctx->id, status);
 
 		buf_id[EXYNOS_DRM_OPS_SRC] = gsc_get_src_buf_index(ctx);
@@ -1339,8 +1335,7 @@ static irqreturn_t gsc_irq_handler(int irq, void *dev_id)
 			buf_id[EXYNOS_DRM_OPS_SRC];
 		event_work->buf_id[EXYNOS_DRM_OPS_DST] =
 			buf_id[EXYNOS_DRM_OPS_DST];
-		queue_work(ippdrv->event_workq,
-			(struct work_struct *)event_work);
+		queue_work(ippdrv->event_workq, &event_work->work);
 	}
 
 	return IRQ_HANDLED;
@@ -1350,13 +1345,9 @@ static int gsc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
 {
 	struct drm_exynos_ipp_prop_list *prop_list;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
-	if (!prop_list) {
-		DRM_ERROR("failed to alloc property list.\n");
+	if (!prop_list)
 		return -ENOMEM;
-	}
 
 	prop_list->version = 1;
 	prop_list->writeback = 1;
@@ -1410,8 +1401,6 @@ static int gsc_ippdrv_check_property(struct device *dev,
 	struct drm_exynos_sz *sz;
 	bool swap;
 	int i;
-
-	DRM_DEBUG_KMS("%s\n", __func__);
 
 	for_each_ipp_ops(i) {
 		if ((i == EXYNOS_DRM_OPS_SRC) &&
@@ -1521,8 +1510,6 @@ static int gsc_ippdrv_reset(struct device *dev)
 	struct gsc_scaler *sc = &ctx->sc;
 	int ret;
 
-	DRM_DEBUG_KMS("%s\n", __func__);
-
 	/* reset h/w block */
 	ret = gsc_sw_reset(ctx);
 	if (ret < 0) {
@@ -1545,7 +1532,7 @@ static int gsc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 	struct drm_exynos_ipp_property *property;
 	struct drm_exynos_ipp_config *config;
 	struct drm_exynos_pos	img_pos[EXYNOS_DRM_OPS_MAX];
-	struct drm_exynos_ipp_set_wb set_wb;
+	struct drm_exynos_display_set_wb set_wb;
 	u32 cfg;
 	int ret, i;
 
@@ -1589,7 +1576,7 @@ static int gsc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 		set_wb.enable = 1;
 		set_wb.refresh = property->refresh_rate;
 		gsc_set_gscblk_fimd_wb(ctx, set_wb.enable);
-		exynos_drm_ippnb_send_event(IPP_SET_WRITEBACK, (void *)&set_wb);
+		exynos_drm_ippnb_send_event(EXYNOS_DISPLAY_OUTPUT_WB, (void *)&set_wb);
 
 		/* src local path */
 		cfg = gsc_read(GSC_IN_CON);
@@ -1640,7 +1627,7 @@ static int gsc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 static void gsc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 {
 	struct gsc_context *ctx = get_gsc_context(dev);
-	struct drm_exynos_ipp_set_wb set_wb = {0, 0};
+	struct drm_exynos_display_set_wb set_wb = {0, 0};
 	u32 cfg;
 
 	DRM_DEBUG_KMS("%s:cmd[%d]\n", __func__, cmd);
@@ -1651,7 +1638,7 @@ static void gsc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
 		break;
 	case IPP_CMD_WB:
 		gsc_set_gscblk_fimd_wb(ctx, set_wb.enable);
-		exynos_drm_ippnb_send_event(IPP_SET_WRITEBACK, (void *)&set_wb);
+		exynos_drm_ippnb_send_event(EXYNOS_DISPLAY_OUTPUT_WB, (void *)&set_wb);
 		break;
 	case IPP_CMD_OUTPUT:
 	default:
@@ -1807,7 +1794,7 @@ static int gsc_runtime_resume(struct device *dev)
 {
 	struct gsc_context *ctx = get_gsc_context(dev);
 
-	DRM_DEBUG_KMS("%s:id[%d]\n", __FILE__, ctx->id);
+	DRM_DEBUG_KMS("id[%d]\n", ctx->id);
 
 	return  gsc_clk_ctrl(ctx, true);
 }
@@ -1818,6 +1805,12 @@ static const struct dev_pm_ops gsc_pm_ops = {
 	SET_RUNTIME_PM_OPS(gsc_runtime_suspend, gsc_runtime_resume, NULL)
 };
 
+static const struct of_device_id exynos_drm_gsc_of_match[] = {
+	{ .compatible = "samsung,exynos3250-drm-gsc" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, exynos_drm_gsc_of_match);
+
 struct platform_driver gsc_driver = {
 	.probe		= gsc_probe,
 	.remove		= gsc_remove,
@@ -1825,6 +1818,7 @@ struct platform_driver gsc_driver = {
 		.name	= "exynos-drm-gsc",
 		.owner	= THIS_MODULE,
 		.pm	= &gsc_pm_ops,
+		.of_match_table = of_match_ptr(exynos_drm_gsc_of_match),
 	},
 };
 

@@ -11,6 +11,7 @@
 
 #include <drm/drmP.h>
 #include <drm/exynos_drm.h>
+#include "exynos_drm_dmabuf.h"
 #include "exynos_drm_drv.h"
 #include "exynos_drm_gem.h"
 
@@ -71,8 +72,6 @@ static struct sg_table *
 	unsigned int i;
 	int nents, ret;
 
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
-
 	/* just return current sgt if already requested. */
 	if (exynos_attach->dir == dir && exynos_attach->is_mapped)
 		return &exynos_attach->sgt;
@@ -129,27 +128,36 @@ static void exynos_gem_unmap_dma_buf(struct dma_buf_attachment *attach,
 	/* Nothing to do. */
 }
 
-static void exynos_dmabuf_release(struct dma_buf *dmabuf)
+static int exynos_gem_begin_cpu_access(struct dma_buf *dmabuf, size_t start,
+					size_t len, enum dma_data_direction dir)
 {
 	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
+	struct exynos_drm_gem_buf *buf = exynos_gem_obj->buffer;
+	struct drm_device *drm_dev = exynos_gem_obj->base.dev;
 
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
+	if (dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, &buf->dma_attrs))
+		return 0;
 
-	/*
-	 * exynos_dmabuf_release() call means that file object's
-	 * f_count is 0 and it calls drm_gem_object_handle_unreference()
-	 * to drop the references that these values had been increased
-	 * at drm_prime_handle_to_fd()
-	 */
-	if (exynos_gem_obj->base.export_dma_buf == dmabuf) {
-		exynos_gem_obj->base.export_dma_buf = NULL;
+	/* TODO. need to optimize cache operation. */
+	dma_sync_sg_for_cpu(drm_dev->dev, buf->sgt->sgl, buf->sgt->orig_nents,
+				dir);
 
-		/*
-		 * drop this gem object refcount to release allocated buffer
-		 * and resources.
-		 */
-		drm_gem_object_unreference_unlocked(&exynos_gem_obj->base);
-	}
+	return 0;
+}
+
+static void exynos_gem_end_cpu_access(struct dma_buf *dmabuf, size_t start,
+					size_t len, enum dma_data_direction dir)
+{
+	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
+	struct exynos_drm_gem_buf *buf = exynos_gem_obj->buffer;
+	struct drm_device *drm_dev = exynos_gem_obj->base.dev;
+
+	if (dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, &buf->dma_attrs))
+		return;
+
+	/* TODO. need to optimize cache operation. */
+	dma_sync_sg_for_device(drm_dev->dev, buf->sgt->sgl, buf->sgt->orig_nents,
+				dir);
 }
 
 static void *exynos_gem_dmabuf_kmap_atomic(struct dma_buf *dma_buf,
@@ -192,12 +200,14 @@ static struct dma_buf_ops exynos_dmabuf_ops = {
 	.detach			= exynos_gem_detach_dma_buf,
 	.map_dma_buf		= exynos_gem_map_dma_buf,
 	.unmap_dma_buf		= exynos_gem_unmap_dma_buf,
+	.begin_cpu_access	= exynos_gem_begin_cpu_access,
+	.end_cpu_access		= exynos_gem_end_cpu_access,
 	.kmap			= exynos_gem_dmabuf_kmap,
 	.kmap_atomic		= exynos_gem_dmabuf_kmap_atomic,
 	.kunmap			= exynos_gem_dmabuf_kunmap,
 	.kunmap_atomic		= exynos_gem_dmabuf_kunmap_atomic,
 	.mmap			= exynos_gem_dmabuf_mmap,
-	.release		= exynos_dmabuf_release,
+	.release		= drm_gem_dmabuf_release,
 };
 
 struct dma_buf *exynos_dmabuf_prime_export(struct drm_device *drm_dev,
@@ -205,8 +215,10 @@ struct dma_buf *exynos_dmabuf_prime_export(struct drm_device *drm_dev,
 {
 	struct exynos_drm_gem_obj *exynos_gem_obj = to_exynos_gem_obj(obj);
 
-	return dma_buf_export(exynos_gem_obj, &exynos_dmabuf_ops,
-				exynos_gem_obj->base.size, flags);
+	flags |= O_RDWR;
+
+	return dma_buf_export(obj, &exynos_dmabuf_ops,
+				exynos_gem_obj->base.size, flags, NULL);
 }
 
 struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
@@ -218,8 +230,6 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
 	struct exynos_drm_gem_obj *exynos_gem_obj;
 	struct exynos_drm_gem_buf *buffer;
 	int ret;
-
-	DRM_DEBUG_PRIME("%s\n", __FILE__);
 
 	/* is this one of own objects? */
 	if (dma_buf->ops == &exynos_dmabuf_ops) {
@@ -246,14 +256,13 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
 	get_dma_buf(dma_buf);
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR_OR_NULL(sgt)) {
+	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto err_buf_detach;
 	}
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer) {
-		DRM_ERROR("failed to allocate exynos_drm_gem_buf.\n");
 		ret = -ENOMEM;
 		goto err_unmap_attach;
 	}

@@ -455,7 +455,7 @@
 
 /* I2S_PIN_SEL_1 */
 #define HDMI_I2S_SEL_SDATA1(x)		(((x) & 0x7) << 4)
-#define HDMI_I2S_SEL_SDATA2(x)		((x) & 0x7)
+#define HDMI_I2S_SEL_SDATA0(x)		((x) & 0x7)
 
 /* I2S_PIN_SEL_2 */
 #define HDMI_I2S_SEL_SDATA3(x)		(((x) & 0x7) << 4)
@@ -476,8 +476,8 @@
 #define HDMI_I2S_NOISE_FILTER_3_STAGE	(2 << 5)
 #define HDMI_I2S_NOISE_FILTER_4_STAGE	(3 << 5)
 #define HDMI_I2S_NOISE_FILTER_5_STAGE	(4 << 5)
-#define HDMI_I2S_IN_DISABLE		(1 << 4)
-#define HDMI_I2S_IN_ENABLE		(0 << 4)
+#define HDMI_I2S_IN_DISABLE		(0 << 4)
+#define HDMI_I2S_IN_ENABLE		(1 << 4)
 #define HDMI_I2S_AUD_SPDIF		(0 << 2)
 #define HDMI_I2S_AUD_I2S		(1 << 2)
 #define HDMI_I2S_AUD_DSD		(2 << 2)
@@ -577,5 +577,12 @@
 #define HDMI_TG_VACT_ST4_L		HDMI_TG_BASE(0x0070)
 #define HDMI_TG_VACT_ST4_H		HDMI_TG_BASE(0x0074)
 #define HDMI_TG_3D			HDMI_TG_BASE(0x00F0)
+
+/* HDMI PHY Registers Offsets*/
+#define HDMIPHY_MODE_SET_DONE		(0x7C >> 2)
+
+/* HDMI PHY Values */
+#define HDMI_PHY_DISABLE_MODE_SET	0x80
+#define HDMI_PHY_ENABLE_MODE_SET	0x00
 
 #endif /* SAMSUNG_REGS_HDMI_H */

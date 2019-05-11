@@ -8,7 +8,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
@@ -20,10 +19,12 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-attrs.h>
 #include <linux/of.h>
+#include <linux/dmabuf-sync.h>
 
 #include <drm/drmP.h>
 #include <drm/exynos_drm.h>
 #include "exynos_drm_drv.h"
+#include "exynos_drm_g2d.h"
 #include "exynos_drm_gem.h"
 #include "exynos_drm_iommu.h"
 
@@ -205,6 +206,7 @@ struct g2d_cmdlist_node {
 	struct g2d_buf_info	buf_info;
 
 	struct drm_exynos_pending_g2d_event	*event;
+	struct dmabuf_sync	*sync;
 };
 
 struct g2d_runqueue_node {
@@ -243,6 +245,20 @@ struct g2d_data {
 
 	unsigned long			current_pool;
 	unsigned long			max_pool;
+};
+
+static void g2d_dmabuf_sync_free(void *priv)
+{
+	struct g2d_cmdlist_node *node = priv;
+
+	if (!node)
+		return;
+
+	node->sync = NULL;
+}
+
+static struct dmabuf_sync_priv_ops dmabuf_sync_ops = {
+	.free	= g2d_dmabuf_sync_free,
 };
 
 static int g2d_init_cmdlist(struct g2d_data *g2d)
@@ -388,12 +404,9 @@ out:
 
 	sg_free_table(g2d_userptr->sgt);
 	kfree(g2d_userptr->sgt);
-	g2d_userptr->sgt = NULL;
 
-	kfree(g2d_userptr->pages);
-	g2d_userptr->pages = NULL;
+	drm_free_large(g2d_userptr->pages);
 	kfree(g2d_userptr);
-	g2d_userptr = NULL;
 }
 
 static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
@@ -450,10 +463,8 @@ static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
 	}
 
 	g2d_userptr = kzalloc(sizeof(*g2d_userptr), GFP_KERNEL);
-	if (!g2d_userptr) {
-		DRM_ERROR("failed to allocate g2d_userptr.\n");
+	if (!g2d_userptr)
 		return ERR_PTR(-ENOMEM);
-	}
 
 	atomic_set(&g2d_userptr->refcount, 1);
 
@@ -463,11 +474,11 @@ static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
 	npages = (end - start) >> PAGE_SHIFT;
 	g2d_userptr->npages = npages;
 
-	pages = kzalloc(npages * sizeof(struct page *), GFP_KERNEL);
+	pages = drm_calloc_large(npages, sizeof(struct page *));
 	if (!pages) {
 		DRM_ERROR("failed to allocate pages.\n");
-		kfree(g2d_userptr);
-		return ERR_PTR(-ENOMEM);
+		ret = -ENOMEM;
+		goto err_free;
 	}
 
 	vma = find_vma(current->mm, userptr);
@@ -503,7 +514,6 @@ static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
 
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
-		DRM_ERROR("failed to allocate sg table.\n");
 		ret = -ENOMEM;
 		goto err_free_userptr;
 	}
@@ -543,7 +553,6 @@ err_sg_free_table:
 
 err_free_sgt:
 	kfree(sgt);
-	sgt = NULL;
 
 err_free_userptr:
 	exynos_gem_put_pages_to_userptr(g2d_userptr->pages,
@@ -554,10 +563,10 @@ err_put_vma:
 	exynos_gem_put_vma(g2d_userptr->vma);
 
 err_free_pages:
-	kfree(pages);
+	drm_free_large(pages);
+
+err_free:
 	kfree(g2d_userptr);
-	pages = NULL;
-	g2d_userptr = NULL;
 
 	return ERR_PTR(ret);
 }
@@ -687,9 +696,16 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 {
 	struct g2d_cmdlist *cmdlist = node->cmdlist;
 	struct g2d_buf_info *buf_info = &node->buf_info;
+	struct drm_exynos_file_private *file_priv = file->driver_priv;
 	int offset;
 	int ret;
 	int i;
+
+	if (dmabuf_sync_is_supported()) {
+		node->sync = dmabuf_sync_init("g2d", &dmabuf_sync_ops, node);
+		if (IS_ERR(node->sync))
+			node->sync = NULL;
+	}
 
 	for (i = 0; i < buf_info->map_nr; i++) {
 		struct g2d_buf_desc *buf_desc;
@@ -713,7 +729,32 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 
 		if (buf_info->types[reg_type] == BUF_TYPE_GEM) {
 			unsigned long size;
+			unsigned int type;
+			void *dma_buf = NULL;
 
+			if (!node->sync)
+				goto out_dmabuf_sync;
+
+			dma_buf = exynos_drm_gem_get_dmabuf(drm_dev, handle,
+								file);
+			if (!dma_buf)
+				goto out_dmabuf_sync;
+
+			if (reg_type == REG_TYPE_DST_PLANE2 ||
+					reg_type == REG_TYPE_DST)
+				type = DMA_BUF_ACCESS_DMA_W;
+			else
+				type = DMA_BUF_ACCESS_DMA_R;
+
+			ret = dmabuf_sync_get(node->sync, dma_buf,
+					(unsigned int)file_priv->g2d_priv,
+					type);
+			if (ret < 0) {
+				WARN_ON(1);
+				dmabuf_sync_put_all(node->sync);
+			}
+
+out_dmabuf_sync:
 			size = exynos_drm_gem_get_size(drm_dev, handle, file);
 			if (!size) {
 				ret = -EFAULT;
@@ -763,9 +804,19 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 		buf_info->handles[reg_type] = handle;
 	}
 
+	if (node->sync) {
+		if (list_empty(&node->sync->syncs))
+			dmabuf_sync_fini(node->sync);
+	}
+
 	return 0;
 
 err:
+	if (node->sync) {
+		dmabuf_sync_put_all(node->sync);
+		dmabuf_sync_fini(node->sync);
+	}
+
 	buf_info->map_nr = i;
 	return ret;
 }
@@ -810,9 +861,22 @@ static void g2d_dma_start(struct g2d_data *g2d,
 	struct g2d_cmdlist_node *node =
 				list_first_entry(&runqueue_node->run_cmdlist,
 						struct g2d_cmdlist_node, list);
+	int ret;
 
-	pm_runtime_get_sync(g2d->dev);
-	clk_enable(g2d->gate_clk);
+	if (node->sync) {
+		int ret;
+
+		ret = dmabuf_sync_wait_all(node->sync);
+		if (ret < 0) {
+			WARN_ON(1);
+			dmabuf_sync_put_all(node->sync);
+			dmabuf_sync_fini(node->sync);
+		}
+	}
+
+	ret = pm_runtime_get_sync(g2d->dev);
+	if (ret < 0)
+		return;
 
 	writel_relaxed(node->dma_addr, g2d->regs + G2D_DMA_SFR_BASE_ADDR);
 	writel_relaxed(G2D_DMA_START, g2d->regs + G2D_DMA_COMMAND);
@@ -844,8 +908,22 @@ static void g2d_free_runqueue_node(struct g2d_data *g2d,
 	 * commands in run_cmdlist have been completed so unmap all gem
 	 * objects in each command node so that they are unreferenced.
 	 */
-	list_for_each_entry(node, &runqueue_node->run_cmdlist, list)
+	list_for_each_entry(node, &runqueue_node->run_cmdlist, list) {
+		if (node->sync) {
+			int ret;
+
+			ret = dmabuf_sync_signal_all(node->sync);
+			if (ret < 0) {
+				WARN_ON(1);
+				/* TODO */
+			}
+
+			dmabuf_sync_put_all(node->sync);
+			dmabuf_sync_fini(node->sync);
+		}
+
 		g2d_unmap_cmdlist_gem(g2d, node, runqueue_node->filp);
+	}
 	list_splice_tail_init(&runqueue_node->run_cmdlist, &g2d->free_cmdlist);
 	mutex_unlock(&g2d->cmdlist_mutex);
 
@@ -865,7 +943,6 @@ static void g2d_runqueue_worker(struct work_struct *work)
 					    runqueue_work);
 
 	mutex_lock(&g2d->runqueue_mutex);
-	clk_disable(g2d->gate_clk);
 	pm_runtime_put_sync(g2d->dev);
 
 	complete(&g2d->runqueue_node->complete);
@@ -1090,8 +1167,6 @@ int exynos_g2d_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 
 		e = kzalloc(sizeof(*node->event), GFP_KERNEL);
 		if (!e) {
-			dev_err(dev, "failed to allocate event\n");
-
 			spin_lock_irqsave(&drm_dev->event_lock, flags);
 			file->event_space += sizeof(e->event);
 			spin_unlock_irqrestore(&drm_dev->event_lock, flags);
@@ -1321,10 +1396,8 @@ static int g2d_open(struct drm_device *drm_dev, struct device *dev,
 	struct exynos_drm_g2d_private *g2d_priv;
 
 	g2d_priv = kzalloc(sizeof(*g2d_priv), GFP_KERNEL);
-	if (!g2d_priv) {
-		dev_err(dev, "failed to allocate g2d private data\n");
+	if (!g2d_priv)
 		return -ENOMEM;
-	}
 
 	g2d_priv->dev = dev;
 	file_priv->g2d_priv = g2d_priv;
@@ -1380,10 +1453,8 @@ static int g2d_probe(struct platform_device *pdev)
 	int ret;
 
 	g2d = devm_kzalloc(dev, sizeof(*g2d), GFP_KERNEL);
-	if (!g2d) {
-		dev_err(dev, "failed to allocate driver data\n");
+	if (!g2d)
 		return -ENOMEM;
-	}
 
 	g2d->runqueue_slab = kmem_cache_create("g2d_runqueue_slab",
 			sizeof(struct g2d_runqueue_node), 0, 0, NULL);
@@ -1518,14 +1589,40 @@ static int g2d_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(g2d_pm_ops, g2d_suspend, g2d_resume);
+#ifdef CONFIG_PM_RUNTIME
+static int g2d_runtime_suspend(struct device *dev)
+{
+	struct g2d_data *g2d = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(g2d->gate_clk);
+
+	return 0;
+}
+
+static int g2d_runtime_resume(struct device *dev)
+{
+	struct g2d_data *g2d = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(g2d->gate_clk);
+	if (ret < 0)
+		dev_warn(dev, "failed to enable clock.\n");
+
+	return ret;
+}
+#endif
+
+static const struct dev_pm_ops g2d_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(g2d_suspend, g2d_resume)
+	SET_RUNTIME_PM_OPS(g2d_runtime_suspend, g2d_runtime_resume, NULL)
+};
 
 #ifdef CONFIG_OF
 static const struct of_device_id exynos_g2d_match[] = {
+	{ .compatible = "samsung,exynos4212-g2d" },
 	{ .compatible = "samsung,exynos5250-g2d" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, exynos_g2d_match);
 #endif
 
 struct platform_driver g2d_driver = {

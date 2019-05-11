@@ -27,7 +27,6 @@
 
 #include <media/soc_camera.h>
 #include <media/tw9910.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-subdev.h>
 
 #define GET_ID(val)  ((val & 0xF8) >> 3)
@@ -518,18 +517,6 @@ static int tw9910_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 	return 0;
 }
 
-static int tw9910_g_chip_ident(struct v4l2_subdev *sd,
-			       struct v4l2_dbg_chip_ident *id)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct tw9910_priv *priv = to_tw9910(client);
-
-	id->ident = V4L2_IDENT_TW9910;
-	id->revision = priv->revision;
-
-	return 0;
-}
-
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int tw9910_g_register(struct v4l2_subdev *sd,
 			     struct v4l2_dbg_register *reg)
@@ -540,6 +527,7 @@ static int tw9910_g_register(struct v4l2_subdev *sd,
 	if (reg->reg > 0xff)
 		return -EINVAL;
 
+	reg->size = 1;
 	ret = i2c_smbus_read_byte_data(client, reg->reg);
 	if (ret < 0)
 		return ret;
@@ -823,9 +811,6 @@ done:
 }
 
 static struct v4l2_subdev_core_ops tw9910_subdev_core_ops = {
-	.g_chip_ident	= tw9910_g_chip_ident,
-	.s_std		= tw9910_s_std,
-	.g_std		= tw9910_g_std,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register	= tw9910_g_register,
 	.s_register	= tw9910_s_register,
@@ -882,7 +867,15 @@ static int tw9910_s_mbus_config(struct v4l2_subdev *sd,
 	return i2c_smbus_write_byte_data(client, OUTCTR1, val);
 }
 
+static int tw9910_g_tvnorms(struct v4l2_subdev *sd, v4l2_std_id *norm)
+{
+	*norm = V4L2_STD_NTSC | V4L2_STD_PAL;
+	return 0;
+}
+
 static struct v4l2_subdev_video_ops tw9910_subdev_video_ops = {
+	.s_std		= tw9910_s_std,
+	.g_std		= tw9910_g_std,
 	.s_stream	= tw9910_s_stream,
 	.g_mbus_fmt	= tw9910_g_fmt,
 	.s_mbus_fmt	= tw9910_s_fmt,
@@ -892,6 +885,7 @@ static struct v4l2_subdev_video_ops tw9910_subdev_video_ops = {
 	.enum_mbus_fmt	= tw9910_enum_fmt,
 	.g_mbus_config	= tw9910_g_mbus_config,
 	.s_mbus_config	= tw9910_s_mbus_config,
+	.g_tvnorms	= tw9910_g_tvnorms,
 };
 
 static struct v4l2_subdev_ops tw9910_subdev_ops = {
@@ -938,11 +932,6 @@ static int tw9910_probe(struct i2c_client *client,
 	return tw9910_video_probe(client);
 }
 
-static int tw9910_remove(struct i2c_client *client)
-{
-	return 0;
-}
-
 static const struct i2c_device_id tw9910_id[] = {
 	{ "tw9910", 0 },
 	{ }
@@ -954,7 +943,6 @@ static struct i2c_driver tw9910_i2c_driver = {
 		.name = "tw9910",
 	},
 	.probe    = tw9910_probe,
-	.remove   = tw9910_remove,
 	.id_table = tw9910_id,
 };
 

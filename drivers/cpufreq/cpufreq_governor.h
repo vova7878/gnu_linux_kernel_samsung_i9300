@@ -153,6 +153,7 @@ struct od_cpu_dbs_info_s {
 	unsigned int freq_lo_jiffies;
 	unsigned int freq_hi_jiffies;
 	unsigned int rate_mult;
+	unsigned int idle_time;
 	unsigned int sample_type:1;
 };
 
@@ -165,17 +166,16 @@ struct cs_cpu_dbs_info_s {
 
 /* Per policy Governers sysfs tunables */
 struct od_dbs_tuners {
-	unsigned int ignore_nice;
+	unsigned int ignore_nice_load;
 	unsigned int sampling_rate;
 	unsigned int sampling_down_factor;
 	unsigned int up_threshold;
-	unsigned int adj_up_threshold;
 	unsigned int powersave_bias;
 	unsigned int io_is_busy;
 };
 
 struct cs_dbs_tuners {
-	unsigned int ignore_nice;
+	unsigned int ignore_nice_load;
 	unsigned int sampling_rate;
 	unsigned int sampling_down_factor;
 	unsigned int up_threshold;
@@ -189,6 +189,7 @@ struct common_dbs_data {
 	/* Common across governors */
 	#define GOV_ONDEMAND		0
 	#define GOV_CONSERVATIVE	1
+	#define GOV_LAB			2
 	int governor;
 	struct attribute_group *attr_group_gov_sys; /* one governor - system */
 	struct attribute_group *attr_group_gov_pol; /* one governor - policy */
@@ -268,4 +269,15 @@ void od_register_powersave_bias_handler(unsigned int (*f)
 		(struct cpufreq_policy *, unsigned int, unsigned int),
 		unsigned int powersave_bias);
 void od_unregister_powersave_bias_handler(void);
+
+/* COMMON CODE FOR DEMAND BASED SWITCHING */
+void od_dbs_timer(struct work_struct *work);
+int od_init(struct dbs_data *dbs_data);
+void od_exit(struct dbs_data *dbs_data);
+void od_check_cpu(int cpu, unsigned int load_freq);
+void update_sampling_rate(struct dbs_data *dbs_data,
+			  unsigned int new_rate);
+
+extern struct od_ops od_ops;
+
 #endif /* _CPUFREQ_GOVERNOR_H */

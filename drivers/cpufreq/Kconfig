@@ -23,6 +23,20 @@ config CPU_FREQ_TABLE
 config CPU_FREQ_GOV_COMMON
 	bool
 
+config CPU_FREQ_BOOST_SW
+	bool "CPU Frequency Overclocking - Software"
+	depends on THERMAL
+	default n
+	help
+	  This driver supports software managed overclocking (BOOST).
+	  It allows usage of special frequencies for a particular processor
+	  if thermal conditions are appropriate.
+
+	  It reguires, for safe operation, thermal framework with properly
+	  defined trip points.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_STAT
 	tristate "CPU frequency translation statistics"
 	select CPU_FREQ_TABLE
@@ -35,6 +49,12 @@ config CPU_FREQ_STAT
 	  module will be called cpufreq_stats.
 
 	  If in doubt, say N.
+
+config NR_CPU_LOAD_STORAGE
+	int "Maximum storage size to save CPU load (10-1000)"
+	range 10 1000
+	depends on CPU_FREQ_STAT
+	default "10"
 
 config CPU_FREQ_STAT_DETAILS
 	bool "CPU frequency translation statistics details"
@@ -112,6 +132,17 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
+config CPU_FREQ_DEFAULT_GOV_LAB
+	bool "lab"
+	select CPU_FREQ_GOV_LAB
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'lab' as default. This allows
+	  you to get a full dynamic frequency capable system by simply
+	  loading your cpufreq low-level hardware driver.
+	  Be aware that not all cpufreq drivers support the lab governor.
+	  If unsure have a look at the help section of the driver.
+	  Fallback governor will be the performance governor.
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -208,6 +239,22 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  module will be called cpufreq_conservative.
 
 	  For details, take a look at linux/Documentation/cpu-freq.
+
+	  If in doubt, say N.
+
+config CPU_FREQ_GOV_LAB
+	bool "'lab' cpufreq policy governor - ONDEMAND extension"
+	select CPU_FREQ_TABLE
+	select CPU_FREQ_GOV_COMMON
+	select CPU_FREQ_GOV_ONDEMAND
+	help
+	  'lab' - This driver adds a dynamic cpufreq policy governor.
+
+	  LAB governor shall be regarded as an extension of the ONDEMAND on
+	  platforms with very weak HW support for power management.
+
+	  LAB governor can be either compiled in or not. It is not possible to
+	  compile it as module because of explicit ONDEMAND dependency.
 
 	  If in doubt, say N.
 

@@ -56,7 +56,7 @@ static int do_read_inode(struct inode *inode)
 	if (IS_ERR(node_page))
 		return PTR_ERR(node_page);
 
-	rn = page_address(node_page);
+	rn = F2FS_NODE(node_page);
 	ri = &(rn->i);
 
 	inode->i_mode = le16_to_cpu(ri->i_mode);
@@ -109,12 +109,6 @@ struct inode *f2fs_iget(struct super_block *sb, unsigned long ino)
 	ret = do_read_inode(inode);
 	if (ret)
 		goto bad_inode;
-
-	if (!sbi->por_doing && inode->i_nlink == 0) {
-		ret = -ENOENT;
-		goto bad_inode;
-	}
-
 make_now:
 	if (ino == F2FS_NODE_INO(sbi)) {
 		inode->i_mapping->a_ops = &f2fs_node_aops;
@@ -130,8 +124,7 @@ make_now:
 		inode->i_op = &f2fs_dir_inode_operations;
 		inode->i_fop = &f2fs_dir_operations;
 		inode->i_mapping->a_ops = &f2fs_dblock_aops;
-		mapping_set_gfp_mask(inode->i_mapping, GFP_HIGHUSER_MOVABLE |
-				__GFP_ZERO);
+		mapping_set_gfp_mask(inode->i_mapping, GFP_F2FS_ZERO);
 	} else if (S_ISLNK(inode->i_mode)) {
 		inode->i_op = &f2fs_symlink_inode_operations;
 		inode->i_mapping->a_ops = &f2fs_dblock_aops;
@@ -160,7 +153,7 @@ void update_inode(struct inode *inode, struct page *node_page)
 
 	wait_on_page_writeback(node_page);
 
-	rn = page_address(node_page);
+	rn = F2FS_NODE(node_page);
 	ri = &(rn->i);
 
 	ri->i_mode = cpu_to_le16(inode->i_mode);
@@ -199,6 +192,7 @@ void update_inode(struct inode *inode, struct page *node_page)
 
 	set_cold_node(inode, node_page);
 	set_page_dirty(node_page);
+	clear_inode_flag(F2FS_I(inode), FI_DIRTY_INODE);
 }
 
 int update_inode_page(struct inode *inode)
@@ -222,6 +216,9 @@ int f2fs_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
 			inode->i_ino == F2FS_META_INO(sbi))
+		return 0;
+
+	if (!is_inode_flag_set(F2FS_I(inode), FI_DIRTY_INODE))
 		return 0;
 
 	if (wbc)

@@ -20,6 +20,8 @@
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/pm.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 
 /* MCS5000 Touchkey */
 #define MCS5000_TOUCHKEY_STATUS		0x04
@@ -51,6 +53,7 @@ struct mcs_touchkey_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct mcs_touchkey_chip chip;
+	char name[64];
 	unsigned int key_code;
 	unsigned int key_val;
 	unsigned short keycodes[];
@@ -97,6 +100,60 @@ static irqreturn_t mcs_touchkey_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_OF
+static struct mcs_platform_data *mcs_touchkey_parse_dt(struct device *dev)
+{
+	struct mcs_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	unsigned int keymap[2];
+	unsigned int len;
+	int i = 0;
+	const __be32 *prop;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Failed to allocate platform data\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	prop = of_get_property(np, "linux,code", &len);
+	if (!prop) {
+		dev_err(dev, "Failed to get code\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (len % sizeof(u32)) {
+		dev_err(dev, "Malformed keycode property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	pdata->keymap_size = len / sizeof(u32);
+
+	if (of_property_read_u32(np, "key_maxval", &pdata->key_maxval)) {
+		dev_err(dev, "Failed to get key max value data\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (pdata->keymap_size > pdata->key_maxval) {
+		dev_err(dev, "Key map size overflow\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	for (i = 0; i < pdata->keymap_size; i++) {
+		u32 code = be32_to_cpup(prop + i);
+		keymap[i] = MCS_KEY_MAP(i, code);
+	}
+	pdata->keymap = keymap;
+	return pdata;
+}
+#else
+static inline struct mcs_platform_data *mcs_touchkey_parse_dt
+						(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int mcs_touchkey_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -108,20 +165,24 @@ static int mcs_touchkey_probe(struct i2c_client *client,
 	int error;
 	int i;
 
-	pdata = client->dev.platform_data;
-	if (!pdata) {
-		dev_err(&client->dev, "no platform data defined\n");
-		return -EINVAL;
+	if (&client->dev.of_node)
+		pdata = mcs_touchkey_parse_dt(&client->dev);
+	else
+		pdata = client->dev.platform_data;
+
+	if (IS_ERR(pdata)) {
+		dev_err(&client->dev, "Failed to get platform data\n");
+		return PTR_ERR(pdata);
 	}
 
-	data = kzalloc(sizeof(struct mcs_touchkey_data) +
+	data = devm_kzalloc(&client->dev, sizeof(struct mcs_touchkey_data) +
 			sizeof(data->keycodes[0]) * (pdata->key_maxval + 1),
 			GFP_KERNEL);
-	input_dev = input_allocate_device();
+	input_dev = devm_input_allocate_device(&client->dev);
 	if (!data || !input_dev) {
 		dev_err(&client->dev, "Failed to allocate memory\n");
 		error = -ENOMEM;
-		goto err_free_mem;
+		return error;
 	}
 
 	data->client = client;
@@ -144,11 +205,13 @@ static int mcs_touchkey_probe(struct i2c_client *client,
 	if (fw_ver < 0) {
 		error = fw_ver;
 		dev_err(&client->dev, "i2c read error[%d]\n", error);
-		goto err_free_mem;
+		return error;
 	}
 	dev_info(&client->dev, "Firmware version: %d\n", fw_ver);
 
-	input_dev->name = "MELPAS MCS Touchkey";
+	strlcpy(data->name, "MELFAS MCS Touchkey", sizeof(data->name));
+
+	input_dev->name = data->name;
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
 	input_dev->evbit[0] = BIT_MASK(EV_KEY);
@@ -177,27 +240,22 @@ static int mcs_touchkey_probe(struct i2c_client *client,
 		data->poweron(true);
 	}
 
-	error = request_threaded_irq(client->irq, NULL, mcs_touchkey_interrupt,
-				     IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				     client->dev.driver->name, data);
+	error = devm_request_threaded_irq(&client->dev, client->irq, NULL,
+					mcs_touchkey_interrupt,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					client->dev.driver->name, data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err_free_mem;
+		return error;
 	}
 
 	error = input_register_device(input_dev);
 	if (error)
-		goto err_free_irq;
+		return error;
 
 	i2c_set_clientdata(client, data);
-	return 0;
 
-err_free_irq:
-	free_irq(client->irq, data);
-err_free_mem:
-	input_free_device(input_dev);
-	kfree(data);
-	return error;
+	return 0;
 }
 
 static int mcs_touchkey_remove(struct i2c_client *client)
@@ -263,11 +321,18 @@ static const struct i2c_device_id mcs_touchkey_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mcs_touchkey_id);
 
+static struct of_device_id mcs_touchkey_dt_match[] = {
+	{ .compatible = "mcs5000_touchkey", },
+	{ .compatible = "mcs5080_touchkey", },
+	{ },
+};
+
 static struct i2c_driver mcs_touchkey_driver = {
 	.driver = {
 		.name	= "mcs_touchkey",
 		.owner	= THIS_MODULE,
 		.pm	= &mcs_touchkey_pm_ops,
+		.of_match_table = of_match_ptr(mcs_touchkey_dt_match),
 	},
 	.probe		= mcs_touchkey_probe,
 	.remove		= mcs_touchkey_remove,

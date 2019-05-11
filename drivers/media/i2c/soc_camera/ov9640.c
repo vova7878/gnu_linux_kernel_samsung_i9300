@@ -28,7 +28,6 @@
 #include <linux/videodev2.h>
 
 #include <media/soc_camera.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ctrls.h>
 
@@ -61,7 +60,7 @@ static const struct ov9640_reg ov9640_regs_dflt[] = {
 
 /* Configurations
  * NOTE: for YUV, alter the following registers:
- * 		COM12 |= OV9640_COM12_YUV_AVG
+ *		COM12 |= OV9640_COM12_YUV_AVG
  *
  *	 for RGB, alter the following registers:
  *		COM7  |= OV9640_COM7_RGB
@@ -287,18 +286,6 @@ static int ov9640_s_ctrl(struct v4l2_ctrl *ctrl)
 	return -EINVAL;
 }
 
-/* Get chip identification */
-static int ov9640_g_chip_ident(struct v4l2_subdev *sd,
-				struct v4l2_dbg_chip_ident *id)
-{
-	struct ov9640_priv *priv = to_ov9640_sensor(sd);
-
-	id->ident	= priv->model;
-	id->revision	= priv->revision;
-
-	return 0;
-}
-
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int ov9640_get_register(struct v4l2_subdev *sd,
 				struct v4l2_dbg_register *reg)
@@ -382,7 +369,7 @@ static void ov9640_alter_regs(enum v4l2_mbus_pixelcode code,
 		alt->com13	= OV9640_COM13_RGB_AVG;
 		alt->com15	= OV9640_COM15_RGB_565;
 		break;
-	};
+	}
 }
 
 /* Setup registers according to resolution and color encoding */
@@ -615,12 +602,10 @@ static int ov9640_video_probe(struct i2c_client *client)
 	switch (VERSION(pid, ver)) {
 	case OV9640_V2:
 		devname		= "ov9640";
-		priv->model	= V4L2_IDENT_OV9640;
 		priv->revision	= 2;
 		break;
 	case OV9640_V3:
 		devname		= "ov9640";
-		priv->model	= V4L2_IDENT_OV9640;
 		priv->revision	= 3;
 		break;
 	default:
@@ -644,7 +629,6 @@ static const struct v4l2_ctrl_ops ov9640_ctrl_ops = {
 };
 
 static struct v4l2_subdev_core_ops ov9640_core_ops = {
-	.g_chip_ident		= ov9640_g_chip_ident,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register		= ov9640_get_register,
 	.s_register		= ov9640_set_register,

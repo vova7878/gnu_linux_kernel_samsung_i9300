@@ -34,10 +34,6 @@
 
 #include <linux/platform_data/spi-s3c64xx.h>
 
-#ifdef CONFIG_S3C_DMA
-#include <mach/dma.h>
-#endif
-
 #define MAX_SPI_PORTS		3
 
 /* Registers and bit-fields */
@@ -116,6 +112,7 @@
 #define S3C64XX_SPI_SWAP_TX_EN			(1<<0)
 
 #define S3C64XX_SPI_FBCLK_MSK		(3<<0)
+#define S3C64XX_SPI_DMA_BUF_SIZE	(16 * 1024)
 
 #define FIFO_LVL_MASK(i) ((i)->port_conf->fifo_lvl_mask[i->port_id])
 #define S3C64XX_SPI_ST_TX_DONE(v, i) (((v) & \
@@ -135,6 +132,8 @@
 #define TXBUSY    (1<<3)
 
 struct s3c64xx_spi_dma_data {
+	u32 *vbuf;
+	dma_addr_t dma_phys;
 	struct dma_chan *ch;
 	enum dma_transfer_direction direction;
 	unsigned int dmach;
@@ -180,6 +179,7 @@ struct s3c64xx_spi_port_config {
  * @xfer_completion: To indicate completion of xfer task.
  * @cur_mode: Stores the active configuration of the controller.
  * @cur_bpw: Stores the active bits per word settings.
+ * @dma_buf_size: Stores buffer size for Rx/Tx.
  * @cur_speed: Stores the active xfer clock speed.
  */
 struct s3c64xx_spi_driver_data {
@@ -197,11 +197,10 @@ struct s3c64xx_spi_driver_data {
 	unsigned                        state;
 	unsigned                        cur_mode, cur_bpw;
 	unsigned                        cur_speed;
+	unsigned                        dma_buf_size;
 	struct s3c64xx_spi_dma_data	rx_dma;
 	struct s3c64xx_spi_dma_data	tx_dma;
-#ifdef CONFIG_S3C_DMA
-	struct samsung_dma_ops		*ops;
-#endif
+
 	struct s3c64xx_spi_port_config	*port_conf;
 	unsigned int			port_id;
 	unsigned long			gpios[4];
@@ -283,130 +282,102 @@ static void s3c64xx_spi_dmacb(void *data)
 	spin_unlock_irqrestore(&sdd->lock, flags);
 }
 
-#ifdef CONFIG_S3C_DMA
-/* FIXME: remove this section once arch/arm/mach-s3c64xx uses dmaengine */
-
-static struct s3c2410_dma_client s3c64xx_spi_dma_client = {
-	.name = "samsung-spi-dma",
-};
-
-static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
-					unsigned len, dma_addr_t buf)
+static int s3c64xx_dma_init_param(struct s3c64xx_spi_driver_data *sdd,
+					bool dma_to_memory)
 {
-	struct s3c64xx_spi_driver_data *sdd;
-	struct samsung_dma_prep info;
-	struct samsung_dma_config config;
-
-	if (dma->direction == DMA_DEV_TO_MEM) {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, rx_dma);
-		config.direction = sdd->rx_dma.direction;
-		config.fifo = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
-		config.width = sdd->cur_bpw / 8;
-		sdd->ops->config((enum dma_ch)sdd->rx_dma.ch, &config);
-	} else {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, tx_dma);
-		config.direction =  sdd->tx_dma.direction;
-		config.fifo = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
-		config.width = sdd->cur_bpw / 8;
-		sdd->ops->config((enum dma_ch)sdd->tx_dma.ch, &config);
-	}
-
-	info.cap = DMA_SLAVE;
-	info.len = len;
-	info.fp = s3c64xx_spi_dmacb;
-	info.fp_param = dma;
-	info.direction = dma->direction;
-	info.buf = buf;
-
-	sdd->ops->prepare((enum dma_ch)dma->ch, &info);
-	sdd->ops->trigger((enum dma_ch)dma->ch);
-}
-
-static int acquire_dma(struct s3c64xx_spi_driver_data *sdd)
-{
-	struct samsung_dma_req req;
-	struct device *dev = &sdd->pdev->dev;
-
-	sdd->ops = samsung_dma_get_ops();
-
-	req.cap = DMA_SLAVE;
-	req.client = &s3c64xx_spi_dma_client;
-
-	sdd->rx_dma.ch = (void *)sdd->ops->request(sdd->rx_dma.dmach, &req, dev, "rx");
-	sdd->tx_dma.ch = (void *)sdd->ops->request(sdd->tx_dma.dmach, &req, dev, "tx");
-
-	return 1;
-}
-
-static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
-{
-	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-
-	/* Acquire DMA channels */
-	while (!acquire_dma(sdd))
-		usleep_range(10000, 11000);
-
-	pm_runtime_get_sync(&sdd->pdev->dev);
-
-	return 0;
-}
-
-static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
-{
-	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-
-	/* Free DMA channels */
-	sdd->ops->release((enum dma_ch)sdd->rx_dma.ch, &s3c64xx_spi_dma_client);
-	sdd->ops->release((enum dma_ch)sdd->tx_dma.ch, &s3c64xx_spi_dma_client);
-
-	pm_runtime_put(&sdd->pdev->dev);
-
-	return 0;
-}
-
-static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
-				 struct s3c64xx_spi_dma_data *dma)
-{
-	sdd->ops->stop((enum dma_ch)dma->ch);
-}
-#else
-
-static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
-					unsigned len, dma_addr_t buf)
-{
-	struct s3c64xx_spi_driver_data *sdd;
+	struct dma_chan *dma_chan;
 	struct dma_slave_config config;
-	struct scatterlist sg;
-	struct dma_async_tx_descriptor *desc;
+	struct device *dev = &sdd->pdev->dev;
+	struct s3c64xx_spi_dma_data *dma_data = NULL;
+	dma_filter_fn filter = sdd->cntrlr_info->filter;
+	dma_cap_mask_t mask;
+	dma_addr_t dma_phys;
+	u32 *dma_vbuf;
+	int ret;
 
-	if (dma->direction == DMA_DEV_TO_MEM) {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, rx_dma);
-		config.direction = dma->direction;
+	memset(&config, 0, sizeof(struct dma_slave_config));
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+
+	if (dma_to_memory) {
+		dma_data = &sdd->rx_dma;
+		config.direction = DMA_DEV_TO_MEM;
 		config.src_addr = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
 		config.src_addr_width = sdd->cur_bpw / 8;
 		config.src_maxburst = 1;
-		dmaengine_slave_config(dma->ch, &config);
 	} else {
-		sdd = container_of((void *)dma,
-			struct s3c64xx_spi_driver_data, tx_dma);
-		config.direction = dma->direction;
+		dma_data = &sdd->tx_dma;
+		config.direction = DMA_MEM_TO_DEV;
 		config.dst_addr = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
 		config.dst_addr_width = sdd->cur_bpw / 8;
 		config.dst_maxburst = 1;
-		dmaengine_slave_config(dma->ch, &config);
 	}
 
-	sg_init_table(&sg, 1);
-	sg_dma_len(&sg) = len;
-	sg_set_page(&sg, pfn_to_page(PFN_DOWN(buf)),
-		    len, offset_in_page(buf));
-	sg_dma_address(&sg) = buf;
+	if (dma_data->ch && dma_data->vbuf)
+		return 0;
 
-	desc = dmaengine_prep_slave_sg(dma->ch,
-		&sg, 1, dma->direction, DMA_PREP_INTERRUPT);
+	dma_chan = dma_request_slave_channel_compat(mask,
+			filter, (void *)dma_data->dmach, dev,
+			dma_to_memory ? "rx" : "tx");
+	if (!dma_chan) {
+		dev_err(dev, "Failed to get %d DMA channel\n", dma_data->dmach);
+		return -EBUSY;
+	}
+
+	dma_vbuf = dma_alloc_coherent(dev, sdd->dma_buf_size,
+			&dma_phys, GFP_KERNEL);
+	if (!dma_vbuf) {
+		dev_err(dev, "Not able to allocate the dma buffer\n");
+		return -ENOMEM;
+	}
+
+	ret = dmaengine_slave_config(dma_chan, &config);
+	if (ret)
+		goto release;
+
+	ret = pm_runtime_get_sync(&sdd->pdev->dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable device: %d\n", ret);
+		goto release;
+	}
+
+	dma_data->ch = dma_chan;
+	dma_data->vbuf = dma_vbuf;
+	dma_data->dma_phys = dma_phys;
+
+	return 0;
+
+release:
+	dma_release_channel(dma_chan);
+	dma_free_coherent(dev, sdd->dma_buf_size, dma_vbuf, dma_phys);
+	return ret;
+}
+
+static void s3c64xx_dma_deinit_param(struct s3c64xx_spi_driver_data *sdd,
+					bool dma_to_memory)
+{
+	struct s3c64xx_spi_dma_data *dma_data;
+	struct device *dev = &sdd->pdev->dev;
+
+	if (dma_to_memory)
+		dma_data = &sdd->rx_dma;
+	else
+		dma_data = &sdd->tx_dma;
+
+	dma_free_coherent(dev, sdd->dma_buf_size, dma_data->vbuf,
+			dma_data->dma_phys);
+	dma_release_channel(dma_data->ch);
+	pm_runtime_put(&sdd->pdev->dev);
+}
+
+static void s3c64xx_prepare_dma(struct s3c64xx_spi_dma_data *dma,
+					unsigned len, dma_addr_t buf)
+{
+	struct dma_async_tx_descriptor *desc;
+
+	desc = dmaengine_prep_slave_single(dma->ch,
+		dma->dma_phys, len, dma->direction, DMA_PREP_INTERRUPT);
 
 	desc->callback = s3c64xx_spi_dmacb;
 	desc->callback_param = dma;
@@ -418,56 +389,26 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
-	dma_filter_fn filter = sdd->cntrlr_info->filter;
 	struct device *dev = &sdd->pdev->dev;
-	dma_cap_mask_t mask;
 	int ret;
 
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE, mask);
-
-	/* Acquire DMA channels */
-	sdd->rx_dma.ch = dma_request_slave_channel_compat(mask, filter,
-				(void*)sdd->rx_dma.dmach, dev, "rx");
-	if (!sdd->rx_dma.ch) {
-		dev_err(dev, "Failed to get RX DMA channel\n");
-		ret = -EBUSY;
-		goto out;
-	}
-
-	sdd->tx_dma.ch = dma_request_slave_channel_compat(mask, filter,
-				(void*)sdd->tx_dma.dmach, dev, "tx");
-	if (!sdd->tx_dma.ch) {
-		dev_err(dev, "Failed to get TX DMA channel\n");
-		ret = -EBUSY;
-		goto out_rx;
-	}
-
 	ret = pm_runtime_get_sync(&sdd->pdev->dev);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(dev, "Failed to enable device: %d\n", ret);
-		goto out_tx;
-	}
 
 	return 0;
-
-out_tx:
-	dma_release_channel(sdd->tx_dma.ch);
-out_rx:
-	dma_release_channel(sdd->rx_dma.ch);
-out:
-	return ret;
 }
 
 static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 {
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
+	struct device *dev = &sdd->pdev->dev;
+	int ret;
 
-	/* Free DMA channels */
-	dma_release_channel(sdd->rx_dma.ch);
-	dma_release_channel(sdd->tx_dma.ch);
+	ret = pm_runtime_put(&sdd->pdev->dev);
+	if (ret < 0)
+		dev_err(dev, "Failed to disable device: %d\n", ret);
 
-	pm_runtime_put(&sdd->pdev->dev);
 	return 0;
 }
 
@@ -476,9 +417,37 @@ static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
 {
 	dmaengine_terminate_all(dma->ch);
 }
-#endif
 
-static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
+
+static void s3c64xx_copy_txbuf_to_spi(struct s3c64xx_spi_driver_data *sdd,
+				    struct spi_transfer *xfer)
+{
+	struct device *dev = &sdd->pdev->dev;
+
+	dma_sync_single_for_cpu(dev, sdd->tx_dma.dma_phys,
+			sdd->dma_buf_size, DMA_TO_DEVICE);
+
+	memcpy(sdd->tx_dma.vbuf, xfer->tx_buf, xfer->len);
+
+	dma_sync_single_for_device(dev, sdd->tx_dma.dma_phys,
+			sdd->dma_buf_size, DMA_TO_DEVICE);
+}
+
+static void s3c64xx_copy_spi_to_rxbuf(struct s3c64xx_spi_driver_data *sdd,
+				    struct spi_transfer *xfer)
+{
+	struct device *dev = &sdd->pdev->dev;
+
+	dma_sync_single_for_cpu(dev, sdd->rx_dma.dma_phys,
+			sdd->dma_buf_size, DMA_FROM_DEVICE);
+
+	memcpy(xfer->rx_buf, sdd->rx_dma.vbuf, xfer->len);
+
+	dma_sync_single_for_device(dev, sdd->rx_dma.dma_phys,
+			sdd->dma_buf_size, DMA_FROM_DEVICE);
+}
+
+static void s3c64xx_enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_device *spi,
 				struct spi_transfer *xfer, int dma_mode)
 {
@@ -509,7 +478,9 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 		chcfg |= S3C64XX_SPI_CH_TXCH_ON;
 		if (dma_mode) {
 			modecfg |= S3C64XX_SPI_MODE_TXDMA_ON;
-			prepare_dma(&sdd->tx_dma, xfer->len, xfer->tx_dma);
+			s3c64xx_copy_txbuf_to_spi(sdd, xfer);
+			s3c64xx_prepare_dma(&sdd->tx_dma,
+					xfer->len, xfer->tx_dma);
 		} else {
 			switch (sdd->cur_bpw) {
 			case 32:
@@ -541,7 +512,9 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 			writel(((xfer->len * 8 / sdd->cur_bpw) & 0xffff)
 					| S3C64XX_SPI_PACKET_CNT_EN,
 					regs + S3C64XX_SPI_PACKET_CNT);
-			prepare_dma(&sdd->rx_dma, xfer->len, xfer->rx_dma);
+			s3c64xx_copy_spi_to_rxbuf(sdd, xfer);
+			s3c64xx_prepare_dma(&sdd->rx_dma,
+					xfer->len, xfer->rx_dma);
 		}
 	}
 
@@ -549,7 +522,7 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 	writel(chcfg, regs + S3C64XX_SPI_CH_CFG);
 }
 
-static inline void enable_cs(struct s3c64xx_spi_driver_data *sdd,
+static inline void s3c64xx_enable_cs(struct s3c64xx_spi_driver_data *sdd,
 						struct spi_device *spi)
 {
 	struct s3c64xx_spi_csinfo *cs;
@@ -568,7 +541,7 @@ static inline void enable_cs(struct s3c64xx_spi_driver_data *sdd,
 	gpio_set_value(cs->line, spi->mode & SPI_CS_HIGH ? 1 : 0);
 }
 
-static int wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
+static int s3c64xx_wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_transfer *xfer, int dma_mode)
 {
 	void __iomem *regs = sdd->regs;
@@ -643,7 +616,7 @@ static int wait_for_xfer(struct s3c64xx_spi_driver_data *sdd,
 	return 0;
 }
 
-static inline void disable_cs(struct s3c64xx_spi_driver_data *sdd,
+static inline void s3c64xx_disable_cs(struct s3c64xx_spi_driver_data *sdd,
 						struct spi_device *spi)
 {
 	struct s3c64xx_spi_csinfo *cs = spi->controller_data;
@@ -725,83 +698,6 @@ static void s3c64xx_spi_config(struct s3c64xx_spi_driver_data *sdd)
 	}
 }
 
-#define XFER_DMAADDR_INVALID DMA_BIT_MASK(32)
-
-static int s3c64xx_spi_map_mssg(struct s3c64xx_spi_driver_data *sdd,
-						struct spi_message *msg)
-{
-	struct device *dev = &sdd->pdev->dev;
-	struct spi_transfer *xfer;
-
-	if (msg->is_dma_mapped)
-		return 0;
-
-	/* First mark all xfer unmapped */
-	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		xfer->rx_dma = XFER_DMAADDR_INVALID;
-		xfer->tx_dma = XFER_DMAADDR_INVALID;
-	}
-
-	/* Map until end or first fail */
-	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-
-		if (xfer->len <= ((FIFO_LVL_MASK(sdd) >> 1) + 1))
-			continue;
-
-		if (xfer->tx_buf != NULL) {
-			xfer->tx_dma = dma_map_single(dev,
-					(void *)xfer->tx_buf, xfer->len,
-					DMA_TO_DEVICE);
-			if (dma_mapping_error(dev, xfer->tx_dma)) {
-				dev_err(dev, "dma_map_single Tx failed\n");
-				xfer->tx_dma = XFER_DMAADDR_INVALID;
-				return -ENOMEM;
-			}
-		}
-
-		if (xfer->rx_buf != NULL) {
-			xfer->rx_dma = dma_map_single(dev, xfer->rx_buf,
-						xfer->len, DMA_FROM_DEVICE);
-			if (dma_mapping_error(dev, xfer->rx_dma)) {
-				dev_err(dev, "dma_map_single Rx failed\n");
-				dma_unmap_single(dev, xfer->tx_dma,
-						xfer->len, DMA_TO_DEVICE);
-				xfer->tx_dma = XFER_DMAADDR_INVALID;
-				xfer->rx_dma = XFER_DMAADDR_INVALID;
-				return -ENOMEM;
-			}
-		}
-	}
-
-	return 0;
-}
-
-static void s3c64xx_spi_unmap_mssg(struct s3c64xx_spi_driver_data *sdd,
-						struct spi_message *msg)
-{
-	struct device *dev = &sdd->pdev->dev;
-	struct spi_transfer *xfer;
-
-	if (msg->is_dma_mapped)
-		return;
-
-	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-
-		if (xfer->len <= ((FIFO_LVL_MASK(sdd) >> 1) + 1))
-			continue;
-
-		if (xfer->rx_buf != NULL
-				&& xfer->rx_dma != XFER_DMAADDR_INVALID)
-			dma_unmap_single(dev, xfer->rx_dma,
-						xfer->len, DMA_FROM_DEVICE);
-
-		if (xfer->tx_buf != NULL
-				&& xfer->tx_dma != XFER_DMAADDR_INVALID)
-			dma_unmap_single(dev, xfer->tx_dma,
-						xfer->len, DMA_TO_DEVICE);
-	}
-}
-
 static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 					    struct spi_message *msg)
 {
@@ -823,12 +719,14 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 		s3c64xx_spi_config(sdd);
 	}
 
-	/* Map all the transfers if needed */
-	if (s3c64xx_spi_map_mssg(sdd, msg)) {
-		dev_err(&spi->dev,
-			"Xfer: Unable to map message buffers!\n");
-		status = -ENOMEM;
-		goto out;
+	/*  Initialize DMA */
+	if (!sdd->rx_dma.ch || !sdd->tx_dma.ch) {
+		status = s3c64xx_dma_init_param(sdd, false);
+		if (status < 0)
+			goto out;
+		status = s3c64xx_dma_init_param(sdd, true);
+		if (status < 0)
+			goto out;
 	}
 
 	/* Configure feedback delay */
@@ -844,6 +742,14 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 		/* Only BPW and Speed may change across transfers */
 		bpw = xfer->bits_per_word;
 		speed = xfer->speed_hz ? : spi->max_speed_hz;
+
+		if (xfer->len > sdd->dma_buf_size) {
+			dev_err(&spi->dev,
+				"Message length exceeds dma buffer size %d>%d\n",
+				xfer->len, sdd->dma_buf_size);
+			status = -EIO;
+			goto out;
+		}
 
 		if (xfer->len % (bpw / 8)) {
 			dev_err(&spi->dev,
@@ -871,17 +777,17 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 		sdd->state &= ~RXBUSY;
 		sdd->state &= ~TXBUSY;
 
-		enable_datapath(sdd, spi, xfer, use_dma);
+		s3c64xx_enable_datapath(sdd, spi, xfer, use_dma);
 
 		/* Slave Select */
-		enable_cs(sdd, spi);
+		s3c64xx_enable_cs(sdd, spi);
 
 		/* Start the signals */
 		writel(0, sdd->regs + S3C64XX_SPI_SLAVE_SEL);
 
 		spin_unlock_irqrestore(&sdd->lock, flags);
 
-		status = wait_for_xfer(sdd, xfer, use_dma);
+		status = s3c64xx_wait_for_xfer(sdd, xfer, use_dma);
 
 		/* Quiese the signals */
 		writel(S3C64XX_SPI_SLAVE_SIG_INACT,
@@ -924,11 +830,9 @@ static int s3c64xx_spi_transfer_one_message(struct spi_master *master,
 
 out:
 	if (!cs_toggle || status)
-		disable_cs(sdd, spi);
+		s3c64xx_disable_cs(sdd, spi);
 	else
 		sdd->tgl_spi = spi;
-
-	s3c64xx_spi_unmap_mssg(sdd, msg);
 
 	msg->status = status;
 
@@ -1071,12 +975,12 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 	}
 
 	pm_runtime_put(&sdd->pdev->dev);
-	disable_cs(sdd, spi);
+	s3c64xx_disable_cs(sdd, spi);
 	return 0;
 
 setup_exit:
 	/* setup() returns with device de-selected */
-	disable_cs(sdd, spi);
+	s3c64xx_disable_cs(sdd, spi);
 
 err_msgq:
 	gpio_free(cs->line);
@@ -1304,6 +1208,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 
 	sdd->tx_dma.direction = DMA_MEM_TO_DEV;
 	sdd->rx_dma.direction = DMA_DEV_TO_MEM;
+	sdd->dma_buf_size = S3C64XX_SPI_DMA_BUF_SIZE;
 
 	master->dev.of_node = pdev->dev.of_node;
 	master->bus_num = sdd->port_id;
@@ -1411,6 +1316,8 @@ static int s3c64xx_spi_remove(struct platform_device *pdev)
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
 
 	pm_runtime_disable(&pdev->dev);
+	s3c64xx_dma_deinit_param(sdd, false);
+	s3c64xx_dma_deinit_param(sdd, true);
 
 	spi_unregister_master(master);
 

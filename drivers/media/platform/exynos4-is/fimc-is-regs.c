@@ -89,14 +89,14 @@ int fimc_is_hw_set_param(struct fimc_is *is)
 	mcuctl_write(is->config_index, is, MCUCTL_REG_ISSR(2));
 
 	mcuctl_write(param_count, is, MCUCTL_REG_ISSR(3));
-	mcuctl_write(config->p_region_index1, is, MCUCTL_REG_ISSR(4));
-	mcuctl_write(config->p_region_index2, is, MCUCTL_REG_ISSR(5));
+	mcuctl_write(config->p_region_index[0], is, MCUCTL_REG_ISSR(4));
+	mcuctl_write(config->p_region_index[1], is, MCUCTL_REG_ISSR(5));
 
 	fimc_is_hw_set_intgr0_gd0(is);
 	return 0;
 }
 
-int fimc_is_hw_set_tune(struct fimc_is *is)
+static int __maybe_unused fimc_is_hw_set_tune(struct fimc_is *is)
 {
 	fimc_is_hw_wait_intmsr0_intmsd0(is);
 
@@ -129,6 +129,20 @@ int fimc_is_hw_get_params(struct fimc_is *is, unsigned int num_args)
 	return 0;
 }
 
+void fimc_is_hw_set_isp_buf_mask(struct fimc_is *is, unsigned int mask)
+{
+	if (hweight32(mask) == 1) {
+		dev_err(&is->pdev->dev, "%s(): not enough buffers (mask %#x)\n",
+							__func__, mask);
+		return;
+	}
+
+	if (mcuctl_read(is, MCUCTL_REG_ISSR(23)) != 0)
+		dev_dbg(&is->pdev->dev, "non-zero DMA buffer mask\n");
+
+	mcuctl_write(mask, is, MCUCTL_REG_ISSR(23));
+}
+
 void fimc_is_hw_set_sensor_num(struct fimc_is *is)
 {
 	pr_debug("setting sensor index to: %d\n", is->sensor_index);
@@ -136,7 +150,7 @@ void fimc_is_hw_set_sensor_num(struct fimc_is *is)
 	mcuctl_write(IH_REPLY_DONE, is, MCUCTL_REG_ISSR(0));
 	mcuctl_write(is->sensor_index, is, MCUCTL_REG_ISSR(1));
 	mcuctl_write(IHC_GET_SENSOR_NUM, is, MCUCTL_REG_ISSR(2));
-	mcuctl_write(FIMC_IS_SENSOR_NUM, is, MCUCTL_REG_ISSR(3));
+	mcuctl_write(FIMC_IS_SENSORS_NUM, is, MCUCTL_REG_ISSR(3));
 }
 
 void fimc_is_hw_close_sensor(struct fimc_is *is, unsigned int index)
@@ -236,7 +250,7 @@ int fimc_is_itf_mode_change(struct fimc_is *is)
 	fimc_is_hw_change_mode(is);
 	ret = fimc_is_wait_event(is, IS_ST_CHANGE_MODE, 1,
 				FIMC_IS_CONFIG_TIMEOUT);
-	if (!ret < 0)
+	if (ret < 0)
 		dev_err(&is->pdev->dev, "%s(): mode change (%d) timeout\n",
 			__func__, is->config_index);
 	return ret;

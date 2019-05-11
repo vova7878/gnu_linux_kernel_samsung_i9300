@@ -29,7 +29,6 @@
 #define _OS_INTFS_C_
 
 #include <linux/module.h>
-#include <linux/init.h>
 #include <linux/kthread.h>
 #include <linux/firmware.h>
 #include "osdep_service.h"
@@ -238,7 +237,7 @@ struct net_device *r8712_init_netdev(void)
 
 static u32 start_drv_threads(struct _adapter *padapter)
 {
-	padapter->cmdThread = kthread_run(r8712_cmd_thread, padapter,
+	padapter->cmdThread = kthread_run(r8712_cmd_thread, padapter, "%s",
 			      padapter->pnetdev->name);
 	if (IS_ERR(padapter->cmdThread) < 0)
 		return _FAIL;

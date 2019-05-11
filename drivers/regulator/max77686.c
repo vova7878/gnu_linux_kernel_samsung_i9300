@@ -34,6 +34,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/mfd/max77686.h>
 #include <linux/mfd/max77686-private.h>
+#include <linux/of_gpio.h>
 
 #define MAX77686_LDO_MINUV	800000
 #define MAX77686_LDO_UVSTEP	50000
@@ -91,19 +92,60 @@ static int max77686_buck_set_suspend_disable(struct regulator_dev *rdev)
 	return 0;
 }
 
+static int max77686_buck_set_suspend_enable(struct regulator_dev *rdev)
+{
+	unsigned int val;
+	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
+
+	if (rdev->desc->id == MAX77686_BUCK1)
+		val = MAX77686_OPMODE_MASK;
+	else
+		val = MAX77686_OPMODE_MASK << MAX77686_OPMODE_BUCK234_SHIFT;
+
+	max77686->opmode[rdev->desc->id] = val;
+	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				  rdev->desc->enable_mask,
+				  val);
+}
+
 /* Some LDOs supports [LPM/Normal]ON mode during suspend state */
 static int max77686_set_suspend_mode(struct regulator_dev *rdev,
 				     unsigned int mode)
 {
 	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
 	unsigned int val;
-	int ret, id = rdev_get_id(rdev);
-
-	/* BUCK[5-9] doesn't support this feature */
-	if (id >= MAX77686_BUCK5)
-		return 0;
 
 	switch (mode) {
+	case REGULATOR_MODE_IDLE:			/* ON in LP Mode */
+		val = 0x2 << MAX77686_OPMODE_SHIFT;
+		break;
+	case REGULATOR_MODE_NORMAL:			/* ON in Normal Mode */
+		val = 0x3 << MAX77686_OPMODE_SHIFT;
+		break;
+	default:
+		pr_warn("%s: regulator_suspend_mode : 0x%x not supported\n",
+			rdev->desc->name, mode);
+		return -EINVAL;
+	}
+
+	max77686->opmode[rdev->desc->id] = val;
+	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
+				  rdev->desc->enable_mask,
+				  val);
+}
+
+/* Some LDOs supports [LPM/Normal]ON mode during suspend state */
+static int max77686_ldo_en_set_suspend_mode(struct regulator_dev *rdev,
+				     unsigned int mode)
+{
+	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
+	unsigned int val;
+	int ret, id = rdev_get_id(rdev);
+
+	switch (mode) {
+	case REGULATOR_MODE_STANDBY:		/* OFF when ENLDOx low */
+		val = 0x0 << MAX77686_OPMODE_SHIFT;
+		break;
 	case REGULATOR_MODE_IDLE:			/* ON in LP Mode */
 		val = 0x2 << MAX77686_OPMODE_SHIFT;
 		break;
@@ -204,6 +246,18 @@ static struct regulator_ops max77686_ops = {
 	.set_suspend_mode	= max77686_set_suspend_mode,
 };
 
+static struct regulator_ops max77686_ldo_en_ops = {
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.is_enabled		= regulator_is_enabled_regmap,
+	.enable			= max77686_enable,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+	.set_suspend_mode	= max77686_ldo_en_set_suspend_mode,
+};
+
 static struct regulator_ops max77686_ldo_ops = {
 	.list_voltage		= regulator_list_voltage_linear,
 	.map_voltage		= regulator_map_voltage_linear,
@@ -226,6 +280,7 @@ static struct regulator_ops max77686_buck1_ops = {
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
+	.set_suspend_enable	= max77686_buck_set_suspend_enable,
 };
 
 static struct regulator_ops max77686_buck_dvs_ops = {
@@ -239,12 +294,40 @@ static struct regulator_ops max77686_buck_dvs_ops = {
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
 	.set_ramp_delay		= max77686_set_ramp_delay,
 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
+	.set_suspend_enable	= max77686_buck_set_suspend_enable,
+};
+
+static struct regulator_ops max77686_buck_ops = {
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.is_enabled		= regulator_is_enabled_regmap,
+	.enable			= max77686_enable,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
 };
 
 #define regulator_desc_ldo(num)		{				\
 	.name		= "LDO"#num,					\
 	.id		= MAX77686_LDO##num,				\
 	.ops		= &max77686_ops,				\
+	.type		= REGULATOR_VOLTAGE,				\
+	.owner		= THIS_MODULE,					\
+	.min_uV		= MAX77686_LDO_MINUV,				\
+	.uV_step	= MAX77686_LDO_UVSTEP,				\
+	.ramp_delay	= MAX77686_RAMP_DELAY,				\
+	.n_voltages	= MAX77686_VSEL_MASK + 1,			\
+	.vsel_reg	= MAX77686_REG_LDO1CTRL1 + num - 1,		\
+	.vsel_mask	= MAX77686_VSEL_MASK,				\
+	.enable_reg	= MAX77686_REG_LDO1CTRL1 + num - 1,		\
+	.enable_mask	= MAX77686_OPMODE_MASK				\
+			<< MAX77686_OPMODE_SHIFT,			\
+}
+#define regulator_desc_ldo_en(num)		{				\
+	.name		= "LDO"#num,					\
+	.id		= MAX77686_LDO##num,				\
+	.ops		= &max77686_ldo_en_ops,				\
 	.type		= REGULATOR_VOLTAGE,				\
 	.owner		= THIS_MODULE,					\
 	.min_uV		= MAX77686_LDO_MINUV,				\
@@ -308,7 +391,22 @@ static struct regulator_ops max77686_buck_dvs_ops = {
 #define regulator_desc_buck(num)		{			\
 	.name		= "BUCK"#num,					\
 	.id		= MAX77686_BUCK##num,				\
-	.ops		= &max77686_ops,				\
+	.ops		= &max77686_buck_ops,				\
+	.type		= REGULATOR_VOLTAGE,				\
+	.owner		= THIS_MODULE,					\
+	.min_uV		= MAX77686_BUCK_MINUV,				\
+	.uV_step	= MAX77686_BUCK_UVSTEP,				\
+	.ramp_delay	= MAX77686_RAMP_DELAY,				\
+	.n_voltages	= MAX77686_VSEL_MASK + 1,			\
+	.vsel_reg	= MAX77686_REG_BUCK5OUT + (num - 5) * 2,	\
+	.vsel_mask	= MAX77686_VSEL_MASK,				\
+	.enable_reg	= MAX77686_REG_BUCK5CTRL + (num - 5) * 2,	\
+	.enable_mask	= MAX77686_OPMODE_MASK,				\
+}
+#define regulator_desc_buck89(num)		{			\
+	.name		= "BUCK"#num,					\
+	.id		= MAX77686_BUCK##num,				\
+	.ops		= &max77686_buck1_ops,				\
 	.type		= REGULATOR_VOLTAGE,				\
 	.owner		= THIS_MODULE,					\
 	.min_uV		= MAX77686_BUCK_MINUV,				\
@@ -372,9 +470,9 @@ static struct regulator_desc regulators[] = {
 	regulator_desc_ldo(17),
 	regulator_desc_ldo(18),
 	regulator_desc_ldo(19),
-	regulator_desc_ldo(20),
-	regulator_desc_ldo(21),
-	regulator_desc_ldo(22),
+	regulator_desc_ldo_en(20),
+	regulator_desc_ldo_en(21),
+	regulator_desc_ldo_en(22),
 	regulator_desc_ldo(23),
 	regulator_desc_ldo(24),
 	regulator_desc_ldo(25),
@@ -386,8 +484,8 @@ static struct regulator_desc regulators[] = {
 	regulator_desc_buck(5),
 	regulator_desc_buck(6),
 	regulator_desc_buck(7),
-	regulator_desc_buck(8),
-	regulator_desc_buck(9),
+	regulator_desc_buck89(8),
+	regulator_desc_buck89(9),
 };
 
 #ifdef CONFIG_OF
@@ -398,9 +496,36 @@ static int max77686_pmic_dt_parse_pdata(struct platform_device *pdev,
 	struct device_node *pmic_np, *regulators_np;
 	struct max77686_regulator_data *rdata;
 	struct of_regulator_match rmatch;
-	unsigned int i;
+	unsigned int i, gpio;
 
 	pmic_np = iodev->dev->of_node;
+
+	for (i = 0; i < 3; i++) {
+		/* GPIO-DVS */
+		gpio = of_get_named_gpio(pmic_np, "max77686,dvs_gpios", i);
+		if (!gpio_is_valid(gpio)) {
+			dev_err(&pdev->dev, "could not find gpio-dvs\n");
+			while (i--)
+				pdata->buck234_gpio_dvs[i] = 0;
+			break;
+		}
+		pdata->buck234_gpio_dvs[i] = gpio;
+
+		/* GPIO-SELB */
+		gpio = of_get_named_gpio(pmic_np, "max77686,selb_gpios", i);
+		if (!gpio_is_valid(gpio)) {
+			dev_err(&pdev->dev, "could not find gpio-selb\n");
+			while (i--)
+				pdata->buck234_gpio_selb[i] = 0;
+			break;
+		}
+		pdata->buck234_gpio_selb[i] = gpio;
+	}
+
+	if (of_property_read_u32(pmic_np, "max77686,default_dvs_idx",
+				 &pdata->dvs_idx))
+		pdata->dvs_idx = 0;
+
 	regulators_np = of_find_node_by_name(pmic_np, "voltage-regulators");
 	if (!regulators_np) {
 		dev_err(&pdev->dev, "could not find regulators sub-node\n");
@@ -473,6 +598,70 @@ static int max77686_pmic_probe(struct platform_device *pdev)
 	config.regmap = iodev->regmap;
 	config.driver_data = max77686;
 	platform_set_drvdata(pdev, max77686);
+
+	/* GPIO-DVS, SELB */
+	if (pdata->buck234_gpio_dvs[0]) {
+		int ret, i;
+		for (i = 0 ; i < 3; i++) {
+			char label[20];
+			unsigned long flag;
+
+			sprintf(label, "MAX77686_DVS%d", i);
+
+			flag = (test_bit(i, (unsigned long *) &pdata->dvs_idx)) ?
+					 GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
+
+			ret = devm_gpio_request_one(&pdev->dev,
+						pdata->buck234_gpio_dvs[i], flag, label);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
+				while (i--)
+					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
+
+				pdata->dvs_idx = 0;
+				break;
+			}
+		}
+	}
+
+	if (pdata->buck234_gpio_selb[0]) {
+		int ret, i;
+		for (i = 0 ; i < 3; i++) {
+			char label[20];
+			unsigned long flag;
+
+			sprintf(label, "MAX77686_SELB%d", i);
+
+			flag = GPIOF_OUT_INIT_LOW;
+
+			ret = devm_gpio_request_one(&pdev->dev,
+						pdata->buck234_gpio_selb[i], flag, label);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
+				while (i--)
+					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
+				break;
+			}
+		}
+	}
+
+	/* Initialize DVS voltage table */
+	for (i = 0; i < 8; i++) {
+		unsigned int buck2_dvs = pdata->buck2_voltage[i];
+		unsigned int buck3_dvs = pdata->buck3_voltage[i];
+		unsigned int buck4_dvs = pdata->buck4_voltage[i];
+
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK2DVS1 + i,
+				buck2_dvs ? : 0x28);
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK3DVS1 + i,
+					buck3_dvs ? : 0x28);
+		regmap_write(iodev->regmap, MAX77686_REG_BUCK4DVS1 + i,
+				buck4_dvs ? : 0x28);
+	}
+
+	regulators[MAX77686_BUCK2].vsel_reg += pdata->dvs_idx;
+	regulators[MAX77686_BUCK3].vsel_reg += pdata->dvs_idx;
+	regulators[MAX77686_BUCK4].vsel_reg += pdata->dvs_idx;
 
 	for (i = 0; i < MAX77686_REGULATORS; i++) {
 		config.init_data = pdata->regulators[i].initdata;

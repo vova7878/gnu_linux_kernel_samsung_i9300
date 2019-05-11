@@ -24,6 +24,7 @@
 #include <media/videobuf2-core.h>
 #include "regs-mfc.h"
 #include "regs-mfc-v6.h"
+#include "regs-mfc-v7.h"
 
 /* Definitions related to MFC memory */
 
@@ -110,15 +111,6 @@ enum s5p_mfc_fmt_type {
 	MFC_FMT_DEC,
 	MFC_FMT_ENC,
 	MFC_FMT_RAW,
-};
-
-/**
- * enum s5p_mfc_node_type - The type of an MFC device node.
- */
-enum s5p_mfc_node_type {
-	MFCNODE_INVALID = -1,
-	MFCNODE_DECODER = 0,
-	MFCNODE_ENCODER = 1,
 };
 
 /**
@@ -568,9 +560,12 @@ struct s5p_mfc_ctx {
 	int img_height;
 	int buf_width;
 	int buf_height;
+	int interlace;
 
 	int luma_size;
 	int chroma_size;
+	int luma_size_to_report;
+	int chroma_size_to_report;
 	int mv_size;
 
 	unsigned long consumed_stream;
@@ -613,9 +608,6 @@ struct s5p_mfc_ctx {
 	struct s5p_mfc_enc_params enc_params;
 
 	size_t enc_dst_buf_size;
-	size_t luma_dpb_size;
-	size_t chroma_dpb_size;
-	size_t me_buffer_size;
 	size_t tmv_buffer_size;
 
 	enum v4l2_mpeg_mfc51_video_force_frame_type force_frame_type;
@@ -683,6 +675,36 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
 #define HAS_PORTNUM(dev)	(dev ? (dev->variant ? \
 				(dev->variant->port_num ? 1 : 0) : 0) : 0)
 #define IS_TWOPORT(dev)		(dev->variant->port_num == 2 ? 1 : 0)
-#define IS_MFCV6(dev)		(dev->variant->version >= 0x60 ? 1 : 0)
+#define IS_MFCV6_PLUS(dev)	(dev->variant->version >= 0x60 ? 1 : 0)
+#define IS_MFCV7(dev)		(dev->variant->version >= 0x70 ? 1 : 0)
+
+#define s5p_mfc_supported_mem_type(mem)	\
+	((mem == V4L2_MEMORY_MMAP || \
+	 mem == V4L2_MEMORY_USERPTR || \
+	 mem == V4L2_MEMORY_DMABUF) ? 1 : 0)
+
+#define INITIAL_MAPPING_VAL  ERR_PTR(-EAGAIN)
+
+static inline bool mfc_is_iommu_used(struct s5p_mfc_ctx *ctx)
+{
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
+	struct device *dev_iommu1 = ctx->dev->mem_dev_l;
+	struct device *dev_iommu2 = ctx->dev->mem_dev_r;
+	int iommu1_mapped, iommu2_mapped;
+
+	iommu1_mapped = dev_iommu1->archdata.mapping &&
+			dev_iommu1->archdata.mapping != INITIAL_MAPPING_VAL;
+	iommu2_mapped = dev_iommu2->archdata.mapping &&
+			dev_iommu2->archdata.mapping != INITIAL_MAPPING_VAL;
+
+	if (iommu1_mapped) {
+		/* Warn when one iommu is mapped and the second is not.
+		 * This is a strange case. */
+		WARN_ON(!iommu2_mapped);
+		return true;
+	}
+#endif
+	return false;
+}
 
 #endif /* S5P_MFC_COMMON_H_ */

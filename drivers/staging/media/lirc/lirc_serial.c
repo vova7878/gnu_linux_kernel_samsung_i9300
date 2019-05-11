@@ -67,7 +67,7 @@
 #include <linux/delay.h>
 #include <linux/poll.h>
 #include <linux/platform_device.h>
-
+#include <linux/gpio.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/fcntl.h>
@@ -321,7 +321,7 @@ static void on(void)
 	 * status LED and ground
 	 */
 	if (type == LIRC_NSLU2) {
-		gpio_line_set(NSLU2_LED_GRN, IXP4XX_GPIO_LOW);
+		gpio_set_value(NSLU2_LED_GRN, 0);
 		return;
 	}
 #endif
@@ -335,7 +335,7 @@ static void off(void)
 {
 #ifdef CONFIG_LIRC_SERIAL_NSLU2
 	if (type == LIRC_NSLU2) {
-		gpio_line_set(NSLU2_LED_GRN, IXP4XX_GPIO_HIGH);
+		gpio_set_value(NSLU2_LED_GRN, 1);
 		return;
 	}
 #endif
@@ -428,8 +428,8 @@ static int init_timing_params(unsigned int new_duty_cycle,
 	period = 256 * 1000000L / freq;
 	pulse_width = period * duty_cycle / 100;
 	space_width = period - pulse_width;
-	dprintk("in init_timing_params, freq=%d pulse=%ld, "
-		"space=%ld\n", freq, pulse_width, space_width);
+	dprintk("in init_timing_params, freq=%d pulse=%ld, space=%ld\n",
+		freq, pulse_width, space_width);
 	return 0;
 }
 #endif /* USE_RDTSC */
@@ -707,7 +707,8 @@ static irqreturn_t irq_handler(int i, void *blah)
 				pr_warn("ignoring spike: %d %d %lx %lx %lx %lx\n",
 					dcd, sense,
 					tv.tv_sec, lasttv.tv_sec,
-					tv.tv_usec, lasttv.tv_usec);
+					(unsigned long)tv.tv_usec,
+					(unsigned long)lasttv.tv_usec);
 				continue;
 			}
 
@@ -719,7 +720,8 @@ static irqreturn_t irq_handler(int i, void *blah)
 				pr_warn("%d %d %lx %lx %lx %lx\n",
 					dcd, sense,
 					tv.tv_sec, lasttv.tv_sec,
-					tv.tv_usec, lasttv.tv_usec);
+					(unsigned long)tv.tv_usec,
+					(unsigned long)lasttv.tv_usec);
 				data = PULSE_MASK;
 			} else if (deltv > 15) {
 				data = PULSE_MASK; /* really long time */
@@ -728,7 +730,8 @@ static irqreturn_t irq_handler(int i, void *blah)
 					pr_warn("AIEEEE: %d %d %lx %lx %lx %lx\n",
 						dcd, sense,
 						tv.tv_sec, lasttv.tv_sec,
-						tv.tv_usec, lasttv.tv_usec);
+						(unsigned long)tv.tv_usec,
+						(unsigned long)lasttv.tv_usec);
 					/*
 					 * detecting pulse while this
 					 * MUST be a space!
@@ -838,6 +841,16 @@ static int hardware_init_port(void)
 static int lirc_serial_probe(struct platform_device *dev)
 {
 	int i, nlow, nhigh, result;
+
+#ifdef CONFIG_LIRC_SERIAL_NSLU2
+	/* This GPIO is used for a LED on the NSLU2 */
+	result = devm_gpio_request(dev, NSLU2_LED_GRN, "lirc-serial");
+	if (result)
+		return result;
+	result = gpio_direction_output(NSLU2_LED_GRN, 0);
+	if (result)
+		return result;
+#endif
 
 	result = request_irq(irq, irq_handler,
 			     (share_irq ? IRQF_SHARED : 0),
@@ -961,7 +974,7 @@ static void set_use_dec(void *data)
 	spin_unlock_irqrestore(&hardware[type].lock, flags);
 }
 
-static ssize_t lirc_write(struct file *file, const char *buf,
+static ssize_t lirc_write(struct file *file, const char __user *buf,
 			 size_t n, loff_t *ppos)
 {
 	int i, count;
@@ -998,7 +1011,8 @@ static ssize_t lirc_write(struct file *file, const char *buf,
 static long lirc_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	int result;
-	__u32 value;
+	u32 __user *uptr = (u32 __user *)arg;
+	u32 value;
 
 	switch (cmd) {
 	case LIRC_GET_SEND_MODE:
@@ -1007,7 +1021,7 @@ static long lirc_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 		result = put_user(LIRC_SEND2MODE
 				  (hardware[type].features&LIRC_CAN_SEND_MASK),
-				  (__u32 *) arg);
+				  uptr);
 		if (result)
 			return result;
 		break;
@@ -1016,7 +1030,7 @@ static long lirc_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		if (!(hardware[type].features&LIRC_CAN_SEND_MASK))
 			return -ENOIOCTLCMD;
 
-		result = get_user(value, (__u32 *) arg);
+		result = get_user(value, uptr);
 		if (result)
 			return result;
 		/* only LIRC_MODE_PULSE supported */
@@ -1033,7 +1047,7 @@ static long lirc_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		if (!(hardware[type].features&LIRC_CAN_SET_SEND_DUTY_CYCLE))
 			return -ENOIOCTLCMD;
 
-		result = get_user(value, (__u32 *) arg);
+		result = get_user(value, uptr);
 		if (result)
 			return result;
 		if (value <= 0 || value > 100)
@@ -1046,7 +1060,7 @@ static long lirc_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		if (!(hardware[type].features&LIRC_CAN_SET_SEND_CARRIER))
 			return -ENOIOCTLCMD;
 
-		result = get_user(value, (__u32 *) arg);
+		result = get_user(value, uptr);
 		if (result)
 			return result;
 		if (value > 500000 || value < 20000)

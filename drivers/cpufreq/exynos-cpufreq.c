@@ -17,6 +17,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/cpufreq.h>
 #include <linux/suspend.h>
+#include <linux/export.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
 
 #include <plat/cpu.h>
 
@@ -261,6 +264,7 @@ static int exynos_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 
 static struct freq_attr *exynos_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
+	&cpufreq_freq_attr_scaling_boost_freqs,
 	NULL,
 };
 
@@ -273,13 +277,180 @@ static struct cpufreq_driver exynos_driver = {
 	.exit		= exynos_cpufreq_cpu_exit,
 	.name		= "exynos_cpufreq",
 	.attr		= exynos_cpufreq_attr,
+#ifdef CONFIG_CPU_FREQ_BOOST_SW
+	.boost_supported = true,
+#endif
 #ifdef CONFIG_PM
 	.suspend	= exynos_cpufreq_suspend,
 	.resume		= exynos_cpufreq_resume,
 #endif
 };
 
-static int __init exynos_cpufreq_init(void)
+/* Device Tree Support for CPU freq */
+
+int exynos_of_parse_boost(struct exynos_dvfs_info *info,
+			  const char *property_name)
+{
+	struct cpufreq_frequency_table *ft = info->freq_table;
+	struct device_node *node = info->dev->of_node;
+	unsigned int boost_freq;
+	int i;
+
+	if (of_property_read_u32(node, property_name, &boost_freq)) {
+		pr_err("%s: Property: %s not found\n", __func__,
+		       property_name);
+		return -ENODEV;
+	}
+
+	/*
+	 * Adjust the BOOST setting code to the current cpufreq code
+	 * Now we have static table definitions for frequencies, dividers
+	 * and PLL parameters (like P M S)
+	 *
+	 * In the current cpufreq code base only the change of one entry at
+	 * frequency table is required.
+	 */
+
+	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++)
+		if (ft[i].frequency != CPUFREQ_ENTRY_INVALID)
+			break;
+
+	if (--i >= 0) {
+		ft[i].index = CPUFREQ_BOOST_FREQ;
+		ft[i].frequency = boost_freq;
+	} else {
+		pr_err("%s: BOOST index: %d out of range\n", __func__, i);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[i].frequency);
+
+	return 0;
+}
+
+struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+		struct exynos_dvfs_info *info, const char *property_name)
+{
+	struct device_node *node = info->dev->of_node;
+	struct cpufreq_frequency_table *ft, *ret = NULL;
+	int len, num, i = 0, k;
+	struct property *pp;
+	u32 *of_f_tab;
+
+	if (!node)
+		return NULL;
+
+	pp = of_find_property(node, property_name, &len);
+	if (!pp) {
+		pr_debug("%s: Property: %s not found\n", __func__,
+			 property_name);
+		goto err;
+	}
+
+	if (len == 0) {
+		pr_debug("%s: Length wrong value!\n", __func__);
+		goto err;
+	}
+
+	of_f_tab = kzalloc(len, GFP_KERNEL);
+	if (!of_f_tab) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err;
+	}
+
+	num = len / sizeof(u32);
+
+	if (of_property_read_u32_array(node, pp->name, of_f_tab, num)) {
+		pr_err("%s: Property: %s cannot be read!\n", __func__,
+		       pp->name);
+		goto err_of_f_tab;
+	}
+
+	/*
+	 * Here + 1 is required for CPUFREQ_TABLE_END
+	 *
+	 * Number of those entries must correspond to the apll_freq_4412 table
+	 */
+	ft = kzalloc(sizeof(struct cpufreq_frequency_table) *
+		     (info->freq_levels + 1), GFP_KERNEL);
+	if (!ft) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err_of_f_tab;
+	}
+
+	i = info->freq_levels;
+	ft[i].index = 0;
+	ft[i].frequency = CPUFREQ_TABLE_END;
+
+	for (i--, k = num - 1; i >= 0; i--, k--) {
+		ft[i].index = i;
+		if (k < 0)
+			ft[i].frequency = CPUFREQ_ENTRY_INVALID;
+		else
+			ft[i].frequency = of_f_tab[k];
+	}
+
+	ret = ft;
+
+ err_of_f_tab:
+	kfree(of_f_tab);
+ err:
+	return ret;
+}
+
+unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
+					 const char *property_name)
+{
+	struct device_node *node = info->dev->of_node;
+	struct property *pp;
+	int len, num;
+	u32 *of_v_tab;
+
+	if (!node)
+		return NULL;
+
+	pp = of_find_property(node, property_name, &len);
+	if (!pp) {
+		pr_debug("%s: Property: %s not found\n", __func__,
+			 property_name);
+		goto err;
+	}
+
+	if (len == 0) {
+		pr_debug("%s: Length wrong value!\n", __func__);
+		goto err;
+	}
+
+	of_v_tab = kzalloc(len, GFP_KERNEL);
+	if (!of_v_tab) {
+		pr_err("%s: Allocation failed\n", __func__);
+		goto err;
+	}
+
+	num = len / sizeof(u32);
+	if (of_property_read_u32_array(node, pp->name, of_v_tab, num)) {
+		pr_err("%s: Property: %s cannot be read!\n", __func__,
+		       pp->name);
+		goto err_of_v_tab;
+	}
+
+	return of_v_tab;
+
+ err_of_v_tab:
+	kfree(of_v_tab);
+ err:
+	return NULL;
+}
+
+
+#ifdef CONFIG_OF
+static struct of_device_id exynos_cpufreq_of_match[] = {
+	{ .compatible = "samsung,exynos-cpufreq", },
+	{ },
+};
+#endif
+
+static int exynos_cpufreq_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 
@@ -287,7 +458,11 @@ static int __init exynos_cpufreq_init(void)
 	if (!exynos_info)
 		return -ENOMEM;
 
-	if (soc_is_exynos4210())
+	exynos_info->dev = &pdev->dev;
+
+	if (soc_is_exynos3250())
+		ret = exynos3250_cpufreq_init(exynos_info);
+	else if (soc_is_exynos4210())
 		ret = exynos4210_cpufreq_init(exynos_info);
 	else if (soc_is_exynos4212() || soc_is_exynos4412())
 		ret = exynos4x12_cpufreq_init(exynos_info);
@@ -304,7 +479,7 @@ static int __init exynos_cpufreq_init(void)
 		goto err_vdd_arm;
 	}
 
-	arm_regulator = regulator_get(NULL, "vdd_arm");
+	arm_regulator = regulator_get(exynos_info->dev, "vdd_arm");
 	if (IS_ERR(arm_regulator)) {
 		pr_err("%s: failed to get resource vdd_arm\n", __func__);
 		goto err_vdd_arm;
@@ -329,4 +504,25 @@ err_vdd_arm:
 	pr_debug("%s: failed initialization\n", __func__);
 	return -EINVAL;
 }
+
+static struct platform_driver exynos_cpufreq_driver = {
+	.probe		= exynos_cpufreq_probe,
+	.driver		= {
+		.owner		= THIS_MODULE,
+		.name		= "exynos-cpufreq",
+		.of_match_table = of_match_ptr(exynos_cpufreq_of_match),
+	}
+};
+
+static int __init exynos_cpufreq_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&exynos_cpufreq_driver);
+	if (ret) {
+		pr_err("%s: Failed to register CPUFREQ driver\n", __func__);
+	}
+
+	return ret;
+}
+
 late_initcall(exynos_cpufreq_init);

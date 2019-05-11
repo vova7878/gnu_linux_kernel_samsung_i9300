@@ -162,11 +162,10 @@ static const struct st_sensors st_gyro_sensors[] = {
 		.wai = ST_GYRO_2_WAI_EXP,
 		.sensors_supported = {
 			[0] = L3GD20_GYRO_DEV_NAME,
-			[1] = L3GD20H_GYRO_DEV_NAME,
-			[2] = LSM330D_GYRO_DEV_NAME,
-			[3] = LSM330DLC_GYRO_DEV_NAME,
-			[4] = L3G4IS_GYRO_DEV_NAME,
-			[5] = LSM330_GYRO_DEV_NAME,
+			[1] = LSM330D_GYRO_DEV_NAME,
+			[2] = LSM330DLC_GYRO_DEV_NAME,
+			[3] = L3G4IS_GYRO_DEV_NAME,
+			[4] = LSM330_GYRO_DEV_NAME,
 		},
 		.ch = (struct iio_chan_spec *)st_gyro_16bit_channels,
 		.odr = {
@@ -300,6 +299,7 @@ static const struct iio_trigger_ops st_gyro_trigger_ops = {
 int st_gyro_common_probe(struct iio_dev *indio_dev)
 {
 	int err;
+	int i;
 	struct st_sensor_data *gdata = iio_priv(indio_dev);
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -331,6 +331,9 @@ int st_gyro_common_probe(struct iio_dev *indio_dev)
 						  ST_GYRO_TRIGGER_OPS);
 		if (err < 0)
 			goto st_gyro_probe_trigger_error;
+
+		for (i = 0; i < indio_dev->num_channels; i++)
+			gdata->sensor->ch[i].event_mask = 0;
 	}
 
 	err = iio_device_register(indio_dev);

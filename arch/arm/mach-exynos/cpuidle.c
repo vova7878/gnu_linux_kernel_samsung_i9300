@@ -21,12 +21,14 @@
 #include <asm/suspend.h>
 #include <asm/unified.h>
 #include <asm/cpuidle.h>
+#include <asm/firmware.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-pmu.h>
 
 #include <plat/cpu.h>
 
 #include "common.h"
+#include "smc.h"
 
 #define REG_DIRECTGO_ADDR	(samsung_rev() == EXYNOS4210_REV_1_1 ? \
 			S5P_INFORM7 : (samsung_rev() == EXYNOS4210_REV_1_0 ? \
@@ -67,28 +69,34 @@ static void exynos4_set_wakeupmask(void)
 	__raw_writel(0x0000ff3e, S5P_WAKEUP_MASK);
 }
 
-static unsigned int g_pwr_ctrl, g_diag_reg;
+static unsigned int cp15_regs[2];
 
 static void save_cpu_arch_register(void)
 {
 	/*read power control register*/
-	asm("mrc p15, 0, %0, c15, c0, 0" : "=r"(g_pwr_ctrl) : : "cc");
+	asm("mrc p15, 0, %0, c15, c0, 0" : "=r"(cp15_regs[0]) : : "cc");
 	/*read diagnostic register*/
-	asm("mrc p15, 0, %0, c15, c0, 1" : "=r"(g_diag_reg) : : "cc");
+	asm("mrc p15, 0, %0, c15, c0, 1" : "=r"(cp15_regs[1]) : : "cc");
 	return;
 }
 
 static void restore_cpu_arch_register(void)
 {
+	if (call_firmware_op(c15resume, cp15_regs) == 0)
+		return;
+
 	/*write power control register*/
-	asm("mcr p15, 0, %0, c15, c0, 0" : : "r"(g_pwr_ctrl) : "cc");
+	asm("mcr p15, 0, %0, c15, c0, 0" : : "r"(cp15_regs[0]) : "cc");
 	/*write diagnostic register*/
-	asm("mcr p15, 0, %0, c15, c0, 1" : : "r"(g_diag_reg) : "cc");
+	asm("mcr p15, 0, %0, c15, c0, 1" : : "r"(cp15_regs[1]) : "cc");
 	return;
 }
 
 static int idle_finisher(unsigned long flags)
 {
+	if (call_firmware_op(do_idle, EXYNOS_DO_IDLE_AFTR) == 0)
+		return 1;
+
 	cpu_do_idle();
 	return 1;
 }
@@ -98,6 +106,10 @@ static int exynos4_enter_core0_aftr(struct cpuidle_device *dev,
 				int index)
 {
 	unsigned long tmp;
+
+	if (soc_is_exynos4412())
+		__raw_writel(S5P_USE_STANDBY_WFI0 | S5P_USE_STANDBY_WFE0,
+			     S5P_CENTRAL_SEQ_OPTION);
 
 	exynos4_set_wakeupmask();
 
@@ -159,7 +171,7 @@ static int exynos4_enter_lowpower(struct cpuidle_device *dev,
 		return exynos4_enter_core0_aftr(dev, drv, new_index);
 }
 
-static void __init exynos5_core_down_clk(void)
+static void __init exynos_core_down_clk(void)
 {
 	unsigned int tmp;
 
@@ -175,7 +187,15 @@ static void __init exynos5_core_down_clk(void)
 	      PWR_CTRL1_USE_CORE0_WFE	 | \
 	      PWR_CTRL1_USE_CORE1_WFI	 | \
 	      PWR_CTRL1_USE_CORE0_WFI;
-	__raw_writel(tmp, EXYNOS5_PWR_CTRL1);
+
+	if (soc_is_exynos4412())
+		tmp |= PWR_CTRL1_USE_CORE3_WFE | \
+		       PWR_CTRL1_USE_CORE2_WFE | \
+		       PWR_CTRL1_USE_CORE3_WFI | \
+		       PWR_CTRL1_USE_CORE2_WFI;
+
+	__raw_writel(tmp, soc_is_exynos5250() ? EXYNOS5_PWR_CTRL1
+		     : EXYNOS4_PWR_CTRL1);
 
 	/*
 	 * Enable arm clock up (on exiting idle). Set arm divider
@@ -188,7 +208,9 @@ static void __init exynos5_core_down_clk(void)
 	      PWR_CTRL2_DUR_STANDBY1_VAL | \
 	      PWR_CTRL2_CORE2_UP_RATIO	 | \
 	      PWR_CTRL2_CORE1_UP_RATIO;
-	__raw_writel(tmp, EXYNOS5_PWR_CTRL2);
+
+	__raw_writel(tmp, soc_is_exynos5250() ? EXYNOS5_PWR_CTRL2
+		     : EXYNOS4_PWR_CTRL2);
 }
 
 static int __init exynos4_init_cpuidle(void)
@@ -196,8 +218,8 @@ static int __init exynos4_init_cpuidle(void)
 	int cpu_id, ret;
 	struct cpuidle_device *device;
 
-	if (soc_is_exynos5250())
-		exynos5_core_down_clk();
+	if (soc_is_exynos4412() || soc_is_exynos5250())
+		exynos_core_down_clk();
 
 	ret = cpuidle_register_driver(&exynos4_idle_driver);
 	if (ret) {

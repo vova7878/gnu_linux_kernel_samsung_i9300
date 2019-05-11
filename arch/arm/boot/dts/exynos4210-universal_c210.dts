@@ -22,6 +22,27 @@
 	memory {
 		reg =  <0x40000000 0x10000000
 			0x50000000 0x10000000>;
+
+		reserved-memory {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			contig_mem: region@0 {
+				compatible = "linux,contiguous-memory-region";
+				reg = <0x0 0x4000000>;
+				linux,default-contiguous-region;
+			};
+
+			mfc_l_mem: mfc_l_region@43000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x43000000 0x1000000>;
+			};
+
+			mfc_r_mem: mfc_r_region@51000000 {
+				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+				reg = <0x51000000 0x1000000>;
+			};
+		};
 	};
 
 	chosen {
@@ -51,6 +72,12 @@
 		regulator-max-microvolt = <2800000>;
 		gpio = <&gpe1 3 0>;
 		enable-active-high;
+	};
+
+	hsotg@12480000 {
+		vusb_d-supply = <&ldo3_reg>;
+		vusb_a-supply = <&ldo8_reg>;
+		status = "okay";
 	};
 
 	sdhci_emmc: sdhci@12510000 {
@@ -225,6 +252,7 @@
 					regulator-name = "VLCD+VMIPI_1.8V";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
 				};
 
 				ldo8_reg: LDO8 {
@@ -288,6 +316,7 @@
 					regulator-name = "VCC_3.0V_LCD";
 					regulator-min-microvolt = <3000000>;
 					regulator-max-microvolt = <3000000>;
+					regulator-always-on;
 				};
 
 				buck1_reg: BUCK1 {
@@ -348,5 +377,170 @@
 	pwm@139D0000 {
 		compatible = "samsung,s5p6440-pwm";
 		status = "okay";
+	};
+
+	spi-lcd {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio-sck = <&gpy3 1 0>;
+		gpio-mosi = <&gpy3 3 0>;
+		num-chipselects = <1>;
+		cs-gpios = <&gpy4 3 0>;
+
+		lcd@0 {
+			compatible = "samsung,ld9040";
+			reg = <0>;
+			vdd3-supply = <&ldo7_reg>;
+			vci-supply = <&ldo17_reg>;
+			reset-gpios = <&gpy4 5 0>;
+			spi-max-frequency = <1200000>;
+			spi-cpol;
+			spi-cpha;
+			power-on-delay = <10>;
+			reset-delay = <10>;
+			panel-width-mm = <90>;
+			panel-height-mm = <154>;
+			display-timings {
+				timing {
+					clock-frequency = <23492370>;
+					hactive = <480>;
+					vactive = <800>;
+					hback-porch = <16>;
+					hfront-porch = <16>;
+					vback-porch = <2>;
+					vfront-porch = <28>;
+					hsync-len = <2>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <0>;
+					pixelclk-active = <0>;
+				};
+			};
+			port {
+				lcd_ep: endpoint {
+					remote-endpoint = <&fimd_dpi_ep>;
+				};
+			};
+		};
+	};
+
+	fimd: fimd@11c00000 {
+		pinctrl-0 = <&lcd_clk>, <&lcd_data24>;
+		pinctrl-names = "default";
+		status = "okay";
+		samsung,invert-vden;
+		samsung,invert-vclk;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@3 {
+			reg = <3>;
+			fimd_dpi_ep: endpoint {
+				remote-endpoint = <&lcd_ep>;
+			};
+		};
+	};
+
+	camera {
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_port_a_clk_off>;
+
+		fimc_0: fimc@11800000 {
+			status = "okay";
+		};
+
+		fimc_1: fimc@11810000 {
+			status = "okay";
+		};
+
+		fimc_2: fimc@11820000 {
+			status = "okay";
+		};
+
+		fimc_3: fimc@11830000 {
+			status = "okay";
+		};
+	};
+
+	codec@13400000 {
+		status = "okay";
+
+		memport@0 {
+			memory-region = <&mfc_l_mem>;
+		};
+
+		memport@1 {
+			memory-region = <&mfc_r_mem>;
+		};
+	};
+
+	ehci@12580000 {
+		status = "okay";
+		vusb_d-supply = <&ldo3_reg>;
+		vusb_a-supply = <&ldo8_reg>;
+		port@0 {
+			status = "okay";
+		};
+	};
+
+	exynos-usbphy@125B0000 {
+		status = "okay";
+	};
+
+	hdmi_en: voltage-regulator-hdmi-5v {
+	        compatible = "regulator-fixed";
+		regulator-name = "HDMI_5V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpe0 1 0>;
+		enable-active-high;
+	};
+
+	i2c-ddc {
+		compatible = "i2c-gpio";
+		gpios = <&gpe4 2 0 &gpe4 3 0>;
+		i2c-gpio,delay-us = <100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-0 = <&i2c_ddc_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		hdmiddc@72 {
+			compatible = "samsung,exynos4210-hdmiddc";
+			reg = <0x72>;
+		};
+	};
+
+	hdmi: hdmi@12D00000 {
+		hpd-gpio = <&gpx3 7 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_hpd>;
+		hdmi-en-supply = <&hdmi_en>;
+		vdd-supply = <&ldo3_reg>;
+		vdd_osc-supply = <&ldo4_reg>;
+		vdd_pll-supply = <&ldo3_reg>;
+		status = "okay";
+	};
+};
+
+&pinctrl_1 {
+	hdmi_hpd: hdmi-hpd {
+		samsung,pins = "gpx3-7";
+		samsung,pin-pud = <0>;
+	};
+};
+
+&pinctrl_0 {
+	i2c_ddc_bus: i2c-ddc-bus {
+		samsung,pins = "gpe4-2", "gpe4-3";
+		samsung,pin-function = <2>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <0>;
 	};
 };

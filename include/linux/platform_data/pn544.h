@@ -28,7 +28,7 @@
 enum {
 	NFC_GPIO_ENABLE,
 	NFC_GPIO_FW_RESET,
-	NFC_GPIO_IRQ
+	NFC_GPIO_COUNT
 };
 
 /* board config */

@@ -28,6 +28,11 @@
 #define PHYPWR_FORCE_SUSPEND			(0x1 << 1)
 /* For Exynos4 */
 #define PHYPWR_NORMAL_MASK_PHY0			(0x39 << 0)
+#define PHYPWR_NORMAL_MASK_PHY1			(0x7 << 6)
+#define PHYPWR_NORMAL_MASK_HSIC0_4210		(0x3 << 9)
+#define PHYPWR_NORMAL_MASK_HSIC1_4210		(0x3 << 11)
+#define PHYPWR_NORMAL_MASK_HSIC0_4X12		(0x7 << 9)
+#define PHYPWR_NORMAL_MASK_HSIC1_4X12		(0x7 << 12)
 #define PHYPWR_SLEEP_PHY0			(0x1 << 5)
 
 #define SAMSUNG_PHYCLK				(0x04)
@@ -46,6 +51,13 @@
 #define RSTCON_PHYLINK_SWRST			(0x1 << 2)
 #define RSTCON_HLINK_SWRST			(0x1 << 1)
 #define RSTCON_SWRST				(0x1 << 0)
+/* This following values will also reset some fields marked as "reserved"
+   The question is... was it intentional?                                 */
+#define RSTCON_SWRST_HOST_4X12			(0xff << 3)
+#define RSTCON_SWRST_HOST_4210			(0x7f << 3)
+
+#define EXYNOS4_PHY1CON				(0x34)
+#define PHY1CON_FPENABLEN			(0x1 << 0)
 
 /* EXYNOS5 */
 #define EXYNOS5_PHY_HOST_CTRL0			(0x00)
@@ -233,7 +245,9 @@
 #define KHZ (1000)
 #endif
 
-#define EXYNOS_USBHOST_PHY_CTRL_OFFSET		(0x4)
+#define EXYNOS5_USBHOST_PHY_CTRL_OFFSET		(0x4)
+#define EXYNOS4x12_HSIC1_PHY_CTRL_OFFSET	(0x4)
+#define EXYNOS4x12_HSIC2_PHY_CTRL_OFFSET	(0x8)
 #define S3C64XX_USBPHY_ENABLE			(0x1 << 16)
 #define EXYNOS_USBPHY_ENABLE			(0x1 << 0)
 #define EXYNOS_USB20PHY_CFG_HOST_LINK		(0x1 << 0)
@@ -241,8 +255,11 @@
 enum samsung_cpu_type {
 	TYPE_S3C64XX,
 	TYPE_EXYNOS4210,
+	TYPE_EXYNOS4X12,
 	TYPE_EXYNOS5250,
 };
+
+struct samsung_usbphy;
 
 /*
  * struct samsung_usbphy_drvdata - driver data for various SoC variants
@@ -268,6 +285,10 @@ struct samsung_usbphy_drvdata {
 	int hostphy_en_mask;
 	u32 devphy_reg_offset;
 	u32 hostphy_reg_offset;
+	int (*rate_to_clksel)(struct samsung_usbphy *, unsigned long);
+	void (*set_isolation)(struct samsung_usbphy *, bool);
+	void (*phy_enable)(struct samsung_usbphy *);
+	void (*phy_disable)(struct samsung_usbphy *);
 };
 
 /*
@@ -320,8 +341,13 @@ static inline const struct samsung_usbphy_drvdata
 }
 
 extern int samsung_usbphy_parse_dt(struct samsung_usbphy *sphy);
-extern void samsung_usbphy_set_isolation(struct samsung_usbphy *sphy, bool on);
+extern void samsung_usbphy_set_isolation_4210(struct samsung_usbphy *sphy,
+								bool on);
 extern void samsung_usbphy_cfg_sel(struct samsung_usbphy *sphy);
 extern int samsung_usbphy_set_type(struct usb_phy *phy,
 					enum samsung_usb_phy_type phy_type);
 extern int samsung_usbphy_get_refclk_freq(struct samsung_usbphy *sphy);
+extern int samsung_usbphy_rate_to_clksel_64xx(struct samsung_usbphy *sphy,
+							unsigned long rate);
+extern int samsung_usbphy_rate_to_clksel_4x12(struct samsung_usbphy *sphy,
+							unsigned long rate);

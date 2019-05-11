@@ -20,10 +20,6 @@
 #define for_each_ipp_planar(pos)	\
 	for (pos = 0; pos < EXYNOS_DRM_PLANAR_MAX; pos++)
 
-#define IPP_GET_LCD_WIDTH	_IOR('F', 302, int)
-#define IPP_GET_LCD_HEIGHT	_IOR('F', 303, int)
-#define IPP_SET_WRITEBACK	_IOW('F', 304, u32)
-
 /* definition of state */
 enum drm_exynos_ipp_state {
 	IPP_STATE_IDLE,
@@ -48,7 +44,6 @@ struct drm_exynos_ipp_cmd_work {
 /*
  * A structure of command node.
  *
- * @priv: IPP private infomation.
  * @list: list head to command queue information.
  * @event_list: list head of event.
  * @mem_list: list head to source,destination memory queue information.
@@ -62,9 +57,9 @@ struct drm_exynos_ipp_cmd_work {
  * @stop_work: stop command work structure.
  * @event_work: event work structure.
  * @state: state of command node.
+ * @filp: associated file pointer.
  */
 struct drm_exynos_ipp_cmd_node {
-	struct exynos_drm_ipp_private *priv;
 	struct list_head	list;
 	struct list_head	event_list;
 	struct list_head	mem_list[EXYNOS_DRM_OPS_MAX];
@@ -78,6 +73,7 @@ struct drm_exynos_ipp_cmd_node {
 	struct drm_exynos_ipp_cmd_work *stop_work;
 	struct drm_exynos_ipp_event_work *event_work;
 	enum drm_exynos_ipp_state	state;
+	struct drm_file	*filp;
 };
 
 /*
@@ -85,21 +81,12 @@ struct drm_exynos_ipp_cmd_node {
  *
  * @gem_objs: Y, Cb, Cr each gem object.
  * @base: Y, Cb, Cr each planar address.
+ * @size: Y, Cb, Cr each planar size.
  */
 struct drm_exynos_ipp_buf_info {
 	unsigned long	handles[EXYNOS_DRM_PLANAR_MAX];
 	dma_addr_t	base[EXYNOS_DRM_PLANAR_MAX];
-};
-
-/*
- * A structure of wb setting infomation.
- *
- * @enable: enable flag for wb.
- * @refresh: HZ of the refresh rate.
- */
-struct drm_exynos_ipp_set_wb {
-	__u32	enable;
-	__u32	refresh;
+	uint64_t	size[EXYNOS_DRM_PLANAR_MAX];
 };
 
 /*
@@ -187,8 +174,6 @@ extern int exynos_drm_ipp_queue_buf(struct drm_device *drm_dev, void *data,
 					 struct drm_file *file);
 extern int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 					 struct drm_file *file);
-extern int exynos_drm_ippnb_register(struct notifier_block *nb);
-extern int exynos_drm_ippnb_unregister(struct notifier_block *nb);
 extern int exynos_drm_ippnb_send_event(unsigned long val, void *v);
 extern void ipp_sched_cmd(struct work_struct *work);
 extern void ipp_sched_event(struct work_struct *work);

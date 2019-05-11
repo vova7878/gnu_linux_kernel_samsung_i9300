@@ -46,6 +46,8 @@ Exynos4 SoC and this is specified where applicable.
   mout_mpll_user_c    18      Exynos4x12
   mout_core           19
   mout_apll           20
+  clkout              21
+  sclk_hdmiphy        22
 
 
             [Clock Gate for Special Clocks]
@@ -102,6 +104,7 @@ Exynos4 SoC and this is specified where applicable.
   sclk_spi0_isp       174     Exynos4x12
   sclk_spi1_isp       175     Exynos4x12
   sclk_uart_isp       176     Exynos4x12
+  sclk_fimg2d         177
 
 	      [Peripheral Clock Gates]
 
@@ -129,7 +132,7 @@ Exynos4 SoC and this is specified where applicable.
   smmu_mfcl           274
   smmu_mfcr           275
   g3d                 276
-  g2d                 277     Exynos4210
+  g2d                 277
   rotator             278     Exynos4210
   mdma                279     Exynos4210
   smmu_g2d            280     Exynos4210
@@ -235,6 +238,7 @@ Exynos4 SoC and this is specified where applicable.
   spi0_isp_sclk       380     Exynos4x12
   spi1_isp_sclk       381     Exynos4x12
   uart_isp_sclk       382     Exynos4x12
+  tmu_apbif	      383
 
 		[Mux Clocks]
 
@@ -253,6 +257,7 @@ Exynos4 SoC and this is specified where applicable.
   mout_g3d1		393
   mout_g3d		394
   aclk400_mcuisp	395	Exynos4x12
+  mout_clkout		396
 
 		[Div Clocks]
 
@@ -266,6 +271,20 @@ Exynos4 SoC and this is specified where applicable.
   div_aclk200		454	Exynos4x12
   div_aclk400_mcuisp	455	Exynos4x12
 
+
+			[Mux Clocks]
+
+	Clock		ID	SoC (if specific)
+	-----------------------------------------------
+
+	mout_fimc0	384
+	mout_fimc1	385
+	mout_fimc2	386
+	mout_fimc3	387
+	mout_cam0	388
+	mout_cam1	389
+	mout_csis0	390
+	mout_csis1	391
 
 Example 1: An example of a clock controller node is listed below.
 

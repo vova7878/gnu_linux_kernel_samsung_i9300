@@ -23,6 +23,54 @@
 
 #include <plat/map-s5p.h>
 
+#define EXYNOS3_PA_SYSRAM               0x02020000
+#define EXYNOS3_PA_SYSRAM_NS            0x0205F000
+#define EXYNOS3_PA_CHIPID               0x10000000
+#define EXYNOS3_PA_SYSCON               0x10010000
+#define EXYNOS3_PA_CMU_BUS_TOP          0x10030000
+#define EXYNOS3_PA_CMU_CPU_ISP          0x10040000
+#define EXYNOS3_PA_CMU_ACP              0x10450000
+#define EXYNOS3_PA_CMU_DMC              0x105C0000
+
+#define EXYNOS3_PA_TIMER                0x139D0000
+#define EXYNOS3_PA_RTC                  0x10070000
+
+#define EXYNOS3_SYSREG                  0x10010000
+
+#define EXYNOS3_PA_PMU                  0x10020000
+#define EXYNOS3_PA_TMU                  0x100C0000
+
+#define EXYNOS3_PA_SYSTIMER             0x10050000
+
+#define EXYNOS3_PA_GIC_CPU              0x10482000
+#define EXYNOS3_PA_GIC_DIST             0x10481000
+
+#define EXYNOS3_PA_UART                 0x13800000
+
+#define EXYNOS3_PA_UART0                0x13800000
+#define EXYNOS3_PA_UART1                0x13810000
+#define EXYNOS3_PA_UART2                0x13820000
+#define EXYNOS3_PA_UART3                0x13830000
+#define EXYNOS3_SZ_UART			SZ_256
+
+#define EXYNOS3_PA_GPIO1                0x11400000
+#define EXYNOS3_PA_GPIO2                0x11000000
+
+#define EXYNOS3_PA_WATCHDOG		0x10060000
+
+#define EXYNOS3_PA_IIC(x)               (0x13860000 + ((x) * 0x10000))
+
+#define EXYNOS3_PA_FIMD0		0x11c00000
+#define EXYNOS3_PA_DSIM0		0x11c80000
+
+#define EXYNOS3_PA_PDMA0                0x12680000
+#define EXYNOS3_PA_PDMA1                0x12690000
+#define EXYNOS3_PA_MDMA			0x12840000
+
+#define EXYNOS3_PA_ADC                  0x126c0000
+
+#define EXYNOS3_PA_KEYPAD               0x100a0000
+
 #define EXYNOS4_PA_SYSRAM0		0x02025000
 #define EXYNOS4_PA_SYSRAM1		0x02020000
 #define EXYNOS5_PA_SYSRAM		0x02020000
@@ -75,8 +123,11 @@
 
 #define EXYNOS4_PA_KEYPAD		0x100A0000
 
-#define EXYNOS4_PA_DMC0			0x10400000
-#define EXYNOS4_PA_DMC1			0x10410000
+#define EXYNOS4210_PA_DMC0		0x10400000
+#define EXYNOS4210_PA_DMC1		0x10410000
+
+#define EXYNOS4x12_PA_DMC0		0x10600000
+#define EXYNOS4x12_PA_DMC1		0x10610000
 
 #define EXYNOS4_PA_COMBINER		0x10440000
 #define EXYNOS5_PA_COMBINER		0x10440000
@@ -179,6 +230,7 @@
 #define EXYNOS4_PA_MIPI_CSIS1		0x11890000
 
 #define EXYNOS4_PA_FIMD0		0x11C00000
+#define EXYNOS4_PA_DSIM0		0x11C80000
 
 #define EXYNOS4_PA_HSMMC(x)		(0x12510000 + ((x) * 0x10000))
 #define EXYNOS4_PA_DWMCI		0x12550000
