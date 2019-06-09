@@ -43,9 +43,9 @@
 
 #define FACTORY_DATA_MAX	39
 
-//#define SSP_DBG		1
+#define SSP_DBG		1
 
-#ifdef SSP_DBG
+#if SSP_DBG
 #define SSP_FUNC_DBG 1
 
 #define ssp_dbg(dev, format, ...) do { \
@@ -55,7 +55,7 @@
 #define ssp_dbg(dev, format, ...)
 #endif
 
-#ifdef SSP_FUNC_DBG
+#if SSP_FUNC_DBG
 #define func_dbg() do { \
 	printk(KERN_INFO "[SSP]: %s\n", __func__); \
 	} while (0)
