@@ -128,13 +128,13 @@ static char custom_profile[20] = "custom";			// ZZ: name to show in sysfs if any
 // ZZ: general tuneable defaults
 #define DEF_FREQUENCY_UP_THRESHOLD			(70)	// ZZ: default regular scaling up threshold
 #ifdef ENABLE_HOTPLUGGING
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG		(68)	// ZZ: default hotplug up threshold for all cpus (cpu0 stays allways on)
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ		(0)	// Yank: default hotplug up threshold frequency for all cpus (0 = disabled)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG		(95)	// ZZ: default hotplug up threshold for all cpus (cpu0 stays allways on)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ		(800000)	// Yank: default hotplug up threshold frequency for all cpus (0 = disabled)
 #endif /* ENABLE_HOTPLUGGING */
 #define DEF_SMOOTH_UP					(75)	// ZZ: default cpu load trigger for 'boosting' scaling frequency
 #define DEF_FREQUENCY_DOWN_THRESHOLD			(52)	// ZZ: default regular scaling down threshold
 #ifdef ENABLE_HOTPLUGGING
-#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG		(55)	// ZZ: default hotplug down threshold for all cpus (cpu0 stays allways on)
+#define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG		(65)	// ZZ: default hotplug down threshold for all cpus (cpu0 stays allways on)
 #define DEF_FREQUENCY_DOWN_THRESHOLD_HOTPLUG_FREQ	(0)	// Yank: default hotplug down threshold frequency for all cpus (0 = disabled)
 #endif /* ENABLE_HOTPLUGGING */
 #define DEF_IGNORE_NICE					(0)	// ZZ: default ignore nice load
