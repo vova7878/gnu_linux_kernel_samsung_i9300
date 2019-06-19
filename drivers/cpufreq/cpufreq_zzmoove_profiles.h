@@ -368,33 +368,33 @@ struct zzmoove_profile zzmoove_profiles[] = {
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_POWERSUSPEND) || defined(USE_LCD_NOTIFIER)
 		100,		// smooth_up_sleep (range from 1 to 100)
 #endif /* defined(CONFIG_HAS_EARLYSUSPEND)... */
-		70,		// up_threshold (range 1 to 100 and must be higher than down_threshold)
+		68,		// up_threshold (range 1 to 100 and must be higher than down_threshold)
 #ifdef ENABLE_HOTPLUGGING
 		68,		// up_threshold_hotplug1 (range 1 to 100 and should be higher than down_threshold_hotplug1)
 #if (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8)
-		68,		// up_threshold_hotplug2 (range 1 to 100 and should be higher than down_threshold_hotplug2)
-		68,		// up_threshold_hotplug3 (range 1 to 100 and should be higher than down_threshold_hotplug3)
+		95,		// up_threshold_hotplug2 (range 1 to 100 and should be higher than down_threshold_hotplug2)
+		95,		// up_threshold_hotplug3 (range 1 to 100 and should be higher than down_threshold_hotplug3)
 #endif /* (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8) */
 #if (MAX_CORES == 6 || MAX_CORES == 8)
-		68,		// up_threshold_hotplug4 (range 1 to 100 and should be higher than down_threshold_hotplug4)
-		68,		// up_threshold_hotplug5 (range 1 to 100 and should be higher than down_threshold_hotplug5)
+		95,		// up_threshold_hotplug4 (range 1 to 100 and should be higher than down_threshold_hotplug4)
+		95,		// up_threshold_hotplug5 (range 1 to 100 and should be higher than down_threshold_hotplug5)
 #endif /* (MAX_CORES == 6 || MAX_CORES == 8) */
 #if (MAX_CORES == 8)
-		68,		// up_threshold_hotplug6 (range 1 to 100 and should be higher than down_threshold_hotplug6)
-		68,		// up_threshold_hotplug7 (range 1 to 100 and should be higher than down_threshold_hotplug7)
+		95,		// up_threshold_hotplug6 (range 1 to 100 and should be higher than down_threshold_hotplug6)
+		95,		// up_threshold_hotplug7 (range 1 to 100 and should be higher than down_threshold_hotplug7)
 #endif /* (MAX_CORES == 8) */
 		0,		// up_threshold_hotplug_freq1 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq1)
 #if (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8)
-		0,		// up_threshold_hotplug_freq2 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq2)
-		0,		// up_threshold_hotplug_freq3 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq3)
+		800000,		// up_threshold_hotplug_freq2 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq2)
+		800000,		// up_threshold_hotplug_freq3 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq3)
 #endif /* (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8) */
 #if (MAX_CORES == 6 || MAX_CORES == 8)
-		0,		// up_threshold_hotplug_freq4 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq4)
-		0,		// up_threshold_hotplug_freq5 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq5)
+		800000,		// up_threshold_hotplug_freq4 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq4)
+		800000,		// up_threshold_hotplug_freq5 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq5)
 #endif /* (MAX_CORES == 6 || MAX_CORES == 8) */
 #if (MAX_CORES == 8)
-		0,		// up_threshold_hotplug_freq6 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq6)
-		0,		// up_threshold_hotplug_freq7 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq7)
+		800000,		// up_threshold_hotplug_freq6 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq6)
+		800000,		// up_threshold_hotplug_freq7 (0 to disable core, range from 1 to scaling max and should be higher than down_threshold_hotplug_freq7)
 #endif /* (MAX_CORES == 8) */
 #endif /* ENABLE_HOTPLUGGING */
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_POWERSUSPEND) || defined(USE_LCD_NOTIFIER)

@@ -128,8 +128,13 @@ static char custom_profile[20] = "custom";			// ZZ: name to show in sysfs if any
 // ZZ: general tuneable defaults
 #define DEF_FREQUENCY_UP_THRESHOLD			(70)	// ZZ: default regular scaling up threshold
 #ifdef ENABLE_HOTPLUGGING
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG		(95)	// ZZ: default hotplug up threshold for all cpus (cpu0 stays allways on)
-#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ		(800000)	// Yank: default hotplug up threshold frequency for all cpus (0 = disabled)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG		(68)	// ZZ: default hotplug up threshold for all cpus (cpu0 stays allways on)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1		(68)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2		(95)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3		(95)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ1	(0)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ2	(800000)
+#define DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ3	(800000)
 #endif /* ENABLE_HOTPLUGGING */
 #define DEF_SMOOTH_UP					(75)	// ZZ: default cpu load trigger for 'boosting' scaling frequency
 #define DEF_FREQUENCY_DOWN_THRESHOLD			(52)	// ZZ: default regular scaling down threshold
@@ -769,15 +774,15 @@ static struct dbs_tuners {
 	.sampling_down_mom_sens = DEF_SAMPLING_DOWN_MOMENTUM_SENSITIVITY,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 #ifdef ENABLE_HOTPLUGGING
-	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG,
-	.up_threshold_hotplug_freq1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ,
+	.up_threshold_hotplug1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG1,
+	.up_threshold_hotplug_freq1 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ1,
 	.block_up_multiplier_hotplug1 = DEF_BLOCK_UP_MULTIPLIER_HOTPLUG1,
 #if (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8)
-	.up_threshold_hotplug2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG,
-	.up_threshold_hotplug_freq2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ,
+	.up_threshold_hotplug2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG2,
+	.up_threshold_hotplug_freq2 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ2,
 	.block_up_multiplier_hotplug2 = DEF_BLOCK_UP_MULTIPLIER_HOTPLUG2,
-	.up_threshold_hotplug3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG,
-	.up_threshold_hotplug_freq3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ,
+	.up_threshold_hotplug3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG3,
+	.up_threshold_hotplug_freq3 = DEF_FREQUENCY_UP_THRESHOLD_HOTPLUG_FREQ3,
 	.block_up_multiplier_hotplug3 = DEF_BLOCK_UP_MULTIPLIER_HOTPLUG3,
 #endif /* (MAX_CORES == 4 || MAX_CORES == 6 || MAX_CORES == 8) */
 #if (MAX_CORES == 6 || MAX_CORES == 8)
