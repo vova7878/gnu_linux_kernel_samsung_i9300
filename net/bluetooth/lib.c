@@ -24,6 +24,8 @@
 
 /* Bluetooth kernel library. */
 
+#define pr_fmt(fmt) "Bluetooth: " fmt
+
 #include <linux/module.h>
 
 #include <linux/kernel.h>
@@ -145,18 +147,13 @@ int bt_to_errno(__u16 code)
 	case 0x25:
 		return EPROTO;
 
-/* SSBT :: KJH + (0229) */
-	case 0x22: /* LMP RESPONSE TIMEOUT / LL RESPONSE TIMEOUT */
-	case 0x3e: /* CONNECTION FAILED TO BE ESTABLISHED */
-		return ECANCELED;
-
 	default:
 		return ENOSYS;
 	}
 }
 EXPORT_SYMBOL(bt_to_errno);
 
-int bt_printk(const char *level, const char *format, ...)
+int bt_info(const char *format, ...)
 {
 	struct va_format vaf;
 	va_list args;
@@ -167,10 +164,29 @@ int bt_printk(const char *level, const char *format, ...)
 	vaf.fmt = format;
 	vaf.va = &args;
 
-	r = printk("%sBluetooth: %pV\n", level, &vaf);
+	r = pr_info("%pV", &vaf);
 
 	va_end(args);
 
 	return r;
 }
-EXPORT_SYMBOL(bt_printk);
+EXPORT_SYMBOL(bt_info);
+
+int bt_err(const char *format, ...)
+{
+	struct va_format vaf;
+	va_list args;
+	int r;
+
+	va_start(args, format);
+
+	vaf.fmt = format;
+	vaf.va = &args;
+
+	r = pr_err("%pV", &vaf);
+
+	va_end(args);
+
+	return r;
+}
+EXPORT_SYMBOL(bt_err);
