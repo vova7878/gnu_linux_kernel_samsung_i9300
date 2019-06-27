@@ -374,7 +374,11 @@ int pm_suspend(suspend_state_t state)
 	int ret;
 	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX) {
 		ret = enter_state(state);
-		suspend_stats_update(ret);
+		if (ret) {
+			suspend_stats.fail++;
+			dpm_save_failed_errno(ret);
+		} else
+			suspend_stats.success++;
 		return ret;
 	}
 	return -EINVAL;
