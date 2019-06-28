@@ -20,5 +20,5 @@
 
 # Clean up and fire up SELinux
 /sbin/busybox echo 1 > /sys/module/koffee_late/parameters/hooked
-/sbin/busybox rm /koffee-early.sh; /sbin/busybox rm /koffee-late.sh; /sbin/busybox mount -o remount,ro /libs; /sbin/busybox mount -o remount,ro /; /system/bin/toybox setenforce 1
+/sbin/busybox rm /koffee-early.sh; /sbin/busybox rm /koffee-late.sh; /sbin/busybox mount -o remount,ro /libs; /sbin/busybox mount -o remount,ro /;
 exit 0
