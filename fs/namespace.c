@@ -43,7 +43,7 @@
 
 #ifdef CONFIG_KOFFEE_EARLY_SCRIPT
 static char * envp[] = { "HOME=/", NULL };
-static char * argv1[] = { "bash", "/koffee-early.sh", NULL };
+static char * argv1[] = { "bash", "/sbin/koffee-early.sh", NULL };
 #endif
 
 static int event;

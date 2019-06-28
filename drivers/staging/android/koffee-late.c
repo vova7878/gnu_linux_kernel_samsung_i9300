@@ -23,7 +23,7 @@
 #include <linux/sysfs.h>
 
 static int hooked = 0;
-static char * argv5[] = { "bash", "/koffee-late.sh", NULL };
+static char * argv5[] = { "bash", "/sbin/koffee-late.sh", NULL };
 static char * envp[] = { "HOME=/", NULL };
 
 static void koffee_hlp_early_suspend(struct early_suspend *h);
