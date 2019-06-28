@@ -672,8 +672,6 @@ static struct notifier_block exynos_cpufreq_notifier = {
 	.notifier_call = exynos_cpufreq_notifier_event,
 };
 
-extern int sched_mc_power_savings;
-
 #if defined (CONFIG_INTELLI_PLUG)
 extern unsigned int intelli_plug_active;
 #endif
@@ -685,12 +683,13 @@ static int exynos_cpufreq_policy_notifier_call(struct notifier_block *this,
 
 	switch (code) {
 	case CPUFREQ_ADJUST:
-#if defined(CONFIG_INTELLI_PLUG) || defined(CONFIG_MSM_HOTPLUG)
+
 		/*
 		 * arter97: add intelli_plug hook here;
 		 * if the selected governor has its own hotplugging implemented, disable intelli_plug,
 		 * if not, enable intelli_plug.
 		 */
+#if defined (CONFIG_INTELLI_PLUG)
 		if ((!strnicmp(policy->governor->name, "lulzactiveq",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "pegasusq",	CPUFREQ_NAME_LEN))
 		 || (!strnicmp(policy->governor->name, "pyramid",	CPUFREQ_NAME_LEN))
