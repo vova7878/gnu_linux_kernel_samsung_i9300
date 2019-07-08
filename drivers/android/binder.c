@@ -1611,7 +1611,7 @@ static void binder_put_node(struct binder_node *node)
 }
 
 static struct binder_ref *binder_get_ref_olocked(struct binder_proc *proc,
-					 uint32_t desc, bool need_strong_ref)
+						 u32 desc, bool need_strong_ref)
 {
 	struct rb_node *n = proc->refs_by_desc.rb_node;
 	struct binder_ref *ref;
