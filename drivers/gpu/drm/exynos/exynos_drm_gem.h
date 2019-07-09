@@ -50,7 +50,7 @@ struct exynos_drm_gem {
 	void			*cookie;
 	void __iomem		*kvaddr;
 	dma_addr_t		dma_addr;
-	unsigned long		dma_attrs;
+	struct dma_attrs	dma_attrs;
 	struct page		**pages;
 	struct sg_table		*sgt;
 };
