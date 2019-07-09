@@ -992,9 +992,9 @@ void drm_dp_aux_init(struct drm_dp_aux *aux)
 	aux->ddc.algo_data = aux;
 	aux->ddc.retries = 3;
 
-	aux->ddc.lock_bus = lock_bus;
-	aux->ddc.trylock_bus = trylock_bus;
-	aux->ddc.unlock_bus = unlock_bus;
+	//aux->ddc.lock_bus = lock_bus;
+	//aux->ddc.trylock_bus = trylock_bus;
+	//aux->ddc.unlock_bus = unlock_bus;
 }
 EXPORT_SYMBOL(drm_dp_aux_init);
 
