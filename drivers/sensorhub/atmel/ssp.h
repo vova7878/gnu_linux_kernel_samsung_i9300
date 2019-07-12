@@ -24,8 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
-#include <linux/fb.h>
-#include <linux/notifier.h>
+#include <linux/earlysuspend.h>
 #include <linux/wakelock.h>
 #include <linux/miscdevice.h>
 #include <linux/ssp_platformdata.h>
@@ -256,7 +255,7 @@ struct ssp_data {
 	struct device *light_device;
 
 	struct i2c_client *client;
-	struct wakeup_source ssp_wake_lock;
+	struct wake_lock ssp_wake_lock;
 	struct miscdevice akmd_device;
 	struct timer_list debug_timer;
 	struct workqueue_struct *debug_wq;
@@ -315,9 +314,8 @@ struct ssp_data {
 	void (*report_sensor_data[SENSOR_MAX])(struct ssp_data *,
 		struct sensor_value *);
 
-#ifdef CONFIG_FB
-	struct notifier_block fb_notif;
-	bool fb_suspended;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
 #endif
 
 #ifdef CONFIG_SENSORS_SSP_SENSORHUB
