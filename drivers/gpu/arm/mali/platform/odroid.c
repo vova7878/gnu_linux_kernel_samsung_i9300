@@ -30,7 +30,6 @@
 
 
 #include <asm/io.h>
-#include <mach/regs-pmu.h>
 
 #define EXTXTALCLK_NAME 	"ext_xtal"
 #define VPLLSRCCLK_NAME 	"vpll_src"
