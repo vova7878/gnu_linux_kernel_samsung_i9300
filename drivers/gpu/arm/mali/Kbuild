@@ -22,6 +22,20 @@ MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP_BETWEEN_APPS ?= 0
 MALI_UPPER_HALF_SCHEDULING ?= 1
 MALI_ENABLE_CPU_CYCLES ?= 0
 
+ifeq ($(CONFIG_CPU_EXYNOS4210),y)
+    TARGET_PLATFORM=pegasus-m400
+endif
+ifeq ($(CONFIG_CPU_EXYNOS4212),y)
+    TARGET_PLATFORM=pegasus-m400
+endif
+ifeq ($(CONFIG_CPU_EXYNOS4412),y)
+    TARGET_PLATFORM=pegasus-m400
+endif
+ifeq ($(CONFIG_SOC_EXYNOS3470),y)
+    TARGET_PLATFORM=exynos4270
+endif
+
+
 # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
 # The ARM proprietary product will only include the license/proprietary directory
 # The GPL product will only include the license/gpl directory
@@ -97,7 +111,8 @@ mali-y += \
 	common/mali_pm_domain.o \
 	linux/mali_osk_pm.o \
 	linux/mali_pmu_power_up_down.o \
-	platform/odroid.o \
+	platform/pegasus-m400/exynos4.o \
+	platform/pegasus-m400/exynos4_pmm.o \
 	__malidrv_build_info.o
 
 ifneq ($(MALI_PLATFORM_FILES),)
