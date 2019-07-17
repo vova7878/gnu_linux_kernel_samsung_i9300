@@ -110,85 +110,10 @@ static u32 mali_get_bcast_id(_mali_osk_resource_t *resource_pp)
 
 static _mali_osk_errcode_t mali_parse_product_info(void)
 {
-	/*
-	 * Mali-200 has the PP core first, while Mali-300, Mali-400 and Mali-450 have the GP core first.
-	 * Look at the version register for the first PP core in order to determine the GPU HW revision.
-	 */
+	/* Mali-400 */
+	global_product_id = _MALI_PRODUCT_ID_MALI400;
 
-	u32 first_pp_offset;
-	_mali_osk_resource_t first_pp_resource;
-
-	/* Find out where the first PP core is located */
-	if (_MALI_OSK_ERR_OK == _mali_osk_resource_find(global_gpu_base_address + 0x8000, NULL))
-	{
-		/* Mali-300/400/450 */
-		first_pp_offset = 0x8000;
-	}
-	else
-	{
-		/* Mali-200 */
-		first_pp_offset = 0x0000;
-	}
-
-	/* Find the first PP core resource (again) */
-	if (_MALI_OSK_ERR_OK == _mali_osk_resource_find(global_gpu_base_address + first_pp_offset, &first_pp_resource))
-	{
-		/* Create a dummy PP object for this core so that we can read the version register */
-		struct mali_group *group = mali_group_create(NULL, NULL, NULL);
-		if (NULL != group)
-		{
-			struct mali_pp_core *pp_core = mali_pp_create(&first_pp_resource, group, MALI_FALSE, mali_get_bcast_id(&first_pp_resource));
-			if (NULL != pp_core)
-			{
-				u32 pp_version = mali_pp_core_get_version(pp_core);
-				mali_group_delete(group);
-
-				global_gpu_major_version = (pp_version >> 8) & 0xFF;
-				global_gpu_minor_version = pp_version & 0xFF;
-
-				switch (pp_version >> 16)
-				{
-					case MALI200_PP_PRODUCT_ID:
-						global_product_id = _MALI_PRODUCT_ID_MALI200;
-						MALI_PRINT(("Found Mali GPU Mali-200 r%up%u\n", global_gpu_major_version, global_gpu_minor_version));
-						MALI_PRINT_ERROR(("Mali-200 is not supported by this driver.\n"));
-						_mali_osk_abort();
-						break;
-					case MALI300_PP_PRODUCT_ID:
-						global_product_id = _MALI_PRODUCT_ID_MALI300;
-						MALI_PRINT(("Found Mali GPU Mali-300 r%up%u\n", global_gpu_major_version, global_gpu_minor_version));
-						break;
-					case MALI400_PP_PRODUCT_ID:
-						global_product_id = _MALI_PRODUCT_ID_MALI400;
-						MALI_PRINT(("Found Mali GPU Mali-400 MP r%up%u\n", global_gpu_major_version, global_gpu_minor_version));
-						break;
-					case MALI450_PP_PRODUCT_ID:
-						global_product_id = _MALI_PRODUCT_ID_MALI450;
-						MALI_PRINT(("Found Mali GPU Mali-450 MP r%up%u\n", global_gpu_major_version, global_gpu_minor_version));
-						break;
-					default:
-						MALI_PRINT(("Found unknown Mali GPU (r%up%u)\n", global_gpu_major_version, global_gpu_minor_version));
-						return _MALI_OSK_ERR_FAULT;
-				}
-
-				return _MALI_OSK_ERR_OK;
-			}
-			else
-			{
-				MALI_PRINT_ERROR(("Failed to create initial PP object\n"));
-			}
-		}
-		else
-		{
-			MALI_PRINT_ERROR(("Failed to create initial group object\n"));
-		}
-	}
-	else
-	{
-		MALI_PRINT_ERROR(("First PP core not specified in config file\n"));
-	}
-
-	return _MALI_OSK_ERR_FAULT;
+	return _MALI_OSK_ERR_OK;
 }
 
 
@@ -943,10 +868,6 @@ _mali_osk_errcode_t mali_initialize_subsystems(void)
 
 	/* Detect which Mali GPU we are dealing with */
 	err = mali_parse_product_info();
-	if (_MALI_OSK_ERR_OK != err) {
-		MALI_PRINT_ERROR(("%s: mali_parse_product_info returned %d\n", __func__, err));
-		goto product_info_parsing_failed;
-	}
 
 	/* The global_product_id is now populated with the correct Mali GPU */
 
