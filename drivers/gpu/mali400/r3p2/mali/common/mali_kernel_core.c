@@ -311,6 +311,8 @@ static struct mali_group *mali_create_group(struct mali_l2_cache_core *cache,
 	}
 	pr_err("%s: %d\n", __func__, __LINE__);
 
+	return NULL;
+
 	/* Create the MMU object inside group */
 	mmu = mali_mmu_create(resource_mmu, group, MALI_FALSE);
 	if (NULL == mmu)
