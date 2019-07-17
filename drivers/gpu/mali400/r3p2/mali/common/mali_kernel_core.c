@@ -301,11 +301,15 @@ static struct mali_group *mali_create_group(struct mali_l2_cache_core *cache,
 
 	/* Create the group object */
 	group = mali_group_create(cache, NULL, NULL);
+
+	pr_err("%s: %d\n", __func__, __LINE__);
+
 	if (NULL == group)
 	{
 		MALI_PRINT_ERROR(("Failed to create group object for MMU %s\n", resource_mmu->description));
 		return NULL;
 	}
+	pr_err("%s: %d\n", __func__, __LINE__);
 
 	/* Create the MMU object inside group */
 	mmu = mali_mmu_create(resource_mmu, group, MALI_FALSE);
@@ -487,6 +491,8 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 
 	pr_err("%s: %d\n", __func__, __LINE__);
 
+	pr_err("%s: %d\n", __func__, __LINE__);
+
 	resource_gp_found = _MALI_OSK_ERR_OK;
 	resource_gp_mmu_found = _MALI_OSK_ERR_OK;
 	resource_pp_found[0] = _MALI_OSK_ERR_OK;
@@ -554,6 +560,7 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_gp), &resource_gp_mmu, &resource_gp, NULL);
 
 	pr_err("%s: %d\n", __func__, __LINE__);
+	return -1;
 	if (NULL == group)
 	{
 		MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
