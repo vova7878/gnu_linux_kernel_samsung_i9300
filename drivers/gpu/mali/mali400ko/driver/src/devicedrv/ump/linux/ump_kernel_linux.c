@@ -14,7 +14,7 @@
 #include <linux/ioport.h>            /* request_mem_region */
 #include <linux/mm.h>                /* memory management functions and types */
 #include <asm/uaccess.h>             /* user space access */
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/device.h>
 #include <linux/debugfs.h>
 

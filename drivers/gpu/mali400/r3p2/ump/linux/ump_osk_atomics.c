@@ -14,7 +14,7 @@
  */
 
 #include "ump_osk.h"
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 int _ump_osk_atomic_dec_and_read( _mali_osk_atomic_t *atom )
 {

@@ -19,7 +19,7 @@
 
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/vmalloc.h>
 #include "ump_kernel_common.h"
 #include "ump_kernel_memory_backend.h"

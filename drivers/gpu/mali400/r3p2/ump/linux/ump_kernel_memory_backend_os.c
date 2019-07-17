@@ -20,7 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include "ump_kernel_common.h"

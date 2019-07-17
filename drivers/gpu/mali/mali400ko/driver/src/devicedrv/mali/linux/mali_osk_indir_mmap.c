@@ -14,7 +14,7 @@
 #include <linux/sched.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 #include "mali_osk.h"
 #include "mali_ukk.h"

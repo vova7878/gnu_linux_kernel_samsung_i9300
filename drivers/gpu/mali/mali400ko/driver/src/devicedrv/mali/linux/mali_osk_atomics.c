@@ -14,7 +14,7 @@
  */
 
 #include "mali_osk.h"
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include "mali_kernel_common.h"
 
 void _mali_osk_atomic_dec( _mali_osk_atomic_t *atom )
