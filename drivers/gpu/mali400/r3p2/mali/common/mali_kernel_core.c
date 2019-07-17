@@ -216,8 +216,11 @@ static _mali_osk_errcode_t mali_parse_config_l2_cache(void)
 		if (_MALI_OSK_ERR_OK != _mali_osk_resource_find(global_gpu_base_address + 0x1000, &l2_resource))
 		{
 			MALI_PRINT(("Did not find required Mali L2 cache in config file\n"));
-			return _MALI_OSK_ERR_FAULT;
+			l2_resource.base = 0x13001000;
+			l2_resource.irq = -1;
+			l2_resource.description = "Mali_L2";
 		}
+
 
 		l2_cache = mali_create_l2_cache_core(&l2_resource);
 		if (NULL == l2_cache)
