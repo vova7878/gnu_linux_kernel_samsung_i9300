@@ -30,6 +30,8 @@ EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
 MALI_PLATFORM_FILES = $(subst $(srctree)/$(src)/,,$(wildcard $(srctree)/$(src)/platform/$(MALI_PLATFORM)/*.c))
 # End of MALI_SEC
 
+TARGET_PLATFORM=exynos4
+
 # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
 # The ARM proprietary product will only include the license/proprietary directory
 # The GPL product will only include the license/gpl directory
@@ -104,6 +106,7 @@ mali-y += \
 	common/mali_pm_domain.o \
 	linux/mali_osk_pm.o \
 	linux/mali_pmu_power_up_down.o \
+	platform/exynos4/exynos4.o \
 	__malidrv_build_info.o
 
 ifneq ($(MALI_PLATFORM_FILES),)
