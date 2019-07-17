@@ -37,12 +37,6 @@
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
 #include "mali_profiling_internal.h"
 #endif
-/* MALI_SEC */
-#if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412) || defined(CONFIG_CPU_EXYNOS4210)
-#include "../platform/pegasus-m400/exynos4_pmm.h"
-#elif defined(CONFIG_SOC_EXYNOS3470)
-#include "../platform/exynos4270/exynos4_pmm.h"
-#endif
 
 /* Streamline support for the Mali driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_MALI400_PROFILING)
@@ -355,15 +349,11 @@ static void mali_miscdevice_unregister(void)
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
 	mali_pm_os_suspend();
-	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_DEEP_SLEEP);
 	return 0;
 }
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
-	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_ON);
 	mali_pm_os_resume();
 	return 0;
 }
@@ -372,15 +362,11 @@ static int mali_driver_resume_scheduler(struct device *dev)
 static int mali_driver_runtime_suspend(struct device *dev)
 {
 	mali_pm_runtime_suspend();
-	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_LIGHT_SLEEP);
 	return 0;
 }
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
-	/* MALI_SEC */
-	mali_platform_power_mode_change(dev, MALI_POWER_MODE_ON);
 	mali_pm_runtime_resume();
 	return 0;
 }
