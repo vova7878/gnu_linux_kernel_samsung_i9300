@@ -845,44 +845,80 @@ _mali_osk_errcode_t mali_initialize_subsystems(void)
 	struct mali_pmu_core *pmu;
 
 	err = mali_session_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto session_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_session_initialize returned %d\n", __func__, err));
+		goto session_init_failed;
+	}
 
 #if defined(CONFIG_MALI400_PROFILING)
 	err = _mali_osk_profiling_init(mali_boot_profiling ? MALI_TRUE : MALI_FALSE);
 	if (_MALI_OSK_ERR_OK != err)
 	{
+		MALI_PRINT_ERROR(("%s: _mali_osk_profiling_init returned %d\n", __func__, err));
 		/* No biggie if we weren't able to initialize the profiling */
 		MALI_PRINT_ERROR(("Failed to initialize profiling, feature will be unavailable\n"));
 	}
 #endif
 
 	err = mali_memory_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto memory_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_memory_initialize returned %d\n", __func__, err));
+
+		goto memory_init_failed;
+	}
 
 	/* Configure memory early. Memory allocation needed for mali_mmu_initialize. */
 	err = mali_parse_config_memory();
-	if (_MALI_OSK_ERR_OK != err) goto parse_memory_config_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_parse_config_memory returned %d\n", __func__, err));
+
+		goto parse_memory_config_failed;
+	}
 
 	err = mali_set_global_gpu_base_address();
-	if (_MALI_OSK_ERR_OK != err) goto set_global_gpu_base_address_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_set_global_gpu_base_address returned %d\n", __func__, err));
+
+		goto set_global_gpu_base_address_failed;
+	}
 
 	err = mali_check_shared_interrupts();
-	if (_MALI_OSK_ERR_OK != err) goto check_shared_interrupts_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_check_shared_interrupts returned %d\n", __func__, err));
+
+		goto check_shared_interrupts_failed;
+	}
 
 	err = mali_pp_scheduler_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto pp_scheduler_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_pp_scheduler_initialize returned %d\n", __func__, err));
+
+		goto pp_scheduler_init_failed;
+	}
 
 	/* Initialize the power management module */
 	err = mali_pm_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto pm_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_pm_initialize returned %d\n", __func__, err));
+
+		goto pm_init_failed;
+	}
 
 	/* Initialize the MALI PMU */
 	err = mali_parse_config_pmu();
-	if (_MALI_OSK_ERR_OK != err) goto parse_pmu_config_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_parse_config_pmu returned %d\n", __func__, err));
+
+		goto parse_pmu_config_failed;
+	}
 
 	/* Make sure the power stays on for the rest of this function */
 	err = _mali_osk_pm_dev_ref_add();
-	if (_MALI_OSK_ERR_OK != err) goto pm_always_on_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: _mali_osk_pm_dev_ref_add returned %d\n", __func__, err));
+
+		goto pm_always_on_failed;
+	}
 
 	/*
 	 * If run-time PM is used, then the mali_pm module has now already been
@@ -897,13 +933,21 @@ _mali_osk_errcode_t mali_initialize_subsystems(void)
 	pmu = mali_pmu_get_global_pmu_core();
 	if (NULL != pmu)
 	{
+		MALI_PRINT_ERROR(("%s: pmu == NULL\n", __func__));
+
 		err = mali_pmu_reset(pmu);
-		if (_MALI_OSK_ERR_OK != err) goto pmu_reset_failed;
+		if (_MALI_OSK_ERR_OK != err) {
+			MALI_PRINT_ERROR(("%s: mali_pmu_get_global_pmu_core() == NULL, err = %d\n", __func__, err));
+			goto pmu_reset_failed;
+		}
 	}
 
 	/* Detect which Mali GPU we are dealing with */
 	err = mali_parse_product_info();
-	if (_MALI_OSK_ERR_OK != err) goto product_info_parsing_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_parse_product_info returned %d\n", __func__, err));
+		goto product_info_parsing_failed;
+	}
 
 	/* The global_product_id is now populated with the correct Mali GPU */
 
@@ -911,37 +955,70 @@ _mali_osk_errcode_t mali_initialize_subsystems(void)
 	if (NULL != pmu)
 	{
 		err = mali_create_pm_domains();
-		if (_MALI_OSK_ERR_OK != err) goto pm_domain_failed;
+		if (_MALI_OSK_ERR_OK != err) {
+			MALI_PRINT_ERROR(("%s: mali_create_pm_domains returned %d\n", __func__, err));
+
+			goto pm_domain_failed;
+		}
 	}
 
 	/* Initialize MMU module */
 	err = mali_mmu_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto mmu_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_mmu_initialize returned %d\n", __func__, err));
+
+		goto mmu_init_failed;
+	}
 
 	if (mali_is_mali450())
 	{
 		err = mali_dlbu_initialize();
-		if (_MALI_OSK_ERR_OK != err) goto dlbu_init_failed;
+		if (_MALI_OSK_ERR_OK != err) {
+			MALI_PRINT_ERROR(("%s: mali_dlbu_initialize returned %d\n", __func__, err));
+
+			goto dlbu_init_failed;
+		}
 	}
 
 	/* Start configuring the actual Mali hardware. */
 	err = mali_parse_config_l2_cache();
-	if (_MALI_OSK_ERR_OK != err) goto config_parsing_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_parse_config_l2_cache returned %d\n", __func__, err));
+
+		goto config_parsing_failed;
+	}
 	err = mali_parse_config_groups();
-	if (_MALI_OSK_ERR_OK != err) goto config_parsing_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_parse_config_groups returned %d\n", __func__, err));
+
+		goto config_parsing_failed;
+	}
 
 	/* Initialize the schedulers */
 	err = mali_scheduler_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto scheduler_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_scheduler_initialize returned %d\n", __func__, err));
+
+		goto scheduler_init_failed;
+	}
+
 	err = mali_gp_scheduler_initialize();
-	if (_MALI_OSK_ERR_OK != err) goto gp_scheduler_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_gp_scheduler_initialize returned %d\n", __func__, err));
+
+		goto gp_scheduler_init_failed;
+	}
 
 	/* PP scheduler population can't fail */
 	mali_pp_scheduler_populate();
 
 	/* Initialize the GPU utilization tracking */
 	err = mali_utilization_init();
-	if (_MALI_OSK_ERR_OK != err) goto utilization_init_failed;
+	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("%s: mali_utilization_init returned %d\n", __func__, err));
+
+		goto utilization_init_failed;
+	}
 
 	/* Allowing the system to be turned off */
 	_mali_osk_pm_dev_ref_dec();
