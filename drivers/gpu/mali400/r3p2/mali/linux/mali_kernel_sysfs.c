@@ -15,6 +15,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/module.h>
@@ -49,6 +50,13 @@
 #include "mali_gp_job.h"
 #include "mali_pp_job.h"
 #include "mali_pp_scheduler.h"
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+#define strict_strtoul kstrtoul
+#define strict_strtol  kstrtol
+#define strict_strtoull        kstrtoull
+#define strict_strtoll kstrtoll
+#endif
 
 #define POWER_BUFFER_SIZE 3
 
