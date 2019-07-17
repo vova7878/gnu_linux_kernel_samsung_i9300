@@ -414,6 +414,13 @@ static _mali_osk_errcode_t mali_create_virtual_group(_mali_osk_resource_t *resou
 	return _MALI_OSK_ERR_OK;
 }
 
+#define MALI_SET_RESOURCE(_res, _base, _irq, _description)	\
+	do {							\
+		_res.base = _base;				\
+		_res.irq = _irq;				\
+		_res.description = _description;		\
+	} while(0)
+
 static _mali_osk_errcode_t mali_parse_config_groups(void)
 {
 	struct mali_group *group;
@@ -471,6 +478,42 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	resource_pp_mmu_found[6] = _mali_osk_resource_find(global_gpu_base_address + 0x1E000, &(resource_pp_mmu[6]));
 	resource_pp_mmu_found[7] = _mali_osk_resource_find(global_gpu_base_address + 0x1F000, &(resource_pp_mmu[7]));
 
+	resource_gp_found = MALI_TRUE;
+	resource_gp_mmu_found = MALI_TRUE;
+	resource_pp_found[0] = MALI_TRUE;
+	resource_pp_found[1] = MALI_TRUE;
+	resource_pp_found[2] = MALI_TRUE;
+	resource_pp_found[3] = MALI_TRUE;
+	resource_pp_mmu_found[0] = MALI_TRUE;
+	resource_pp_mmu_found[1] = MALI_TRUE;
+	resource_pp_mmu_found[2] = MALI_TRUE;
+	resource_pp_mmu_found[3] = MALI_TRUE;
+
+	MALI_SET_RESOURCE(resource_gp, 0x13000000, 191, "Mali_GP");
+	MALI_SET_RESOURCE(resource_gp_mmu, 0x13003000, 186, "Mali_GP_MMU");
+	MALI_SET_RESOURCE(resource_pp[0], 0x13008000, 187, "Mali_PP0");
+	MALI_SET_RESOURCE(resource_pp[1], 0x1300a000, 188, "Mali_PP1");
+	MALI_SET_RESOURCE(resource_pp[2], 0x1300c000, 189, "Mali_PP2");
+	MALI_SET_RESOURCE(resource_pp[3], 0x1300e000, 190, "Mali_PP3");
+	MALI_SET_RESOURCE(resource_pp_mmu[0], 0x13004000, 182, "Mali_PP0_MMU");
+	MALI_SET_RESOURCE(resource_pp_mmu[1], 0x13005000, 183, "Mali_PP1_MMU");
+	MALI_SET_RESOURCE(resource_pp_mmu[2], 0x13006000, 184, "Mali_PP2_MMU");
+	MALI_SET_RESOURCE(resource_pp_mmu[3], 0x13007000, 185, "Mali_PP3_MMU");
+/*
+[    1.404107] c0      1 mali_parse_config_groups: 537: res resource_gp: .description = Mali_GP, .irq = 191, .base = 13000000
+[    1.415096] c0      1 mali_parse_config_groups: 539: res resource_gp_mmu: .description = Mali_GP_MMU, .irq = 186, .base = 13003000
+[    1.426812] c0      1 mali_parse_config_groups: 541: res resource_pp[0]: .description = Mali_PP0, .irq = 187, .base = 13008000
+[    1.438182] c0      1 mali_parse_config_groups: 543: res resource_pp[1]: .description = Mali_PP1, .irq = 188, .base = 1300a000
+[    1.449553] c0      1 mali_parse_config_groups: 545: res resource_pp[2]: .description = Mali_PP2, .irq = 189, .base = 1300c000
+[    1.460923] c0      1 mali_parse_config_groups: 547: res resource_pp[3]: .description = Mali_PP3, .irq = 190, .base = 1300e000
+[    1.472294] c0      1 mali_parse_config_groups: 549: res resource_pp[4]: .description = , .irq = -1070414108, .base = 1c
+[    1.483206] c0      1 mali_parse_config_groups: 551: res resource_pp[5]: .description = (null), .irq = -1070343568, .base = c033f7cc
+[    1.525963] c0      1 mali_parse_config_groups: 557: res resource_pp_mmu[0]: .description = Mali_PP0_MMU, .irq = 182, .base = 13004000
+[    1.538006] c0      1 mali_parse_config_groups: 559: res resource_pp_mmu[1]: .description = Mali_PP1_MMU, .irq = 183, .base = 13005000
+[    1.550070] c0      1 mali_parse_config_groups: 561: res resource_pp_mmu[2]: .description = Mali_PP2_MMU, .irq = 184, .base = 13006000
+[    1.562135] c0      1 mali_parse_config_groups: 563: res resource_pp_mmu[3]: .description = Mali_PP3_MMU, .irq = 185, .base = 13007000
+[    1.586612] c0      1 mali_parse_config_groups: 567: res resource_pp_mmu[5]: .description = , .irq = -1061402520, .base = f1edfc80
+*/
 
 	if (mali_is_mali450())
 	{
@@ -504,6 +547,8 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_gp), &resource_gp_mmu, &resource_gp, NULL);
 	if (NULL == group)
 	{
+		MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
+
 		return _MALI_OSK_ERR_FAULT;
 	}
 
@@ -512,6 +557,7 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[0], NULL, &resource_pp[0]);
 	if (NULL == group)
 	{
+		MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
 		return _MALI_OSK_ERR_FAULT;
 	}
 	if (mali_is_mali450())
@@ -534,6 +580,7 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 				group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[i], NULL, &resource_pp[i]);
 				if (NULL == group)
 				{
+					MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
 					return _MALI_OSK_ERR_FAULT;
 				}
 				if (mali_is_mali450())
@@ -560,6 +607,7 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 				group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp1), &resource_pp_mmu[i], NULL, &resource_pp[i]);
 				if (NULL == group)
 				{
+					MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
 					return _MALI_OSK_ERR_FAULT;
 				}
 				mali_pm_domain_add_group(MALI_PMU_M450_DOM3, group);
