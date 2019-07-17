@@ -291,8 +291,9 @@ void mali_utilization_gp_start(void)
 			period_start_time = time_now;
 
 			_mali_osk_lock_signal(time_data_lock, _MALI_OSK_LOCKMODE_RW);
-
+#ifndef CONFIG_PM_DEVFREQ
 			_mali_osk_timer_add(utilization_timer, _mali_osk_time_mstoticks(mali_utilization_timeout));
+#endif
 		}
 		else
 		{

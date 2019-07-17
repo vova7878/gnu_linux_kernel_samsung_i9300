@@ -48,7 +48,9 @@ void mali_pm_os_suspend(void)
 	MALI_DEBUG_PRINT(3, ("Mali PM: OS suspend\n"));
 	mali_gp_scheduler_suspend();
 	mali_pp_scheduler_suspend();
+#ifndef CONFIG_PM_DEVFREQ
 	mali_utilization_suspend();
+#endif
 /* MALI_SEC */
 #if !defined(CONFIG_PM_RUNTIME)
 	mali_group_power_off();
