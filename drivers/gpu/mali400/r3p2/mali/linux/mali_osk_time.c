@@ -15,7 +15,13 @@
 
 #include "mali_osk.h"
 #include <linux/jiffies.h>
+#include <linux/version.h>
 #include <linux/time.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
+extern int __getnstimeofday64(struct timespec64 *tv);
+#endif
+
 #include <asm/delay.h>
 
 int	_mali_osk_time_after( u32 ticka, u32 tickb )
@@ -45,7 +51,13 @@ void _mali_osk_time_ubusydelay( u32 usecs )
 
 u64 _mali_osk_time_get_ns( void )
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
+	struct timespec64 tsval;
+	__getnstimeofday64(&tsval);
+	return timespec64_to_ns(&tsval);
+#else
 	struct timespec tsval;
 	getnstimeofday(&tsval);
 	return (u64)timespec_to_ns(&tsval);
+#endif
 }
