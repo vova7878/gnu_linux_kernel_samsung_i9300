@@ -221,6 +221,17 @@ static void l2c210_clean_range(unsigned long start, unsigned long end)
 	__l2c210_cache_sync(base);
 }
 
+static void l2c_clean_all(void)
+{
+	unsigned long flags;
+
+	/* clean all ways */
+	raw_spin_lock_irqsave(&l2x0_lock, flags);
+	__l2c_op_way(l2x0_base + L2X0_CLEAN_WAY);
+	__l2c210_cache_sync(l2x0_base);
+	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
+}
+
 static void l2c210_flush_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
@@ -259,6 +270,7 @@ static const struct l2c_init_data l2c210_data __initconst = {
 		.flush_range = l2c210_flush_range,
 		.flush_all = l2c210_flush_all,
 		.disable = l2c_disable,
+		.clean_all = l2c_clean_all,
 		.sync = l2c210_sync,
 		.resume = l2c_resume,
 	},

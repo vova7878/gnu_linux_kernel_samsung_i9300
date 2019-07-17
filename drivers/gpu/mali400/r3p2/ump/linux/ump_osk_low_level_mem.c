@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 /* MALI_SEC */
+#include <linux/percpu.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 
@@ -31,6 +32,16 @@
 #include <asm/uaccess.h>			/* to verify pointers from user space */
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
+
+static void flush_all_cpu_cache(void *info)
+{
+	flush_cache_all();
+}
+
+void flush_all_cpu_caches(void)
+{
+	on_each_cpu(flush_all_cpu_cache, NULL, 1);
+}
 
 typedef struct ump_vma_usage_tracker
 {
