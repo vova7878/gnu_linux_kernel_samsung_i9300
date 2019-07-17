@@ -58,14 +58,14 @@ mali_physical_memory_allocator * mali_block_allocator_create(u32 base_address, u
 	u32 num_blocks;
 
 	usable_size = size & ~(MALI_BLOCK_SIZE - 1);
-	MALI_DEBUG_PRINT(3, ("Mali block allocator create for region starting at 0x%08X length 0x%08X\n", base_address, size));
-	MALI_DEBUG_PRINT(4, ("%d usable bytes\n", usable_size));
+	MALI_PRINT(("Mali block allocator create for region starting at 0x%08X length 0x%08X\n", base_address, size));
+	MALI_PRINT(("%d usable bytes\n", usable_size));
 	num_blocks = usable_size / MALI_BLOCK_SIZE;
-	MALI_DEBUG_PRINT(4, ("which becomes %d blocks\n", num_blocks));
+	MALI_PRINT(("which becomes %d blocks\n", num_blocks));
 
 	if (usable_size == 0)
 	{
-		MALI_DEBUG_PRINT(1, ("Memory block of size %d is unusable\n", size));
+		MALI_PRINT(("Memory block of size %d is unusable\n", size));
 		return NULL;
 	}
 
@@ -189,7 +189,7 @@ static mali_physical_memory_allocation_result block_allocator_allocate(void* ctx
 
 		if (_MALI_OSK_ERR_OK != mali_allocation_engine_map_physical(engine, descriptor, *offset, phys_addr + padding, info->cpu_usage_adjust, current_mapping_size))
 		{
-			MALI_DEBUG_PRINT(1, ("Mapping of physical memory  failed\n"));
+			MALI_PRINT(("Mapping of physical memory  failed\n"));
 			result = MALI_MEM_ALLOC_INTERNAL_FAILURE;
 			mali_allocation_engine_unmap_physical(engine, descriptor, ret_allocation->start_offset, ret_allocation->mapping_length, (_mali_osk_mem_mapregion_flags_t)0);
 
@@ -253,7 +253,7 @@ static void block_allocator_release(void * ctx, void * handle)
 
 	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
 	{
-		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
+		MALI_PRINT(("allocator release: Failed to get mutex\n"));
 		return;
 	}
 
@@ -348,7 +348,7 @@ static void block_allocator_release_page_table_block( mali_page_table_block *pag
 
 	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
 	{
-		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
+		MALI_PRINT(("allocator release: Failed to get mutex\n"));
 		return;
 	}
 

@@ -251,7 +251,7 @@ _mali_osk_errcode_t mali_allocation_engine_map_physical(mali_allocation_engine m
 
 		if ( _MALI_OSK_ERR_OK != err )
 		{
-			MALI_DEBUG_PRINT(2, ("Map failed: %s %d\n", __FUNCTION__, __LINE__));
+			MALI_PRINT(("Map failed: %s %d\n", __FUNCTION__, __LINE__));
 			MALI_ERROR( err );
 		}
 	}
@@ -271,7 +271,7 @@ _mali_osk_errcode_t mali_allocation_engine_map_physical(mali_allocation_engine m
 			MALI_DEBUG_PRINT( 2, ("Process address manager succeeded, but Mali Address manager failed for phys=0x%08X size=0x%08X, offset=0x%08X. Will unmap.\n", phys, size, offset));
 			engine->process_address->unmap_physical(descriptor, offset, size, unmap_flags);
 		}
-		MALI_DEBUG_PRINT(2, ("Map mali failed: %s %d\n", __FUNCTION__, __LINE__));
+		MALI_PRINT(("Map mali failed: %s %d\n", __FUNCTION__, __LINE__));
 		MALI_ERROR( err );
 	}
 
@@ -325,10 +325,10 @@ _mali_osk_errcode_t mali_allocation_engine_allocate_page_tables(mali_allocation_
 				active_allocator = active_allocator->next;
 				break;
 			case MALI_MEM_ALLOC_PARTIAL:
-				MALI_DEBUG_PRINT(1, ("Invalid return value from allocate_page_table_block call: MALI_MEM_ALLOC_PARTIAL\n"));
+				MALI_PRINT(("Invalid return value from allocate_page_table_block call: MALI_MEM_ALLOC_PARTIAL\n"));
 				/* FALL THROUGH */
 			case MALI_MEM_ALLOC_INTERNAL_FAILURE:
-				MALI_DEBUG_PRINT(1, ("Aborting due to allocation failure\n"));
+				MALI_PRINT(("Aborting due to allocation failure\n"));
 				active_allocator = NULL; /* end the while loop */
 				break;
 		}

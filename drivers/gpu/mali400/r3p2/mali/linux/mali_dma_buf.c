@@ -46,7 +46,7 @@ void mali_dma_buf_release(void *ctx, void *handle)
 
 	mem = (struct mali_dma_buf_attachment *)handle;
 
-	MALI_DEBUG_PRINT(3, ("Mali DMA-buf: release attachment %p\n", mem));
+	MALI_PRINT(("Mali DMA-buf: release attachment %p\n", mem));
 
 	MALI_DEBUG_ASSERT_POINTER(mem);
 	MALI_DEBUG_ASSERT_POINTER(mem->attachment);
@@ -84,7 +84,7 @@ int mali_dma_buf_map(struct mali_dma_buf_attachment *mem, struct mali_session_da
 
 	mem->map_ref++;
 
-	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: map attachment %p, new map_ref = %d\n", mem, mem->map_ref));
+	MALI_PRINT(("Mali DMA-buf: map attachment %p, new map_ref = %d\n", mem, mem->map_ref));
 
 	if (1 == mem->map_ref)
 	{
@@ -149,7 +149,7 @@ void mali_dma_buf_unmap(struct mali_dma_buf_attachment *mem)
 
 	mem->map_ref--;
 
-	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: unmap attachment %p, new map_ref = %d\n", mem, mem->map_ref));
+	MALI_PRINT(("Mali DMA-buf: unmap attachment %p, new map_ref = %d\n", mem, mem->map_ref));
 
 	if (0 == mem->map_ref)
 	{
@@ -419,7 +419,7 @@ int mali_release_dma_buf(struct mali_session_data *session, _mali_uk_release_dma
 		return -EFAULT;
 	}
 
-	MALI_DEBUG_PRINT(3, ("Mali DMA-buf: release descriptor cookie %d\n", args.cookie));
+	MALI_PRINT(("Mali DMA-buf: release descriptor cookie %d\n", args.cookie));
 
 	_mali_osk_lock_wait( session->memory_lock, _MALI_OSK_LOCKMODE_RW );
 
@@ -427,7 +427,7 @@ int mali_release_dma_buf(struct mali_session_data *session, _mali_uk_release_dma
 
 	if (NULL != descriptor)
 	{
-		MALI_DEBUG_PRINT(3, ("Mali DMA-buf: Releasing dma-buf at mali address %x\n", descriptor->mali_address));
+		MALI_PRINT(("Mali DMA-buf: Releasing dma-buf at mali address %x\n", descriptor->mali_address));
 
 		/* Will call back to mali_dma_buf_release() which will release the dma-buf attachment. */
 		mali_allocation_engine_release_memory(mali_mem_get_memory_engine(), descriptor);

@@ -38,7 +38,7 @@ struct mali_pm_domain *mali_pm_domain_create(u32 id, u32 pmu_mask)
 {
 	struct mali_pm_domain* domain;
 
-	MALI_DEBUG_PRINT(2, ("Mali PM domain: Creating Mali PM domain (mask=0x%08X)\n", pmu_mask));
+	MALI_PRINT(("Mali PM domain: Creating Mali PM domain (mask=0x%08X)\n", pmu_mask));
 
 	domain = (struct mali_pm_domain *)_mali_osk_malloc(sizeof(struct mali_pm_domain));
 	if (NULL != domain)
@@ -148,7 +148,7 @@ void mali_pm_domain_ref_get(struct mali_pm_domain *domain)
 		/* Power on */
 		struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 
-		MALI_DEBUG_PRINT(3, ("PM Domain: Powering on 0x%08x\n", domain->pmu_mask));
+		MALI_PRINT(("PM Domain: Powering on 0x%08x\n", domain->pmu_mask));
 
 		if (NULL != pmu)
 		{
@@ -184,7 +184,7 @@ void mali_pm_domain_ref_put(struct mali_pm_domain *domain)
 		/* Power off */
 		struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 
-		MALI_DEBUG_PRINT(3, ("PM Domain: Powering off 0x%08x\n", domain->pmu_mask));
+		MALI_PRINT(("PM Domain: Powering off 0x%08x\n", domain->pmu_mask));
 
 		mali_pm_domain_state_set(domain, MALI_PM_DOMAIN_OFF);
 

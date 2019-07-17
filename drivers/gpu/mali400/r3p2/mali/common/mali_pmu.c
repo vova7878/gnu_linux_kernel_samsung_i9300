@@ -55,7 +55,7 @@ struct mali_pmu_core *mali_pmu_create(_mali_osk_resource_t *resource, u32 number
 	struct mali_pmu_core* pmu;
 
 	MALI_DEBUG_ASSERT(NULL == mali_global_pmu_core);
-	MALI_DEBUG_PRINT(2, ("Mali PMU: Creating Mali PMU core\n"));
+	MALI_PRINT(("Mali PMU: Creating Mali PMU core\n"));
 
 	pmu = (struct mali_pmu_core *)_mali_osk_malloc(sizeof(struct mali_pmu_core));
 	if (NULL != pmu)
@@ -93,7 +93,7 @@ void mali_pmu_delete(struct mali_pmu_core *pmu)
 {
 	MALI_DEBUG_ASSERT_POINTER(pmu);
 	MALI_DEBUG_ASSERT(pmu == mali_global_pmu_core);
-	MALI_DEBUG_PRINT(2, ("Mali PMU: Deleting Mali PMU core\n"));
+	MALI_PRINT(("Mali PMU: Deleting Mali PMU core\n"));
 
 	_mali_osk_lock_term(pmu->lock);
 	mali_hw_core_delete(&pmu->hw_core);
@@ -248,7 +248,7 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 
 	mali_pmu_lock(pmu);
 
-	MALI_DEBUG_PRINT(4, ("Mali PMU: Power down (0x%08X)\n", mask));
+	MALI_PRINT(("Mali PMU: Power down (0x%08X)\n", mask));
 
 	pmu->active_cores_mask &= ~mask;
 
@@ -259,7 +259,7 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 		_mali_osk_pm_dev_ref_dec_no_power_on();
 		mali_pmu_unlock(pmu);
 
-		MALI_DEBUG_PRINT(4, ("Mali PMU: Skipping power down (0x%08X) since Mali is off\n", mask));
+		MALI_PRINT(("Mali PMU: Skipping power down (0x%08X) since Mali is off\n", mask));
 
 		return _MALI_OSK_ERR_BUSY;
 	}
@@ -287,7 +287,7 @@ _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 
 	mali_pmu_lock(pmu);
 
-	MALI_DEBUG_PRINT(4, ("Mali PMU: Power up (0x%08X)\n", mask));
+	MALI_PRINT(("Mali PMU: Power up (0x%08X)\n", mask));
 
 	pmu->active_cores_mask |= mask;
 
@@ -298,7 +298,7 @@ _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 		_mali_osk_pm_dev_ref_dec_no_power_on();
 		mali_pmu_unlock(pmu);
 
-		MALI_DEBUG_PRINT(4, ("Mali PMU: Skipping power up (0x%08X) since Mali is off\n", mask));
+		MALI_PRINT(("Mali PMU: Skipping power up (0x%08X) since Mali is off\n", mask));
 
 		return _MALI_OSK_ERR_BUSY;
 	}
@@ -399,7 +399,7 @@ static u32 mali_pmu_detect_mask(u32 number_of_pp_cores, u32 number_of_l2_caches)
 		}
 	}
 
-	MALI_DEBUG_PRINT(4, ("Mali PMU: Power mask is 0x%08X (%u + %u)\n", mask, number_of_pp_cores, number_of_l2_caches));
+	MALI_PRINT(("Mali PMU: Power mask is 0x%08X (%u + %u)\n", mask, number_of_pp_cores, number_of_l2_caches));
 
 	return mask;
 }

@@ -911,7 +911,7 @@ static ssize_t profiling_record_write(struct file *filp, const char __user *ubuf
 		/* check if we are already recording */
 		if (MALI_TRUE == _mali_internal_profiling_is_recording())
 		{
-			MALI_DEBUG_PRINT(3, ("Recording of profiling events already in progress\n"));
+			MALI_PRINT(("Recording of profiling events already in progress\n"));
 			return -EFAULT;
 		}
 
@@ -920,7 +920,7 @@ static ssize_t profiling_record_write(struct file *filp, const char __user *ubuf
 		{
 			if (_MALI_OSK_ERR_OK != _mali_internal_profiling_clear())
 			{
-				MALI_DEBUG_PRINT(3, ("Failed to clear existing recording of profiling events\n"));
+				MALI_PRINT(("Failed to clear existing recording of profiling events\n"));
 				return -EFAULT;
 			}
 		}
@@ -928,11 +928,11 @@ static ssize_t profiling_record_write(struct file *filp, const char __user *ubuf
 		/* start recording profiling data */
 		if (_MALI_OSK_ERR_OK != _mali_internal_profiling_start(&limit))
 		{
-			MALI_DEBUG_PRINT(3, ("Failed to start recording of profiling events\n"));
+			MALI_PRINT(("Failed to start recording of profiling events\n"));
 			return -EFAULT;
 		}
 
-		MALI_DEBUG_PRINT(3, ("Profiling recording started (max %u events)\n", limit));
+		MALI_PRINT(("Profiling recording started (max %u events)\n", limit));
 	}
 	else
 	{
@@ -940,11 +940,11 @@ static ssize_t profiling_record_write(struct file *filp, const char __user *ubuf
 		u32 count = 0;
 		if (_MALI_OSK_ERR_OK != _mali_internal_profiling_stop(&count))
 		{
-			MALI_DEBUG_PRINT(2, ("Failed to stop recording of profiling events\n"));
+			MALI_PRINT(("Failed to stop recording of profiling events\n"));
 			return -EFAULT;
 		}
 		
-		MALI_DEBUG_PRINT(2, ("Profiling recording stopped (recorded %u events)\n", count));
+		MALI_PRINT(("Profiling recording stopped (recorded %u events)\n", count));
 	}
 
 	*ppos += cnt;
@@ -1682,7 +1682,7 @@ int mali_sysfs_register(const char *mali_dev_name)
 			if (mali_sysfs_user_settings_register())
 			{
 				/* Failed to create the debugfs entries for the user settings DB. */
-				MALI_DEBUG_PRINT(2, ("Failed to create user setting debugfs files. Ignoring...\n"));
+				MALI_PRINT(("Failed to create user setting debugfs files. Ignoring...\n"));
 			}
 		}
 	}

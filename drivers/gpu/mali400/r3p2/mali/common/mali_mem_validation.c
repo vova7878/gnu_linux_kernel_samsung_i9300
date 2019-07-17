@@ -71,7 +71,7 @@ _mali_osk_errcode_t mali_mem_validation_add_range(u32 start, u32 size)
 
 	mali_mem_validator.phys_base = start;
 	mali_mem_validator.size = size;
-	MALI_DEBUG_PRINT(2, ("Memory Validator installed for Mali physical address base=0x%08X, size=0x%08X\n",
+	MALI_PRINT(("Memory Validator installed for Mali physical address base=0x%08X, size=0x%08X\n",
 	                 mali_mem_validator.phys_base, mali_mem_validator.size));
 
 	return _MALI_OSK_ERR_OK;
@@ -89,7 +89,7 @@ _mali_osk_errcode_t mali_mem_validation_check(u32 phys_addr, u32 size)
 				(phys_addr          <= (mali_mem_validator.phys_base + (mali_mem_validator.size - 1))) &&
 				((phys_addr + (size - 1)) <= (mali_mem_validator.phys_base + (mali_mem_validator.size - 1))) )
 			{
-				MALI_DEBUG_PRINT(3, ("Accepted range 0x%08X + size 0x%08X (= 0x%08X)\n", phys_addr, size, (phys_addr + size - 1)));
+				MALI_PRINT(("Accepted range 0x%08X + size 0x%08X (= 0x%08X)\n", phys_addr, size, (phys_addr + size - 1)));
 				return _MALI_OSK_ERR_OK;
 			}
 		}

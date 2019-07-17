@@ -155,7 +155,7 @@ _mali_osk_errcode_t mali_memory_initialize(void)
 {
 	_mali_osk_errcode_t err;
 
-	MALI_DEBUG_PRINT(2, ("Memory system initializing\n"));
+	MALI_PRINT(("Memory system initializing\n"));
 
 	err = mali_mmu_page_table_cache_create();
 	if(_MALI_OSK_ERR_OK != err)
@@ -172,7 +172,7 @@ _mali_osk_errcode_t mali_memory_initialize(void)
 /* called if/when our module is unloaded */
 void mali_memory_terminate(void)
 {
-	MALI_DEBUG_PRINT(2, ("Memory system terminating\n"));
+	MALI_PRINT(("Memory system terminating\n"));
 
 	mali_mmu_page_table_cache_destroy();
 
@@ -202,7 +202,7 @@ void mali_memory_terminate(void)
 
 _mali_osk_errcode_t mali_memory_session_begin(struct mali_session_data * session_data)
 {
-	MALI_DEBUG_PRINT(5, ("Memory session begin\n"));
+	MALI_PRINT(("Memory session begin\n"));
 
 	/* create descriptor mapping table */
 	session_data->descriptor_mapping = mali_descriptor_mapping_create(MALI_MEM_DESCRIPTORS_INIT, MALI_MEM_DESCRIPTORS_MAX);
@@ -224,7 +224,7 @@ _mali_osk_errcode_t mali_memory_session_begin(struct mali_session_data * session
 	/* Init the session's memory allocation list */
 	_MALI_OSK_INIT_LIST_HEAD( &session_data->memory_head );
 
-	MALI_DEBUG_PRINT(5, ("MMU session begin: success\n"));
+	MALI_PRINT(("MMU session begin: success\n"));
 	MALI_SUCCESS;
 }
 
@@ -234,7 +234,7 @@ static void descriptor_table_cleanup_callback(int descriptor_id, void* map_targe
 
 	descriptor = (mali_memory_allocation*)map_target;
 
-	MALI_DEBUG_PRINT(3, ("Cleanup of descriptor %d mapping to 0x%x in descriptor table\n", descriptor_id, map_target));
+	MALI_PRINT(("Cleanup of descriptor %d mapping to 0x%x in descriptor table\n", descriptor_id, map_target));
 	MALI_DEBUG_ASSERT(descriptor);
 
 	mali_allocation_engine_release_memory(memory_engine, descriptor);
@@ -245,11 +245,11 @@ void mali_memory_session_end(struct mali_session_data *session_data)
 {
 	_mali_osk_errcode_t err = _MALI_OSK_ERR_BUSY;
 
-	MALI_DEBUG_PRINT(3, ("MMU session end\n"));
+	MALI_PRINT(("MMU session end\n"));
 
 	if (NULL == session_data)
 	{
-		MALI_DEBUG_PRINT(1, ("No session data found during session end\n"));
+		MALI_PRINT(("No session data found during session end\n"));
 		return;
 	}
 
@@ -266,14 +266,14 @@ void mali_memory_session_end(struct mali_session_data *session_data)
 			mali_memory_allocation *temp;
 			_mali_uk_mem_munmap_s unmap_args;
 
-			MALI_DEBUG_PRINT(1, ("Memory found on session usage list during session termination\n"));
+			MALI_PRINT(("Memory found on session usage list during session termination\n"));
 
 			unmap_args.ctx = session_data;
 
 			/* use the 'safe' list iterator, since freeing removes the active block from the list we're iterating */
 			_MALI_OSK_LIST_FOREACHENTRY(descriptor, temp, &session_data->memory_head, mali_memory_allocation, list)
 			{
-				MALI_DEBUG_PRINT(4, ("Freeing block with mali address 0x%x size %d mapped in user space at 0x%x\n",
+				MALI_PRINT(("Freeing block with mali address 0x%x size %d mapped in user space at 0x%x\n",
 							descriptor->mali_address, descriptor->size, descriptor->size, descriptor->mapping)
 						);
 				/* ASSERT that the descriptor's lock references the correct thing */
@@ -341,7 +341,7 @@ _mali_osk_errcode_t mali_memory_core_resource_os_memory(u32 size)
 	allocator = mali_os_allocator_create(size, 0 /* cpu_usage_adjust */, "Shared Mali GPU memory");
 	if (NULL == allocator)
 	{
-		MALI_DEBUG_PRINT(1, ("Failed to create OS memory allocator\n"));
+		MALI_PRINT(("Failed to create OS memory allocator\n"));
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
@@ -376,7 +376,7 @@ _mali_osk_errcode_t mali_memory_core_resource_dedicated_memory(u32 start, u32 si
 	/* Request ownership of the memory */
 	if (_MALI_OSK_ERR_OK != _mali_osk_mem_reqregion(start, size, "Dedicated Mali GPU memory"))
 	{
-		MALI_DEBUG_PRINT(1, ("Failed to request memory region for frame buffer (0x%08X - 0x%08X)\n", start, start + size - 1));
+		MALI_PRINT(("Failed to request memory region for frame buffer (0x%08X - 0x%08X)\n", start, start + size - 1));
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
@@ -385,7 +385,7 @@ _mali_osk_errcode_t mali_memory_core_resource_dedicated_memory(u32 start, u32 si
 
 	if (NULL == allocator)
 	{
-		MALI_DEBUG_PRINT(1, ("Memory bank registration failed\n"));
+		MALI_PRINT(("Memory bank registration failed\n"));
 		_mali_osk_mem_unreqregion(start, size);
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
@@ -443,15 +443,15 @@ static mali_physical_memory_allocation_result ump_memory_commit(void* ctx, mali_
 
 	ump_mem = (ump_dd_handle)ctx;
 
-	MALI_DEBUG_PRINT(4, ("In ump_memory_commit\n"));
+	MALI_PRINT(("In ump_memory_commit\n"));
 
 	nr_blocks = ump_dd_phys_block_count_get(ump_mem);
 
-	MALI_DEBUG_PRINT(4, ("Have %d blocks\n", nr_blocks));
+	MALI_PRINT(("Have %d blocks\n", nr_blocks));
 
 	if (nr_blocks == 0)
 	{
-		MALI_DEBUG_PRINT(1, ("No block count\n"));
+		MALI_PRINT(("No block count\n"));
 		_mali_osk_free( ret_allocation );
 		return MALI_MEM_ALLOC_INTERNAL_FAILURE;
 	}
@@ -475,11 +475,11 @@ static mali_physical_memory_allocation_result ump_memory_commit(void* ctx, mali_
 
 	for(i=0; i<nr_blocks; ++i)
 	{
-		MALI_DEBUG_PRINT(4, ("Mapping in 0x%08x size %d\n", ump_blocks[i].addr , ump_blocks[i].size));
+		MALI_PRINT(("Mapping in 0x%08x size %d\n", ump_blocks[i].addr , ump_blocks[i].size));
 		if (_MALI_OSK_ERR_OK != mali_allocation_engine_map_physical(engine, descriptor, *offset, ump_blocks[i].addr , 0, ump_blocks[i].size ))
 		{
 			u32 size_allocated = *offset - ret_allocation->initial_offset;
-			MALI_DEBUG_PRINT(1, ("Mapping of external memory failed\n"));
+			MALI_PRINT(("Mapping of external memory failed\n"));
 
 			/* unmap all previous blocks (if any) */
 			mali_allocation_engine_unmap_physical(engine, descriptor, ret_allocation->initial_offset, size_allocated, (_mali_osk_mem_mapregion_flags_t)0 );
@@ -494,11 +494,11 @@ static mali_physical_memory_allocation_result ump_memory_commit(void* ctx, mali_
 	if (descriptor->flags & MALI_MEMORY_ALLOCATION_FLAG_MAP_GUARD_PAGE)
 	{
 		/* Map in an extra virtual guard page at the end of the VMA */
-		MALI_DEBUG_PRINT(4, ("Mapping in extra guard page\n"));
+		MALI_PRINT(("Mapping in extra guard page\n"));
 		if (_MALI_OSK_ERR_OK != mali_allocation_engine_map_physical(engine, descriptor, *offset, ump_blocks[0].addr , 0, _MALI_OSK_MALI_PAGE_SIZE ))
 		{
 			u32 size_allocated = *offset - ret_allocation->initial_offset;
-			MALI_DEBUG_PRINT(1, ("Mapping of external memory (guard page) failed\n"));
+			MALI_PRINT(("Mapping of external memory (guard page) failed\n"));
 
 			/* unmap all previous blocks (if any) */
 			mali_allocation_engine_unmap_physical(engine, descriptor, ret_allocation->initial_offset, size_allocated, (_mali_osk_mem_mapregion_flags_t)0 );
@@ -651,7 +651,7 @@ _mali_osk_errcode_t _mali_ukk_release_ump_mem( _mali_uk_release_ump_mem_s *args 
 
 	if (_MALI_OSK_ERR_OK != mali_descriptor_mapping_get(session_data->descriptor_mapping, args->cookie, (void**)&descriptor))
 	{
-		MALI_DEBUG_PRINT(1, ("Invalid memory descriptor %d used to release ump memory\n", args->cookie));
+		MALI_PRINT(("Invalid memory descriptor %d used to release ump memory\n", args->cookie));
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
@@ -702,11 +702,11 @@ static mali_physical_memory_allocation_result external_memory_commit(void* ctx, 
 	alloc_info->next = NULL;
 	alloc_info->release = external_memory_release;
 
-	MALI_DEBUG_PRINT(5, ("External map: mapping phys 0x%08X at mali virtual address 0x%08X staring at offset 0x%08X length 0x%08X\n", data[0], descriptor->mali_address, *offset, data[1]));
+	MALI_PRINT(("External map: mapping phys 0x%08X at mali virtual address 0x%08X staring at offset 0x%08X length 0x%08X\n", data[0], descriptor->mali_address, *offset, data[1]));
 
 	if (_MALI_OSK_ERR_OK != mali_allocation_engine_map_physical(engine, descriptor, *offset, data[0], 0, data[1]))
 	{
-		MALI_DEBUG_PRINT(1, ("Mapping of external memory failed\n"));
+		MALI_PRINT(("Mapping of external memory failed\n"));
 		_mali_osk_free(ret_allocation);
 		return MALI_MEM_ALLOC_INTERNAL_FAILURE;
 	}
@@ -715,11 +715,11 @@ static mali_physical_memory_allocation_result external_memory_commit(void* ctx, 
 	if (descriptor->flags & MALI_MEMORY_ALLOCATION_FLAG_MAP_GUARD_PAGE)
 	{
 		/* Map in an extra virtual guard page at the end of the VMA */
-		MALI_DEBUG_PRINT(4, ("Mapping in extra guard page\n"));
+		MALI_PRINT(("Mapping in extra guard page\n"));
 		if (_MALI_OSK_ERR_OK != mali_allocation_engine_map_physical(engine, descriptor, *offset, data[0], 0, _MALI_OSK_MALI_PAGE_SIZE))
 		{
 			u32 size_allocated = *offset - ret_allocation->initial_offset;
-			MALI_DEBUG_PRINT(1, ("Mapping of external memory (guard page) failed\n"));
+			MALI_PRINT(("Mapping of external memory (guard page) failed\n"));
 
 			/* unmap what we previously mapped */
 			mali_allocation_engine_unmap_physical(engine, descriptor, ret_allocation->initial_offset, size_allocated, (_mali_osk_mem_mapregion_flags_t)0 );
@@ -870,7 +870,7 @@ _mali_osk_errcode_t _mali_ukk_unmap_external_mem( _mali_uk_unmap_external_mem_s 
 
 	if (_MALI_OSK_ERR_OK != mali_descriptor_mapping_get(session_data->descriptor_mapping, args->cookie, (void**)&descriptor))
 	{
-		MALI_DEBUG_PRINT(1, ("Invalid memory descriptor %d used to unmap external memory\n", args->cookie));
+		MALI_PRINT(("Invalid memory descriptor %d used to unmap external memory\n", args->cookie));
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
@@ -1007,7 +1007,7 @@ _mali_osk_errcode_t _mali_ukk_mem_mmap( _mali_uk_mem_mmap_s *args )
 	{
 	   	_mali_osk_lock_signal(session_data->memory_lock, _MALI_OSK_LOCKMODE_RW);
 		/* OOM, but not a fatal error */
-		MALI_DEBUG_PRINT(4, ("Memory allocation failure, OOM\n"));
+		MALI_PRINT(("Memory allocation failure, OOM\n"));
 		_mali_osk_free(descriptor);
 		/* Linux will free the CPU address allocation, userspace client the Mali address allocation */
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
@@ -1106,7 +1106,7 @@ _mali_osk_errcode_t mali_mmu_get_table_page(u32 *table_page, mali_io_address *ma
 	{
 		mali_mmu_page_table_allocation * alloc = _MALI_OSK_LIST_ENTRY(page_table_cache.partial.next, mali_mmu_page_table_allocation, list);
 		int page_number = _mali_osk_find_first_zero_bit(alloc->usage_map, alloc->num_pages);
-		MALI_DEBUG_PRINT(6, ("Partial page table allocation found, using page offset %d\n", page_number));
+		MALI_PRINT(("Partial page table allocation found, using page offset %d\n", page_number));
 		_mali_osk_set_nonatomic_bit(page_number, alloc->usage_map);
 		alloc->usage_count++;
 		if (alloc->num_pages == alloc->usage_count)
@@ -1118,7 +1118,7 @@ _mali_osk_errcode_t mali_mmu_get_table_page(u32 *table_page, mali_io_address *ma
 
 		*table_page = (MALI_MMU_PAGE_SIZE * page_number) + alloc->pages.phys_base;
 		*mapping =  (mali_io_address)((MALI_MMU_PAGE_SIZE * page_number) + (u32)alloc->pages.mapping);
-		MALI_DEBUG_PRINT(4, ("Page table allocated for VA=0x%08X, MaliPA=0x%08X\n", *mapping, *table_page ));
+		MALI_PRINT(("Page table allocated for VA=0x%08X, MaliPA=0x%08X\n", *mapping, *table_page ));
 		MALI_SUCCESS;
 	}
 	else
@@ -1138,7 +1138,7 @@ _mali_osk_errcode_t mali_mmu_get_table_page(u32 *table_page, mali_io_address *ma
 
 		if (_MALI_OSK_ERR_OK != mali_allocation_engine_allocate_page_tables(memory_engine, &alloc->pages, physical_memory_allocators))
 		{
-			MALI_DEBUG_PRINT(1, ("No more memory for page tables\n"));
+			MALI_PRINT(("No more memory for page tables\n"));
 			_mali_osk_free(alloc);
 			_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
 			*table_page = MALI_INVALID_PAGE;
@@ -1149,11 +1149,11 @@ _mali_osk_errcode_t mali_mmu_get_table_page(u32 *table_page, mali_io_address *ma
 		/* create the usage map */
 		alloc->num_pages = alloc->pages.size / MALI_MMU_PAGE_SIZE;
 		alloc->usage_count = 1;
-		MALI_DEBUG_PRINT(3, ("New page table cache expansion, %d pages in new cache allocation\n", alloc->num_pages));
+		MALI_PRINT(("New page table cache expansion, %d pages in new cache allocation\n", alloc->num_pages));
 		alloc->usage_map = _mali_osk_calloc(1, ((alloc->num_pages + BITS_PER_LONG - 1) & ~(BITS_PER_LONG-1) / BITS_PER_LONG) * sizeof(unsigned long));
 		if (NULL == alloc->usage_map)
 		{
-			MALI_DEBUG_PRINT(1, ("Failed to allocate memory to describe MMU page table cache usage\n"));
+			MALI_PRINT(("Failed to allocate memory to describe MMU page table cache usage\n"));
 			alloc->pages.release(&alloc->pages);
 			_mali_osk_free(alloc);
 			_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
@@ -1176,7 +1176,7 @@ _mali_osk_errcode_t mali_mmu_get_table_page(u32 *table_page, mali_io_address *ma
 		_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
 		*table_page = alloc->pages.phys_base; /* return the first page */
 		*mapping = alloc->pages.mapping; /* Mapping for first page */
-		MALI_DEBUG_PRINT(4, ("Page table allocated: VA=0x%08X, MaliPA=0x%08X\n", *mapping, *table_page ));
+		MALI_PRINT(("Page table allocated: VA=0x%08X, MaliPA=0x%08X\n", *mapping, *table_page ));
 		MALI_SUCCESS;
 	}
 }
@@ -1187,7 +1187,7 @@ void mali_mmu_release_table_page(u32 pa)
 
 	MALI_DEBUG_PRINT_IF(1, pa & 4095, ("Bad page address 0x%x given to mali_mmu_release_table_page\n", (void*)pa));
 
-	MALI_DEBUG_PRINT(4, ("Releasing table page 0x%08X to the cache\n", pa));
+	MALI_PRINT(("Releasing table page 0x%08X to the cache\n", pa));
 
    	_mali_osk_lock_wait(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
 
@@ -1214,7 +1214,7 @@ void mali_mmu_release_table_page(u32 pa)
 				_mali_osk_free(alloc);
 			}
 		   	_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
-			MALI_DEBUG_PRINT(4, ("(partial list)Released table page 0x%08X to the cache\n", pa));
+			MALI_PRINT(("(partial list)Released table page 0x%08X to the cache\n", pa));
 			return;
 		}
 	}
@@ -1247,12 +1247,12 @@ void mali_mmu_release_table_page(u32 pa)
 			}
 
 		   	_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
-			MALI_DEBUG_PRINT(4, ("(full list)Released table page 0x%08X to the cache\n", pa));
+			MALI_PRINT(("(full list)Released table page 0x%08X to the cache\n", pa));
 			return;
 		}
 	}
 
-	MALI_DEBUG_PRINT(1, ("pa 0x%x not found in the page table cache\n", (void*)pa));
+	MALI_PRINT(("pa 0x%x not found in the page table cache\n", (void*)pa));
 
    	_mali_osk_lock_signal(page_table_cache.lock, _MALI_OSK_LOCKMODE_RW);
 }
@@ -1284,7 +1284,7 @@ static void mali_mmu_page_table_cache_destroy(void)
 
 	_MALI_OSK_LIST_FOREACHENTRY(alloc, temp, &page_table_cache.full, mali_mmu_page_table_allocation, list)
 	{
-		MALI_DEBUG_PRINT(1, ("Destroy alloc 0x%08X with usage count %d\n", (u32)alloc, alloc->usage_count));
+		MALI_PRINT(("Destroy alloc 0x%08X with usage count %d\n", (u32)alloc, alloc->usage_count));
 		_mali_osk_list_del(&alloc->list);
 		alloc->pages.release(&alloc->pages);
 		_mali_osk_free(alloc->usage_map);

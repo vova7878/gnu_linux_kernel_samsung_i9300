@@ -52,7 +52,7 @@ mali_physical_memory_allocator * mali_os_allocator_create(u32 max_allocation, u3
 
 	max_allocation = (max_allocation + _MALI_OSK_CPU_PAGE_SIZE-1) & ~(_MALI_OSK_CPU_PAGE_SIZE-1);
 
-	MALI_DEBUG_PRINT(2, ("Mali OS memory allocator created with max allocation size of 0x%X bytes, cpu_usage_adjust 0x%08X\n", max_allocation, cpu_usage_adjust));
+	MALI_PRINT(("Mali OS memory allocator created with max allocation size of 0x%X bytes, cpu_usage_adjust 0x%08X\n", max_allocation, cpu_usage_adjust));
 
 	allocator = _mali_osk_malloc(sizeof(mali_physical_memory_allocator));
 	if (NULL != allocator)
@@ -130,7 +130,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 		//u32 os_mem_max_usage = info->num_pages_max * _MALI_OSK_CPU_PAGE_SIZE;
 		allocation->offset_start = *offset;
 		allocation->num_pages = ((left + _MALI_OSK_CPU_PAGE_SIZE - 1) & ~(_MALI_OSK_CPU_PAGE_SIZE - 1)) >> _MALI_OSK_CPU_PAGE_ORDER;
-		MALI_DEBUG_PRINT(6, ("Allocating page array of size %d bytes\n", allocation->num_pages * sizeof(struct page*)));
+		MALI_PRINT(("Allocating page array of size %d bytes\n", allocation->num_pages * sizeof(struct page*)));
 		/* MALI_SEC */
 		while (left > 0)
 		{
@@ -143,7 +143,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 					break;
 				}
 
-				MALI_DEBUG_PRINT(1, ("Mapping of physical memory failed\n"));
+				MALI_PRINT(("Mapping of physical memory failed\n"));
 
 				/* Fatal error, cleanup any previous pages allocated. */
 				if ( pages_allocated > 0 )
@@ -173,7 +173,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 		/* Loop termination; decide on result */
 		if (pages_allocated)
 		{
-			MALI_DEBUG_PRINT(6, ("Allocated %d pages\n", pages_allocated));
+			MALI_PRINT(("Allocated %d pages\n", pages_allocated));
 			if (left) result = MALI_MEM_ALLOC_PARTIAL;
 			else result = MALI_MEM_ALLOC_FINISHED;
 
@@ -187,7 +187,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 			allocation->descriptor = descriptor; /* Necessary to make the engine's unmap call */
 			info->num_pages_allocated += pages_allocated;
 
-			MALI_DEBUG_PRINT(6, ("%d out of %d pages now allocated\n", info->num_pages_allocated, info->num_pages_max));
+			MALI_PRINT(("%d out of %d pages now allocated\n", info->num_pages_allocated, info->num_pages_max));
 
 			alloc_info->ctx = info;
 			alloc_info->handle = allocation;
@@ -195,7 +195,7 @@ static mali_physical_memory_allocation_result os_allocator_allocate(void* ctx, m
 		}
 		else
 		{
-			MALI_DEBUG_PRINT(6, ("Releasing pages array due to no pages allocated\n"));
+			MALI_PRINT(("Releasing pages array due to no pages allocated\n"));
 			_mali_osk_free( allocation );
 		}
 	}
@@ -225,11 +225,11 @@ static void os_allocator_release(void * ctx, void * handle)
 
 	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
 	{
-		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
+		MALI_PRINT(("allocator release: Failed to get mutex\n"));
 		return;
 	}
 
-	MALI_DEBUG_PRINT(6, ("Releasing %d os pages\n", allocation->num_pages));
+	MALI_PRINT(("Releasing %d os pages\n", allocation->num_pages));
 
 	MALI_DEBUG_ASSERT( allocation->num_pages <= info->num_pages_allocated);
 	info->num_pages_allocated -= allocation->num_pages;
@@ -289,13 +289,13 @@ static mali_physical_memory_allocation_result os_allocator_allocate_page_table_b
 
 	if ( NULL == virt )
 	{
-		MALI_DEBUG_PRINT(1, ("Failed to allocate consistent memory. Is CONSISTENT_DMA_SIZE set too low?\n"));
+		MALI_PRINT(("Failed to allocate consistent memory. Is CONSISTENT_DMA_SIZE set too low?\n"));
 		/* return OOM */
 		_mali_osk_lock_signal(info->mutex, _MALI_OSK_LOCKMODE_RW);
 		return MALI_MEM_ALLOC_NONE;
 	}
 
-	MALI_DEBUG_PRINT(5, ("os_allocator_allocate_page_table_block: Allocation of order %i succeeded\n",
+	MALI_PRINT(("os_allocator_allocate_page_table_block: Allocation of order %i succeeded\n",
 				allocation_order));
 
 	/* we now know the size of the allocation since we know for what
@@ -337,7 +337,7 @@ static void os_allocator_page_table_block_release( mali_page_table_block *page_t
 
 	if (_MALI_OSK_ERR_OK != _mali_osk_lock_wait(info->mutex, _MALI_OSK_LOCKMODE_RW))
 	{
-		MALI_DEBUG_PRINT(1, ("allocator release: Failed to get mutex\n"));
+		MALI_PRINT(("allocator release: Failed to get mutex\n"));
 		return;
 	}
 

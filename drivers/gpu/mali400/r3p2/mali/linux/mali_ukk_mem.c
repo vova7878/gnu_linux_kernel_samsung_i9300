@@ -42,7 +42,7 @@ mem_init_rollback:
 		err = _mali_ukk_term_mem(&kargs);
 		if (_MALI_OSK_ERR_OK != err)
 		{
-			MALI_DEBUG_PRINT(4, ("reverting _mali_ukk_init_mem, as a result of failing put_user(), failed\n"));
+			MALI_PRINT(("reverting _mali_ukk_init_mem, as a result of failing put_user(), failed\n"));
 		}
 	}
     return -EFAULT;
@@ -138,7 +138,7 @@ int mem_map_ext_wrapper(struct mali_session_data *session_data, _mali_uk_map_ext
             err_code = _mali_ukk_unmap_external_mem( &uk_args_unmap );
             if (_MALI_OSK_ERR_OK != err_code)
             {
-                MALI_DEBUG_PRINT(4, ("reverting _mali_ukk_unmap_external_mem, as a result of failing put_user(), failed\n"));
+                MALI_PRINT(("reverting _mali_ukk_unmap_external_mem, as a result of failing put_user(), failed\n"));
             }
         }
         return -EFAULT;
@@ -223,7 +223,7 @@ int mem_attach_ump_wrapper(struct mali_session_data *session_data, _mali_uk_atta
             err_code = _mali_ukk_release_ump_mem( &uk_args_unmap );
             if (_MALI_OSK_ERR_OK != err_code)
             {
-                MALI_DEBUG_PRINT(4, ("reverting _mali_ukk_attach_mem, as a result of failing put_user(), failed\n"));
+                MALI_PRINT(("reverting _mali_ukk_attach_mem, as a result of failing put_user(), failed\n"));
             }
         }
         return -EFAULT;

@@ -52,7 +52,7 @@ _mali_osk_errcode_t _mali_osk_pm_dev_ref_add(void)
 		return _MALI_OSK_ERR_FAULT;
 	}
 	_mali_osk_atomic_inc(&mali_pm_ref_count);
-	MALI_DEBUG_PRINT(4, ("Mali OSK PM: Power ref taken (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
+	MALI_PRINT(("Mali OSK PM: Power ref taken (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
 #endif
 	return _MALI_OSK_ERR_OK;
 }
@@ -69,7 +69,7 @@ void _mali_osk_pm_dev_ref_dec(void)
 #else
 	pm_runtime_put(&(mali_platform_device->dev));
 #endif
-	MALI_DEBUG_PRINT(4, ("Mali OSK PM: Power ref released (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
+	MALI_PRINT(("Mali OSK PM: Power ref released (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
 #endif
 }
 
@@ -81,7 +81,7 @@ mali_bool _mali_osk_pm_dev_ref_add_no_power_on(void)
 	MALI_DEBUG_ASSERT_POINTER(mali_platform_device);
 	pm_runtime_get_noresume(&(mali_platform_device->dev));
 	ref = _mali_osk_atomic_read(&mali_pm_ref_count);
-	MALI_DEBUG_PRINT(4, ("Mali OSK PM: No-power ref taken (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
+	MALI_PRINT(("Mali OSK PM: No-power ref taken (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
 	return ref > 0 ? MALI_TRUE : MALI_FALSE;
 #else
 	return MALI_TRUE;
@@ -98,7 +98,7 @@ void _mali_osk_pm_dev_ref_dec_no_power_on(void)
 #else
 	pm_runtime_put(&(mali_platform_device->dev));
 #endif
-	MALI_DEBUG_PRINT(4, ("Mali OSK PM: No-power ref released (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
+	MALI_PRINT(("Mali OSK PM: No-power ref released (%u)\n", _mali_osk_atomic_read(&mali_pm_ref_count)));
 #endif
 }
 

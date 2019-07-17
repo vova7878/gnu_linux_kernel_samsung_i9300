@@ -155,7 +155,7 @@ int driver_register(struct device_driver *drv)
 	if ((drv->bus->probe && drv->probe) ||
 	    (drv->bus->remove && drv->remove) ||
 	    (drv->bus->shutdown && drv->shutdown))
-		printk(KERN_WARNING "Driver '%s' needs updating - please use "
+		printk(KERN_ERR "Driver '%s' needs updating - please use "
 			"bus_type methods\n", drv->name);
 
 	other = driver_find(drv->name, drv->bus);
@@ -166,10 +166,15 @@ int driver_register(struct device_driver *drv)
 	}
 
 	ret = bus_add_driver(drv);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "Error: bus_add_driver ('%s') returned error %d, "
+			"aborting...\n", drv->name, ret);
 		return ret;
+	}
 	ret = driver_add_groups(drv, drv->groups);
 	if (ret) {
+		printk(KERN_ERR "Error: driver_add_groups ('%s') returned error %d, "
+			"aborting...\n", drv->name, ret);
 		bus_remove_driver(drv);
 		return ret;
 	}

@@ -27,7 +27,7 @@ int mali_pmu_powerup(void)
 {
 	struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 
-	MALI_DEBUG_PRINT(5, ("Mali PMU: Power up\n"));
+	MALI_PRINT(("Mali PMU: Power up\n"));
 
 	MALI_DEBUG_ASSERT_POINTER(pmu);
 	if (NULL == pmu)
@@ -49,7 +49,7 @@ int mali_pmu_powerdown(void)
 {
 	struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 
-	MALI_DEBUG_PRINT(5, ("Mali PMU: Power down\n"));
+	MALI_PRINT(("Mali PMU: Power down\n"));
 
 	MALI_DEBUG_ASSERT_POINTER(pmu);
 	if (NULL == pmu)

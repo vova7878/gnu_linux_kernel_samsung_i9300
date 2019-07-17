@@ -45,7 +45,7 @@ static void mali_pm_reset_gpu(void)
 
 void mali_pm_os_suspend(void)
 {
-	MALI_DEBUG_PRINT(3, ("Mali PM: OS suspend\n"));
+	MALI_PRINT(("Mali PM: OS suspend\n"));
 	mali_gp_scheduler_suspend();
 	mali_pp_scheduler_suspend();
 #ifndef CONFIG_PM_DEVFREQ
@@ -65,7 +65,7 @@ void mali_pm_os_resume(void)
 	mali_bool do_reset = MALI_FALSE;
 #endif
 
-	MALI_DEBUG_PRINT(3, ("Mali PM: OS resume\n"));
+	MALI_PRINT(("Mali PM: OS resume\n"));
 /* MALI_SEC */
 /******************************************************************
  *
@@ -103,7 +103,7 @@ void mali_pm_os_resume(void)
 
 void mali_pm_runtime_suspend(void)
 {
-	MALI_DEBUG_PRINT(3, ("Mali PM: Runtime suspend\n"));
+	MALI_PRINT(("Mali PM: Runtime suspend\n"));
 	mali_group_power_off();
 	mali_power_on = MALI_FALSE;
 }
@@ -113,7 +113,7 @@ void mali_pm_runtime_resume(void)
 	struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
 	mali_bool do_reset = MALI_FALSE;
 
-	MALI_DEBUG_PRINT(3, ("Mali PM: Runtime resume\n"));
+	MALI_PRINT(("Mali PM: Runtime resume\n"));
 
 	if (MALI_TRUE != mali_power_on)
 	{

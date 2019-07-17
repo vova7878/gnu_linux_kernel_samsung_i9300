@@ -179,7 +179,7 @@ void mali_pp_scheduler_populate(void)
 
 		if (mali_group_is_virtual(group))
 		{
-			MALI_DEBUG_PRINT(3, ("Found virtual group %p\n", group));
+			MALI_PRINT(("Found virtual group %p\n", group));
 
 			virtual_group = group;
 			break;
@@ -249,14 +249,14 @@ MALI_STATIC_INLINE void mali_pp_scheduler_lock(void)
 		/* Non-interruptable lock failed: this should never happen. */
 		MALI_DEBUG_ASSERT(0);
 	}
-	MALI_DEBUG_PRINT(5, ("Mali PP scheduler: PP scheduler lock taken\n"));
+	MALI_PRINT(("Mali PP scheduler: PP scheduler lock taken\n"));
 	MALI_DEBUG_ASSERT(0 == pp_scheduler_lock_owner);
 	MALI_DEBUG_CODE(pp_scheduler_lock_owner = _mali_osk_get_tid());
 }
 
 MALI_STATIC_INLINE void mali_pp_scheduler_unlock(void)
 {
-	MALI_DEBUG_PRINT(5, ("Mali PP scheduler: Releasing PP scheduler lock\n"));
+	MALI_PRINT(("Mali PP scheduler: Releasing PP scheduler lock\n"));
 	MALI_DEBUG_ASSERT(_mali_osk_get_tid() == pp_scheduler_lock_owner);
 	MALI_DEBUG_CODE(pp_scheduler_lock_owner = 0);
 	_mali_osk_lock_signal(pp_scheduler_lock, _MALI_OSK_LOCKMODE_RW);
@@ -268,7 +268,7 @@ MALI_STATIC_INLINE void mali_pp_scheduler_disable_empty_virtual(void)
 
 	if (mali_group_virtual_disable_if_empty(virtual_group))
 	{
-		MALI_DEBUG_PRINT(4, ("Disabling empty virtual group\n"));
+		MALI_PRINT(("Disabling empty virtual group\n"));
 
 		MALI_DEBUG_ASSERT(VIRTUAL_GROUP_IDLE == virtual_group_state);
 
@@ -282,7 +282,7 @@ MALI_STATIC_INLINE void mali_pp_scheduler_enable_empty_virtual(void)
 
 	if (mali_group_virtual_enable_if_empty(virtual_group))
 	{
-		MALI_DEBUG_PRINT(4, ("Re-enabling empty virtual group\n"));
+		MALI_PRINT(("Re-enabling empty virtual group\n"));
 
 		MALI_DEBUG_ASSERT(VIRTUAL_GROUP_DISABLED == virtual_group_state);
 
@@ -398,7 +398,7 @@ MALI_STATIC_INLINE struct mali_group *mali_pp_scheduler_acquire_physical_group(v
 
 	if (!_mali_osk_list_empty(&group_list_idle))
 	{
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Acquiring physical group from idle list\n"));
+		MALI_PRINT(("Mali PP scheduler: Acquiring physical group from idle list\n"));
 		return _MALI_OSK_LIST_ENTRY(group_list_idle.next, struct mali_group, pp_scheduler_list);
 	}
 	else if (mali_pp_scheduler_has_virtual_group())
@@ -407,7 +407,7 @@ MALI_STATIC_INLINE struct mali_group *mali_pp_scheduler_acquire_physical_group(v
 		if (mali_pp_scheduler_can_move_virtual_to_physical())
 		{
 			struct mali_group *group;
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Acquiring physical group from virtual group\n"));
+			MALI_PRINT(("Mali PP scheduler: Acquiring physical group from virtual group\n"));
 			group = mali_group_acquire_group(virtual_group);
 
 			if (mali_pp_scheduler_has_virtual_group())
@@ -472,11 +472,11 @@ static void mali_pp_scheduler_schedule(void)
 		if (NULL == group)
 		{
 			/* Could not get a group to run the job on, early out */
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: No more physical groups available.\n"));
+			MALI_PRINT(("Mali PP scheduler: No more physical groups available.\n"));
 			break;
 		}
 
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Acquired physical group %p\n", group));
+		MALI_PRINT(("Mali PP scheduler: Acquired physical group %p\n", group));
 
 		/* Mark subjob as started */
 		subjob = mali_pp_job_get_first_unstarted_sub_job(job);
@@ -526,7 +526,7 @@ static void mali_pp_scheduler_schedule(void)
 
 				/* Start job */
 				mali_group_start_pp_job(virtual_group, job, 0);
-				MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Virtual job %u (0x%08X) part %u/%u started (from schedule)\n",
+				MALI_PRINT(("Mali PP scheduler: Virtual job %u (0x%08X) part %u/%u started (from schedule)\n",
 				                     mali_pp_job_get_id(job), job, 1,
 				                     mali_pp_job_get_sub_job_count(job)));
 
@@ -577,7 +577,7 @@ static void mali_pp_scheduler_schedule(void)
 		group->state = MALI_GROUP_STATE_IDLE;
 
 		mali_group_start_pp_job(group, job, sub_job);
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from schedule)\n",
+		MALI_PRINT(("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from schedule)\n",
 		                     mali_pp_job_get_id(job), job, sub_job + 1,
 		                     mali_pp_job_get_sub_job_count(job)));
 
@@ -687,7 +687,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 	mali_bool job_is_done;
 	mali_bool barrier_enforced = MALI_FALSE;
 
-	MALI_DEBUG_PRINT(3, ("Mali PP scheduler: %s job %u (0x%08X) part %u/%u completed (%s)\n",
+	MALI_PRINT(("Mali PP scheduler: %s job %u (0x%08X) part %u/%u completed (%s)\n",
 	                     mali_pp_job_is_virtual(job) ? "Virtual" : "Physical",
 	                     mali_pp_job_get_id(job),
 	                     job, sub_job + 1,
@@ -710,7 +710,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 		/* Remove job from session list */
 		_mali_osk_list_del(&job->session_list);
 
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: All parts completed for %s job %u (0x%08X)\n",
+		MALI_PRINT(("Mali PP scheduler: All parts completed for %s job %u (0x%08X)\n",
 		                     mali_pp_job_is_virtual(job) ? "virtual" : "physical",
 		                     mali_pp_job_get_id(job), job));
 #if defined(CONFIG_SYNC)
@@ -719,7 +719,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 			int error;
 			if (success) error = 0;
 			else error = -EFAULT;
-			MALI_DEBUG_PRINT(4, ("Sync: Signal %spoint for job %d\n",
+			MALI_PRINT(("Sync: Signal %spoint for job %d\n",
 			                     success ? "" : "failed ",
 					     mali_pp_job_get_id(job)));
 			mali_sync_signal_pt(job->sync_point, error);
@@ -835,7 +835,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 
 			/* Start job */
 			mali_group_start_pp_job(group, job, 0);
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Virtual job %u (0x%08X) part %u/%u started (from job_done)\n",
+			MALI_PRINT(("Mali PP scheduler: Virtual job %u (0x%08X) part %u/%u started (from job_done)\n",
 			                     mali_pp_job_get_id(job), job, 1,
 			                     mali_pp_job_get_sub_job_count(job)));
 		}
@@ -857,7 +857,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 
 			/* Start job on core */
 			mali_group_start_pp_job(physical_group, physical_job, sub_job);
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from job_done)\n",
+			MALI_PRINT(("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from job_done)\n",
 			                     mali_pp_job_get_id(physical_job), physical_job, sub_job + 1,
 			                     mali_pp_job_get_sub_job_count(physical_job)));
 
@@ -884,7 +884,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 
 			/* Group is already on the working list, so start the job */
 			mali_group_start_pp_job(group, job, sub_job);
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from job_done)\n",
+			MALI_PRINT(("Mali PP scheduler: Physical job %u (0x%08X) part %u/%u started (from job_done)\n",
 			                     mali_pp_job_get_id(job), job, sub_job + 1,
 			                     mali_pp_job_get_sub_job_count(job)));
 		}
@@ -996,7 +996,7 @@ MALI_STATIC_INLINE void mali_pp_scheduler_queue_job(struct mali_pp_job *job, str
 	/* Add job to session list */
 	_mali_osk_list_addtail(&job->session_list, &session->job_list);
 
-	MALI_DEBUG_PRINT(3, ("Mali PP scheduler: %s job %u (0x%08X) with %u parts queued\n",
+	MALI_PRINT(("Mali PP scheduler: %s job %u (0x%08X) with %u parts queued\n",
 	                     mali_pp_job_is_virtual(job) ? "Virtual" : "Physical",
 	                     mali_pp_job_get_id(job), job, mali_pp_job_get_sub_job_count(job)));
 
@@ -1030,7 +1030,7 @@ static void sync_callback_work(void *arg)
 	err = sync_fence_wait(job->pre_fence, 0);
 	if (likely(0 == err))
 	{
-		MALI_DEBUG_PRINT(3, ("Mali sync: Job %d ready to run\n", mali_pp_job_get_id(job)));
+		MALI_PRINT(("Mali sync: Job %d ready to run\n", mali_pp_job_get_id(job)));
 
 		mali_pp_scheduler_queue_job(job, session);
 
@@ -1039,7 +1039,7 @@ static void sync_callback_work(void *arg)
 	else
 	{
 		/* Fence signaled error */
-		MALI_DEBUG_PRINT(3, ("Mali sync: Job %d abort due to sync error\n", mali_pp_job_get_id(job)));
+		MALI_PRINT(("Mali sync: Job %d abort due to sync error\n", mali_pp_job_get_id(job)));
 
 		if (job->sync_point) mali_sync_signal_pt(job->sync_point, err);
 
@@ -1090,7 +1090,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		if (unlikely(NULL == job->sync_point))
 		{
 			/* Fence creation failed. */
-			MALI_DEBUG_PRINT(2, ("Failed to create sync point for job %d\n", mali_pp_job_get_id(job)));
+			MALI_PRINT(("Failed to create sync point for job %d\n", mali_pp_job_get_id(job)));
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
 			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
@@ -1102,7 +1102,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		{
 			/* Fence creation failed. */
 			/* mali_stream_create_fence already freed the sync_point */
-			MALI_DEBUG_PRINT(2, ("Failed to create fence for job %d\n", mali_pp_job_get_id(job)));
+			MALI_PRINT(("Failed to create fence for job %d\n", mali_pp_job_get_id(job)));
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
 			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
@@ -1114,7 +1114,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 
 		*fence = post_fence;
 
-		MALI_DEBUG_PRINT(3, ("Sync: Created fence %d for job %d\n", post_fence, mali_pp_job_get_id(job)));
+		MALI_PRINT(("Sync: Created fence %d for job %d\n", post_fence, mali_pp_job_get_id(job)));
 	}
 	else if (_MALI_PP_JOB_FLAG_EMPTY_FENCE & job->uargs.flags)
 	{
@@ -1161,7 +1161,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 
 		*fence = empty_fence_fd;
 
-		MALI_DEBUG_PRINT(3, ("Sync: Job %d now backs fence %d\n", mali_pp_job_get_id(job), empty_fence_fd));
+		MALI_PRINT(("Sync: Job %d now backs fence %d\n", mali_pp_job_get_id(job), empty_fence_fd));
 	}
 
 	if (0 < job->uargs.fence)
@@ -1169,12 +1169,12 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		int pre_fence_fd = job->uargs.fence;
 		int err;
 
-		MALI_DEBUG_PRINT(3, ("Sync: Job %d waiting for fence %d\n", mali_pp_job_get_id(job), pre_fence_fd));
+		MALI_PRINT(("Sync: Job %d waiting for fence %d\n", mali_pp_job_get_id(job), pre_fence_fd));
 
 		job->pre_fence = sync_fence_fdget(pre_fence_fd); /* Reference will be released when job is deleted. */
 		if (NULL == job->pre_fence)
 		{
-			MALI_DEBUG_PRINT(2, ("Failed to import fence %d\n", pre_fence_fd));
+			MALI_PRINT(("Failed to import fence %d\n", pre_fence_fd));
 			if (job->sync_point) mali_sync_signal_pt(job->sync_point, -EINVAL);
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
 			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
@@ -1315,7 +1315,7 @@ void mali_pp_scheduler_abort_session(struct mali_session_data *session)
 #endif
 
 	mali_pp_scheduler_lock();
-	MALI_DEBUG_PRINT(3, ("Mali PP scheduler: Aborting all jobs from session 0x%08x\n", session));
+	MALI_PRINT(("Mali PP scheduler: Aborting all jobs from session 0x%08x\n", session));
 
 	_MALI_OSK_LIST_FOREACHENTRY(job, tmp_job, &session->job_list, struct mali_pp_job, session_list)
 	{
@@ -1343,7 +1343,7 @@ void mali_pp_scheduler_abort_session(struct mali_session_data *session)
 			_mali_osk_list_del(&job->session_list);
 
 			/* It is safe to delete the job, since it won't land in job_done() */
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Aborted PP job 0x%08x\n", job));
+			MALI_PRINT(("Mali PP scheduler: Aborted PP job 0x%08x\n", job));
 
 #if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
 			MALI_DEBUG_ASSERT(_mali_osk_list_empty(&job->list));
@@ -1356,7 +1356,7 @@ void mali_pp_scheduler_abort_session(struct mali_session_data *session)
 		}
 		else
 		{
-			MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Keeping partially started PP job 0x%08x in session\n", job));
+			MALI_PRINT(("Mali PP scheduler: Keeping partially started PP job 0x%08x in session\n", job));
 		}
 	}
 
@@ -1519,11 +1519,11 @@ static void mali_pp_scheduler_enable_group_internal(struct mali_group *group)
 	if (MALI_GROUP_STATE_DISABLED != group->state)
 	{
 		mali_group_unlock(group);
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: PP group %p already enabled\n", group));
+		MALI_PRINT(("Mali PP scheduler: PP group %p already enabled\n", group));
 		return;
 	}
 
-	MALI_DEBUG_PRINT(3, ("Mali PP scheduler: Enabling PP group %p\n", group));
+	MALI_PRINT(("Mali PP scheduler: Enabling PP group %p\n", group));
 
 	mali_pp_scheduler_lock();
 
@@ -1559,7 +1559,7 @@ static void mali_pp_scheduler_enable_group_internal(struct mali_group *group)
 
 		mali_pp_scheduler_enable_empty_virtual();
 		mali_group_add_group(virtual_group, group, update_hw);
-		MALI_DEBUG_PRINT(4, ("Done enabling group %p. Added to virtual group.\n", group));
+		MALI_PRINT(("Done enabling group %p. Added to virtual group.\n", group));
 
 		mali_group_unlock(virtual_group);
 	}
@@ -1579,7 +1579,7 @@ static void mali_pp_scheduler_enable_group_internal(struct mali_group *group)
 		_mali_osk_list_move(&(group->pp_scheduler_list), &group_list_idle);
 		group->state = MALI_GROUP_STATE_IDLE;
 
-		MALI_DEBUG_PRINT(4, ("Done enabling group %p. Now on idle list.\n", group));
+		MALI_PRINT(("Done enabling group %p. Now on idle list.\n", group));
 		mali_pp_scheduler_unlock();
 		mali_group_unlock(group);
 	}
@@ -1633,11 +1633,11 @@ static void mali_pp_scheduler_disable_group_internal(struct mali_group *group)
 
 	if (MALI_GROUP_STATE_DISABLED == group->state)
 	{
-		MALI_DEBUG_PRINT(4, ("Mali PP scheduler: PP group %p already disabled\n", group));
+		MALI_PRINT(("Mali PP scheduler: PP group %p already disabled\n", group));
 	}
 	else
 	{
-		MALI_DEBUG_PRINT(3, ("Mali PP scheduler: Disabling PP group %p\n", group));
+		MALI_PRINT(("Mali PP scheduler: Disabling PP group %p\n", group));
 
 		--enabled_cores;
 		_mali_osk_list_move(&(group->pp_scheduler_list), &group_list_disabled);
@@ -1698,7 +1698,7 @@ static void mali_pp_scheduler_set_perf_level_mali400(u32 target_core_nr)
 
 	if (target_core_nr > enabled_cores)
 	{
-		MALI_DEBUG_PRINT(2, ("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
+		MALI_PRINT(("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
 
 		_mali_osk_pm_dev_ref_add_no_power_on();
 		_mali_osk_pm_dev_barrier();
@@ -1725,7 +1725,7 @@ static void mali_pp_scheduler_set_perf_level_mali400(u32 target_core_nr)
 	}
 	else if (target_core_nr < enabled_cores)
 	{
-		MALI_DEBUG_PRINT(2, ("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
+		MALI_PRINT(("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
 
 		mali_pp_scheduler_suspend();
 
@@ -1766,7 +1766,7 @@ static void mali_pp_scheduler_set_perf_level_mali450(u32 target_core_nr)
 		/* Enable some cores */
 		struct mali_pm_domain *domain;
 
-		MALI_DEBUG_PRINT(2, ("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
+		MALI_PRINT(("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
 
 		_mali_osk_pm_dev_ref_add_no_power_on();
 		_mali_osk_pm_dev_barrier();
@@ -1800,7 +1800,7 @@ static void mali_pp_scheduler_set_perf_level_mali450(u32 target_core_nr)
 		/* Disable some cores */
 		struct mali_pm_domain *domain;
 
-		MALI_DEBUG_PRINT(2, ("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
+		MALI_PRINT(("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
 
 		mali_pp_scheduler_suspend();
 

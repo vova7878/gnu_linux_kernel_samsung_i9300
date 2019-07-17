@@ -62,7 +62,7 @@ _mali_osk_notification_t *_mali_osk_notification_create( u32 type, u32 size )
 	                                                            GFP_KERNEL | __GFP_HIGH | __GFP_REPEAT);
 	if (NULL == notification)
 	{
-		MALI_DEBUG_PRINT(1, ("Failed to create a notification object\n"));
+		MALI_PRINT(("Failed to create a notification object\n"));
 		return NULL;
 	}
 

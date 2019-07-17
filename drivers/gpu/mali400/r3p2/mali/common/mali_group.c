@@ -80,12 +80,12 @@ void mali_group_lock(struct mali_group *group)
 		/* Non-interruptable lock failed: this should never happen. */
 		MALI_DEBUG_ASSERT(0);
 	}
-	MALI_DEBUG_PRINT(5, ("Mali group: Group lock taken 0x%08X\n", group));
+	MALI_PRINT(("Mali group: Group lock taken 0x%08X\n", group));
 }
 
 void mali_group_unlock(struct mali_group *group)
 {
-	MALI_DEBUG_PRINT(5, ("Mali group: Releasing group lock 0x%08X\n", group));
+	MALI_PRINT(("Mali group: Releasing group lock 0x%08X\n", group));
 	_mali_osk_lock_signal(group->lock, _MALI_OSK_LOCKMODE_RW);
 }
 
@@ -237,7 +237,7 @@ void mali_group_delete(struct mali_group *group)
 {
 	u32 i;
 
-	MALI_DEBUG_PRINT(4, ("Deleting group %p\n", group));
+	MALI_PRINT(("Deleting group %p\n", group));
 
 	MALI_DEBUG_ASSERT(NULL == group->parent_group);
 
@@ -328,14 +328,14 @@ MALI_DEBUG_CODE(static void mali_group_print_virtual(struct mali_group *vgroup)
 	struct mali_group *group;
 	struct mali_group *temp;
 
-	MALI_DEBUG_PRINT(4, ("Virtual group %p\n", vgroup));
-	MALI_DEBUG_PRINT(4, ("l2_cache_core[0] = %p, ref = %d\n", vgroup->l2_cache_core[0], vgroup->l2_cache_core_ref_count[0]));
-	MALI_DEBUG_PRINT(4, ("l2_cache_core[1] = %p, ref = %d\n", vgroup->l2_cache_core[1], vgroup->l2_cache_core_ref_count[1]));
+	MALI_PRINT(("Virtual group %p\n", vgroup));
+	MALI_PRINT(("l2_cache_core[0] = %p, ref = %d\n", vgroup->l2_cache_core[0], vgroup->l2_cache_core_ref_count[0]));
+	MALI_PRINT(("l2_cache_core[1] = %p, ref = %d\n", vgroup->l2_cache_core[1], vgroup->l2_cache_core_ref_count[1]));
 
 	i = 0;
 	_MALI_OSK_LIST_FOREACHENTRY(group, temp, &vgroup->group_list, struct mali_group, group_list)
 	{
-		MALI_DEBUG_PRINT(4, ("[%d] %p, l2_cache_core[0] = %p\n", i, group, group->l2_cache_core[0]));
+		MALI_PRINT(("[%d] %p, l2_cache_core[0] = %p\n", i, group, group->l2_cache_core[0]));
 		i++;
 	}
 })
@@ -353,7 +353,7 @@ void mali_group_add_group(struct mali_group *parent, struct mali_group *child, m
 	u32 i;
 	struct mali_session_data *child_session;
 
-	MALI_DEBUG_PRINT(3, ("Adding group %p to virtual group %p\n", child, parent));
+	MALI_PRINT(("Adding group %p to virtual group %p\n", child, parent));
 
 	MALI_ASSERT_GROUP_LOCKED(parent);
 
@@ -369,8 +369,8 @@ void mali_group_add_group(struct mali_group *parent, struct mali_group *child, m
 
 	MALI_DEBUG_ASSERT_POINTER(child->l2_cache_core[0]);
 
-	MALI_DEBUG_PRINT(4, ("parent->l2_cache_core: [0] = %p, [1] = %p\n", parent->l2_cache_core[0], parent->l2_cache_core[1]));
-	MALI_DEBUG_PRINT(4, ("child->l2_cache_core: [0] = %p, [1] = %p\n", child->l2_cache_core[0], child->l2_cache_core[1]));
+	MALI_PRINT(("parent->l2_cache_core: [0] = %p, [1] = %p\n", parent->l2_cache_core[0], parent->l2_cache_core[1]));
+	MALI_PRINT(("child->l2_cache_core: [0] = %p, [1] = %p\n", child->l2_cache_core[0], child->l2_cache_core[1]));
 
 	/* Keep track of the L2 cache cores of child groups */
 	found = MALI_FALSE;
@@ -389,7 +389,7 @@ void mali_group_add_group(struct mali_group *parent, struct mali_group *child, m
 		/* First time we see this L2 cache, add it to our list */
 		i = (NULL == parent->l2_cache_core[0]) ? 0 : 1;
 
-		MALI_DEBUG_PRINT(4, ("First time we see l2_cache %p. Adding to [%d] = %p\n", child->l2_cache_core[0], i, parent->l2_cache_core[i]));
+		MALI_PRINT(("First time we see l2_cache %p. Adding to [%d] = %p\n", child->l2_cache_core[0], i, parent->l2_cache_core[i]));
 
 		MALI_DEBUG_ASSERT(NULL == parent->l2_cache_core[i]);
 
@@ -445,7 +445,7 @@ void mali_group_add_group(struct mali_group *parent, struct mali_group *child, m
 	if (NULL != parent->pp_running_job)
 	{
 		struct mali_pp_job *job = parent->pp_running_job;
-		MALI_DEBUG_PRINT(3, ("Group %x joining running job %d on virtual group %x\n",
+		MALI_PRINT(("Group %x joining running job %d on virtual group %x\n",
 		                     child, mali_pp_job_get_id(job), parent));
 		MALI_DEBUG_ASSERT(MALI_GROUP_STATE_WORKING == parent->state);
 		mali_pp_job_start(child->pp_core, job, mali_pp_core_get_id(child->pp_core), MALI_TRUE);
@@ -476,7 +476,7 @@ void mali_group_remove_group(struct mali_group *parent, struct mali_group *child
 
 	MALI_ASSERT_GROUP_LOCKED(parent);
 
-	MALI_DEBUG_PRINT(3, ("Removing group %p from virtual group %p\n", child, parent));
+	MALI_PRINT(("Removing group %p from virtual group %p\n", child, parent));
 
 	MALI_DEBUG_ASSERT(mali_group_is_virtual(parent));
 	MALI_DEBUG_ASSERT(!mali_group_is_virtual(child));
@@ -662,7 +662,7 @@ void mali_group_start_pp_job(struct mali_group *group, struct mali_pp_job *job, 
 		/* if session is NOT kept Zapping is done as part of session switch */
 		if (MALI_GROUP_ACTIVATE_PD_STATUS_OK_KEPT_PD == activate_status)
 		{
-			MALI_DEBUG_PRINT(3, ("PP starting job PD_Switch 0 Flush 1 Zap 1\n"));
+			MALI_PRINT(("PP starting job PD_Switch 0 Flush 1 Zap 1\n"));
 			mali_mmu_zap_tlb_without_stall(group->mmu);
 		}
 
@@ -866,7 +866,7 @@ static void mali_group_complete_pp(struct mali_group *group, mali_bool success)
 	/* Do hard reset if the job failed, or if soft reset fails */
 	if (!success || _MALI_OSK_ERR_OK != mali_pp_reset_wait(group->pp_core))
 	{
-		MALI_DEBUG_PRINT(3, ("Mali group: Failed to reset PP, need to reset entire group\n"));
+		MALI_PRINT(("Mali group: Failed to reset PP, need to reset entire group\n"));
 
 		mali_group_recovery_reset(group);
 	}
@@ -894,7 +894,7 @@ static void mali_group_complete_gp(struct mali_group *group, mali_bool success)
 
 	if (_MALI_OSK_ERR_OK != mali_gp_reset_wait(group->gp_core))
 	{
-		MALI_DEBUG_PRINT(3, ("Mali group: Failed to reset GP, need to reset entire group\n"));
+		MALI_PRINT(("Mali group: Failed to reset GP, need to reset entire group\n"));
 
 		mali_group_recovery_reset(group);
 	}
@@ -951,7 +951,7 @@ void mali_group_abort_session(struct mali_group *group, struct mali_session_data
 
 	if ((NULL != gp_job) && (mali_gp_job_get_session(gp_job) == session))
 	{
-		MALI_DEBUG_PRINT(4, ("Aborting GP job 0x%08x from session 0x%08x\n", gp_job, session));
+		MALI_PRINT(("Aborting GP job 0x%08x from session 0x%08x\n", gp_job, session));
 
 		gp_job_id = mali_gp_job_get_id(gp_job);
 		abort_gp = MALI_TRUE;
@@ -959,7 +959,7 @@ void mali_group_abort_session(struct mali_group *group, struct mali_session_data
 
 	if ((NULL != pp_job) && (mali_pp_job_get_session(pp_job) == session))
 	{
-		MALI_DEBUG_PRINT(4, ("Mali group: Aborting PP job 0x%08x from session 0x%08x\n", pp_job, session));
+		MALI_PRINT(("Mali group: Aborting PP job 0x%08x from session 0x%08x\n", pp_job, session));
 
 		pp_job_id = mali_pp_job_get_id(pp_job);
 		abort_pp = MALI_TRUE;
@@ -999,19 +999,19 @@ static enum mali_group_activate_pd_status mali_group_activate_page_directory(str
 	enum mali_group_activate_pd_status retval;
 	MALI_ASSERT_GROUP_LOCKED(group);
 
-	MALI_DEBUG_PRINT(5, ("Mali group: Activating page directory 0x%08X from session 0x%08X on group 0x%08X\n", mali_session_get_page_directory(session), session, group));
+	MALI_PRINT(("Mali group: Activating page directory 0x%08X from session 0x%08X on group 0x%08X\n", mali_session_get_page_directory(session), session, group));
 	MALI_DEBUG_ASSERT(0 <= group->page_dir_ref_count);
 
 	if (0 != group->page_dir_ref_count)
 	{
 		if (group->session != session)
 		{
-			MALI_DEBUG_PRINT(4, ("Mali group: Activating session FAILED: 0x%08x on group 0x%08X. Existing session: 0x%08x\n", session, group, group->session));
+			MALI_PRINT(("Mali group: Activating session FAILED: 0x%08x on group 0x%08X. Existing session: 0x%08x\n", session, group, group->session));
 			return MALI_GROUP_ACTIVATE_PD_STATUS_FAILED;
 		}
 		else
 		{
-			MALI_DEBUG_PRINT(4, ("Mali group: Activating session already activated: 0x%08x on group 0x%08X. New Ref: %d\n", session, group, 1+group->page_dir_ref_count));
+			MALI_PRINT(("Mali group: Activating session already activated: 0x%08x on group 0x%08X. New Ref: %d\n", session, group, 1+group->page_dir_ref_count));
 			retval = MALI_GROUP_ACTIVATE_PD_STATUS_OK_KEPT_PD;
 
 		}
@@ -1022,7 +1022,7 @@ static enum mali_group_activate_pd_status mali_group_activate_page_directory(str
 		if (group->session != session)
 		{
 			mali_bool activate_success;
-			MALI_DEBUG_PRINT(5, ("Mali group: Activate session: %08x previous: %08x on group 0x%08X. Ref: %d\n", session, group->session, group, 1+group->page_dir_ref_count));
+			MALI_PRINT(("Mali group: Activate session: %08x previous: %08x on group 0x%08X. Ref: %d\n", session, group->session, group, 1+group->page_dir_ref_count));
 
 			activate_success = mali_mmu_activate_page_directory(group->mmu, mali_session_get_page_directory(session));
 			MALI_DEBUG_ASSERT(activate_success);
@@ -1032,7 +1032,7 @@ static enum mali_group_activate_pd_status mali_group_activate_page_directory(str
 		}
 		else
 		{
-			MALI_DEBUG_PRINT(4, ("Mali group: Activate existing session 0x%08X on group 0x%08X. Ref: %d\n", session->page_directory, group, 1+group->page_dir_ref_count));
+			MALI_PRINT(("Mali group: Activate existing session 0x%08X on group 0x%08X. Ref: %d\n", session->page_directory, group, 1+group->page_dir_ref_count));
 			retval = MALI_GROUP_ACTIVATE_PD_STATUS_OK_KEPT_PD;
 		}
 	}
@@ -1066,7 +1066,7 @@ static void mali_group_remove_session_if_unused(struct mali_group *group, struct
 		if (group->session == session)
 		{
 			MALI_DEBUG_ASSERT(MALI_TRUE == group->power_is_on);
-			MALI_DEBUG_PRINT(3, ("Mali group: Deactivating unused session 0x%08X on group %08X\n", session, group));
+			MALI_PRINT(("Mali group: Deactivating unused session 0x%08X on group %08X\n", session, group));
 			mali_mmu_activate_empty_page_directory(group->mmu);
 			group->session = NULL;
 		}
@@ -1089,7 +1089,7 @@ void mali_group_power_on_group(struct mali_group *group)
 	                  || MALI_GROUP_STATE_LEAVING_VIRTUAL == group->state
 	                  || MALI_GROUP_STATE_DISABLED   == group->state);
 
-	MALI_DEBUG_PRINT(3, ("Group %p powered on\n", group));
+	MALI_PRINT(("Group %p powered on\n", group));
 
 	group->power_is_on = MALI_TRUE;
 }
@@ -1104,7 +1104,7 @@ void mali_group_power_off_group(struct mali_group *group)
 	                  || MALI_GROUP_STATE_LEAVING_VIRTUAL == group->state
 	                  || MALI_GROUP_STATE_DISABLED   == group->state);
 
-	MALI_DEBUG_PRINT(3, ("Group %p powered off\n", group));
+	MALI_PRINT(("Group %p powered off\n", group));
 
 	/* It is necessary to set group->session = NULL so that the powered off MMU is not written
 	 * to on map/unmap.  It is also necessary to set group->power_is_on = MALI_FALSE so that
@@ -1132,7 +1132,7 @@ void mali_group_power_on(void)
 		}
 		mali_group_unlock(group);
 	}
-	MALI_DEBUG_PRINT(4, ("Mali Group: power on\n"));
+	MALI_PRINT(("Mali Group: power on\n"));
 }
 
 void mali_group_power_off(void)
@@ -1154,7 +1154,7 @@ void mali_group_power_off(void)
 		}
 		mali_group_unlock(group);
 	}
-	MALI_DEBUG_PRINT(4, ("Mali Group: power off\n"));
+	MALI_PRINT(("Mali Group: power off\n"));
 }
 
 static void mali_group_recovery_reset(struct mali_group *group)
@@ -1349,7 +1349,7 @@ static void mali_group_bottom_half_mmu(void * data)
 	rawstat = mali_mmu_get_rawstat(mmu);
 	MALI_DEBUG_CODE(status = mali_mmu_get_status(mmu));
 
-	MALI_DEBUG_PRINT(4, ("Mali MMU: Bottom half, interrupt 0x%08X, status 0x%08X\n", rawstat, status));
+	MALI_PRINT(("Mali MMU: Bottom half, interrupt 0x%08X\n", rawstat));
 
 	if (rawstat & (MALI_MMU_INTERRUPT_PAGE_FAULT | MALI_MMU_INTERRUPT_READ_BUS_ERROR))
 	{
@@ -1426,14 +1426,14 @@ static void mali_group_bottom_half_gp(void *data)
 
 	irq_readout = mali_gp_read_rawstat(group->gp_core);
 
-	MALI_DEBUG_PRINT(4, ("Mali group: GP bottom half IRQ 0x%08X from core %s\n", irq_readout, mali_gp_get_hw_core_desc(group->gp_core)));
+	MALI_PRINT(("Mali group: GP bottom half IRQ 0x%08X from core %s\n", irq_readout, mali_gp_get_hw_core_desc(group->gp_core)));
 
 	if (irq_readout & (MALIGP2_REG_VAL_IRQ_VS_END_CMD_LST|MALIGP2_REG_VAL_IRQ_PLBU_END_CMD_LST))
 	{
 		u32 core_status = mali_gp_read_core_status(group->gp_core);
 		if (0 == (core_status & MALIGP2_REG_VAL_STATUS_MASK_ACTIVE))
 		{
-			MALI_DEBUG_PRINT(4, ("Mali group: GP job completed, calling group handler\n"));
+			MALI_PRINT(("Mali group: GP job completed, calling group handler\n"));
 			group->core_timed_out = MALI_FALSE;
 			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
 			                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
@@ -1476,7 +1476,7 @@ static void mali_group_bottom_half_gp(void *data)
 	else if (irq_readout & MALIGP2_REG_VAL_IRQ_PLBU_OUT_OF_MEM)
 	{
 		/* GP wants more memory in order to continue. */
-		MALI_DEBUG_PRINT(3, ("Mali group: PLBU needs more heap memory\n"));
+		MALI_PRINT(("Mali group: PLBU needs more heap memory\n"));
 
 		group->state = MALI_GROUP_STATE_OOM;
 		mali_group_unlock(group); /* Nothing to do on the HW side, so just release group lock right away */
@@ -1604,7 +1604,7 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 			                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
 			                              0, 0, MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP(core->core_id), 0, 0);
 
-			MALI_DEBUG_PRINT(3, ("Mali PP: Job completed, calling group handler from upper half\n"));
+			MALI_PRINT(("Mali PP: Job completed, calling group handler from upper half\n"));
 
 			mali_group_lock(group);
 
@@ -1627,7 +1627,7 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 				u32 status_readout = mali_pp_read_status(group->pp_core);
 				if (status_readout & MALI200_REG_VAL_STATUS_RENDERING_ACTIVE)
 				{
-					MALI_DEBUG_PRINT(6, ("Mali PP: Not all cores in broadcast completed\n"));
+					MALI_PRINT(("Mali PP: Not all cores in broadcast completed\n"));
 					mali_pp_enable_interrupts(core);
 					mali_group_unlock(group);
 					_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
@@ -1721,7 +1721,7 @@ static void mali_group_bottom_half_pp(void *data)
 
 	irq_readout = mali_pp_read_rawstat(group->pp_core);
 
-	MALI_DEBUG_PRINT(4, ("Mali PP: Bottom half IRQ 0x%08X from core %s\n", irq_readout, mali_pp_get_hw_core_desc(group->pp_core)));
+	MALI_PRINT(("Mali PP: Bottom half IRQ 0x%08X from core %s\n", irq_readout, mali_pp_get_hw_core_desc(group->pp_core)));
 
 	/* Check if job is complete without errors */
 	if (MALI200_REG_VAL_IRQ_END_OF_FRAME == irq_readout)
@@ -1732,7 +1732,7 @@ static void mali_group_bottom_half_pp(void *data)
 
 			if (status_readout & MALI200_REG_VAL_STATUS_RENDERING_ACTIVE)
 			{
-				MALI_DEBUG_PRINT(6, ("Mali PP: Not all cores in broadcast completed\n"));
+				MALI_PRINT(("Mali PP: Not all cores in broadcast completed\n"));
 				mali_pp_enable_interrupts(core);
 				mali_group_unlock(group);
 
@@ -1744,7 +1744,7 @@ static void mali_group_bottom_half_pp(void *data)
 			}
 		}
 
-		MALI_DEBUG_PRINT(3, ("Mali PP: Job completed, calling group handler\n"));
+		MALI_PRINT(("Mali PP: Job completed, calling group handler\n"));
 		group->core_timed_out = MALI_FALSE;
 		mali_group_complete_pp(group, MALI_TRUE);
 		mali_group_unlock(group);
@@ -1802,7 +1802,7 @@ static void mali_group_bottom_half_pp(void *data)
 	 */
 	if (0 == irq_readout)
 	{
-		MALI_DEBUG_PRINT(3, ("Mali group: No interrupt found on core %s\n",
+		MALI_PRINT(("Mali group: No interrupt found on core %s\n",
 		                    mali_pp_get_hw_core_desc(group->pp_core)));
 	}
 	else
@@ -1901,12 +1901,12 @@ static void mali_group_timeout(void *data)
 
 	if (NULL != group->gp_core)
 	{
-		MALI_DEBUG_PRINT(2, ("Mali group: TIMEOUT on %s\n", mali_gp_get_hw_core_desc(group->gp_core)));
+		MALI_PRINT(("Mali group: TIMEOUT on %s\n", mali_gp_get_hw_core_desc(group->gp_core)));
 		_mali_osk_wq_schedule_work(group->bottom_half_work_gp);
 	}
 	else
 	{
-		MALI_DEBUG_PRINT(2, ("Mali group: TIMEOUT on %s\n", mali_pp_get_hw_core_desc(group->pp_core)));
+		MALI_PRINT(("Mali group: TIMEOUT on %s\n", mali_pp_get_hw_core_desc(group->pp_core)));
 		_mali_osk_wq_schedule_work(group->bottom_half_work_pp);
 	}
 }
@@ -1929,7 +1929,7 @@ void mali_group_zap_session(struct mali_group *group, struct mali_session_data *
 		mali_bool zap_success = mali_mmu_zap_tlb(group->mmu);
 		if (MALI_TRUE != zap_success)
 		{
-			MALI_DEBUG_PRINT(2, ("Mali memory unmap failed. Doing pagefault handling.\n"));
+			MALI_PRINT(("Mali memory unmap failed. Doing pagefault handling.\n"));
 			mali_group_mmu_page_fault(group);
 		}
 	}

@@ -76,7 +76,7 @@ _mali_osk_errcode_t mali_mmu_initialize(void)
 
 void mali_mmu_terminate(void)
 {
-	MALI_DEBUG_PRINT(3, ("Mali MMU: terminating\n"));
+	MALI_PRINT(("Mali MMU: terminating\n"));
 
 	/* Free global helper pages */
 	mali_free_empty_page(mali_empty_page_directory);
@@ -92,7 +92,7 @@ struct mali_mmu_core *mali_mmu_create(_mali_osk_resource_t *resource, struct mal
 
 	MALI_DEBUG_ASSERT_POINTER(resource);
 
-	MALI_DEBUG_PRINT(2, ("Mali MMU: Creating Mali MMU: %s\n", resource->description));
+	MALI_PRINT(("Mali MMU: Creating Mali MMU: %s\n", resource->description));
 
 	mmu = _mali_osk_calloc(1,sizeof(struct mali_mmu_core));
 	if (NULL != mmu)
@@ -182,13 +182,13 @@ mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu)
 
 	if ( 0 == (mmu_status & MALI_MMU_STATUS_BIT_PAGING_ENABLED) )
 	{
-		MALI_DEBUG_PRINT(4, ("MMU stall is implicit when Paging is not enabled.\n"));
+		MALI_PRINT(("MMU stall is implicit when Paging is not enabled.\n"));
 		return MALI_TRUE;
 	}
 
 	if ( mmu_status & MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE )
 	{
-		MALI_DEBUG_PRINT(3, ("Aborting MMU stall request since it is in pagefault state.\n"));
+		MALI_PRINT(("Aborting MMU stall request since it is in pagefault state.\n"));
 		return MALI_FALSE;
 	}
 
@@ -212,13 +212,13 @@ mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu)
 	}
 	if (MALI_REG_POLL_COUNT_FAST == i)
 	{
-		MALI_DEBUG_PRINT(2, ("Enable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
+		MALI_PRINT(("Enable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 		return MALI_FALSE;
 	}
 
 	if ( mmu_status & MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE )
 	{
-		MALI_DEBUG_PRINT(2, ("Aborting MMU stall request since it has a pagefault.\n"));
+		MALI_PRINT(("Aborting MMU stall request since it has a pagefault.\n"));
 		return MALI_FALSE;
 	}
 
@@ -232,12 +232,12 @@ void mali_mmu_disable_stall(struct mali_mmu_core *mmu)
 
 	if ( 0 == (mmu_status & MALI_MMU_STATUS_BIT_PAGING_ENABLED ))
 	{
-		MALI_DEBUG_PRINT(3, ("MMU disable skipped since it was not enabled.\n"));
+		MALI_PRINT(("MMU disable skipped since it was not enabled.\n"));
 		return;
 	}
 	if (mmu_status & MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE)
 	{
-		MALI_DEBUG_PRINT(2, ("Aborting MMU disable stall request since it is in pagefault state.\n"));
+		MALI_PRINT(("Aborting MMU disable stall request since it is in pagefault state.\n"));
 		return;
 	}
 
@@ -264,7 +264,7 @@ void mali_mmu_disable_stall(struct mali_mmu_core *mmu)
 
 void mali_mmu_page_fault_done(struct mali_mmu_core *mmu)
 {
-	MALI_DEBUG_PRINT(4, ("Mali MMU: %s: Leaving page fault mode\n", mmu->hw_core.description));
+	MALI_PRINT(("Mali MMU: %s: Leaving page fault mode\n", mmu->hw_core.description));
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_COMMAND, MALI_MMU_COMMAND_PAGE_FAULT_DONE);
 }
 
@@ -304,7 +304,7 @@ _mali_osk_errcode_t mali_mmu_reset(struct mali_mmu_core *mmu)
 		err = _MALI_OSK_ERR_BUSY;
 	}
 
-	MALI_DEBUG_PRINT(3, ("Mali MMU: mali_kernel_mmu_reset: %s\n", mmu->hw_core.description));
+	MALI_PRINT(("Mali MMU: mali_kernel_mmu_reset: %s\n", mmu->hw_core.description));
 
 	if (_MALI_OSK_ERR_OK == mali_mmu_raw_reset(mmu))
 	{
@@ -361,7 +361,7 @@ mali_bool mali_mmu_activate_page_directory(struct mali_mmu_core *mmu, struct mal
 	mali_bool stall_success;
 	MALI_DEBUG_ASSERT_POINTER(mmu);
 
-	MALI_DEBUG_PRINT(5, ("Asked to activate page directory 0x%x on MMU %s\n", pagedir, mmu->hw_core.description));
+	MALI_PRINT(("Asked to activate page directory 0x%x on MMU %s\n", pagedir, mmu->hw_core.description));
 	stall_success = mali_mmu_enable_stall(mmu);
 
 	if ( MALI_FALSE==stall_success ) return MALI_FALSE;
@@ -375,7 +375,7 @@ void mali_mmu_activate_empty_page_directory(struct mali_mmu_core* mmu)
 	mali_bool stall_success;
 
 	MALI_DEBUG_ASSERT_POINTER(mmu);
-	MALI_DEBUG_PRINT(3, ("Activating the empty page directory on MMU %s\n", mmu->hw_core.description));
+	MALI_PRINT(("Activating the empty page directory on MMU %s\n", mmu->hw_core.description));
 
 	stall_success = mali_mmu_enable_stall(mmu);
 
@@ -392,7 +392,7 @@ void mali_mmu_activate_fault_flush_page_directory(struct mali_mmu_core* mmu)
 	mali_bool stall_success;
 	MALI_DEBUG_ASSERT_POINTER(mmu);
 
-	MALI_DEBUG_PRINT(3, ("Activating the page fault flush page directory on MMU %s\n", mmu->hw_core.description));
+	MALI_PRINT(("Activating the page fault flush page directory on MMU %s\n", mmu->hw_core.description));
 	stall_success = mali_mmu_enable_stall(mmu);
 	/* This function is expect to fail the stalling, since it might be in PageFault mode when it is called */
 	mali_mmu_activate_address_space(mmu, mali_page_fault_flush_page_directory);
@@ -414,25 +414,25 @@ static _mali_osk_errcode_t mali_mmu_probe_ack(void *data)
 
 	int_stat = mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_INT_STATUS);
 
-	MALI_DEBUG_PRINT(2, ("mali_mmu_probe_irq_acknowledge: intstat 0x%x\n", int_stat));
+	MALI_PRINT(("mali_mmu_probe_irq_acknowledge: intstat 0x%x\n", int_stat));
 	if (int_stat & MALI_MMU_INTERRUPT_PAGE_FAULT)
 	{
-		MALI_DEBUG_PRINT(2, ("Probe: Page fault detect: PASSED\n"));
+		MALI_PRINT(("Probe: Page fault detect: PASSED\n"));
 		mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_INT_CLEAR, MALI_MMU_INTERRUPT_PAGE_FAULT);
 	}
 	else
 	{
-		MALI_DEBUG_PRINT(1, ("Probe: Page fault detect: FAILED\n"));
+		MALI_PRINT(("Probe: Page fault detect: FAILED\n"));
 	}
 
 	if (int_stat & MALI_MMU_INTERRUPT_READ_BUS_ERROR)
 	{
-		MALI_DEBUG_PRINT(2, ("Probe: Bus read error detect: PASSED\n"));
+		MALI_PRINT(("Probe: Bus read error detect: PASSED\n"));
 		mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_INT_CLEAR, MALI_MMU_INTERRUPT_READ_BUS_ERROR);
 	}
 	else
 	{
-		MALI_DEBUG_PRINT(1, ("Probe: Bus read error detect: FAILED\n"));
+		MALI_PRINT(("Probe: Bus read error detect: FAILED\n"));
 	}
 
 	if ( (int_stat & (MALI_MMU_INTERRUPT_PAGE_FAULT|MALI_MMU_INTERRUPT_READ_BUS_ERROR)) ==
@@ -447,6 +447,6 @@ static _mali_osk_errcode_t mali_mmu_probe_ack(void *data)
 #if 0
 void mali_mmu_print_state(struct mali_mmu_core *mmu)
 {
-	MALI_DEBUG_PRINT(2, ("MMU: State of %s is 0x%08x\n", mmu->hw_core.description, mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
+	MALI_PRINT(("MMU: State of %s is 0x%08x\n", mmu->hw_core.description, mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 }
 #endif

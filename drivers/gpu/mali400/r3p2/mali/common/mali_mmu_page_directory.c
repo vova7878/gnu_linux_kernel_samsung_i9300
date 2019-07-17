@@ -203,7 +203,7 @@ _mali_osk_errcode_t mali_mmu_pagedir_unmap(struct mali_page_directory *pagedir, 
 		if (0 == pagedir->page_entries_usage_count[i])
 		{
 			u32 page_address;
-			MALI_DEBUG_PRINT(4, ("Releasing page table as this is the last reference\n"));
+			MALI_PRINT(("Releasing page table as this is the last reference\n"));
 			/* last reference removed, no need to zero out each PTE  */
 
 			page_address = MALI_MMU_ENTRY_ADDRESS(_mali_osk_mem_ioread32(pagedir->page_directory_mapped, i*sizeof(u32)));
@@ -315,12 +315,12 @@ void mali_mmu_pagedir_update(struct mali_page_directory *pagedir, u32 mali_addre
 	switch ( cache_settings )
 	{
 		case MALI_CACHE_GP_READ_ALLOCATE:
-		MALI_DEBUG_PRINT(5, ("Map L2 GP_Read_allocate\n"));
+		MALI_PRINT(("Map L2 GP_Read_allocate\n"));
 		permission_bits = MALI_MMU_FLAGS_FORCE_GP_READ_ALLOCATE;
 		break;
 
 		case MALI_CACHE_STANDARD:
-		MALI_DEBUG_PRINT(5, ("Map L2 Standard\n"));
+		MALI_PRINT(("Map L2 Standard\n"));
 		/*falltrough */
 		default:
 		if ( MALI_CACHE_STANDARD != cache_settings) MALI_PRINT_ERROR(("Wrong cache settings\n"));

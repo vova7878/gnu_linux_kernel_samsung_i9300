@@ -45,7 +45,7 @@ _mali_osk_wait_queue_t* _mali_osk_wait_queue_init( void )
 void _mali_osk_wait_queue_wait_event( _mali_osk_wait_queue_t *queue, mali_bool (*condition)(void) )
 {
     MALI_DEBUG_ASSERT_POINTER( queue );
-    MALI_DEBUG_PRINT(6, ("Adding to wait queue %p\n", queue));
+    MALI_PRINT(("Adding to wait queue %p\n", queue));
     wait_event(queue->wait_queue, condition());
 }
 
@@ -56,11 +56,11 @@ void _mali_osk_wait_queue_wake_up( _mali_osk_wait_queue_t *queue )
     /* if queue is empty, don't attempt to wake up its elements */
     if (!waitqueue_active(&queue->wait_queue)) return;
 
-    MALI_DEBUG_PRINT(6, ("Waking up elements in wait queue %p ....\n", queue));
+    MALI_PRINT(("Waking up elements in wait queue %p ....\n", queue));
 
     wake_up_all(&queue->wait_queue);
 
-    MALI_DEBUG_PRINT(6, ("... elements in wait queue %p woken up\n", queue));
+    MALI_PRINT(("... elements in wait queue %p woken up\n", queue));
 }
 
 void _mali_osk_wait_queue_term( _mali_osk_wait_queue_t *queue )

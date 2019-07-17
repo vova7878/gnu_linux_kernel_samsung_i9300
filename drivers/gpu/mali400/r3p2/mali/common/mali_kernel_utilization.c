@@ -199,12 +199,12 @@ _mali_osk_errcode_t mali_utilization_init(void)
 	if (NULL != mali_utilization_callback)
 	{
 #ifndef CONFIG_PM_DEVFREQ
-		MALI_DEBUG_PRINT(2, ("Mali GPU Utilization: Utilization handler installed with interval %u\n", mali_utilization_timeout));
+		MALI_PRINT(("Mali GPU Utilization: Utilization handler installed with interval %u\n", mali_utilization_timeout));
 #endif
 	}
 	else
 	{
-		MALI_DEBUG_PRINT(2, ("Mali GPU Utilization: No utilization handler installed\n"));
+		MALI_PRINT(("Mali GPU Utilization: No utilization handler installed\n"));
 	}
 
 	time_data_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ |

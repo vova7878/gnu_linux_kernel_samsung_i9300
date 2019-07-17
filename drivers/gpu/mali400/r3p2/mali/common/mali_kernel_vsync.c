@@ -45,7 +45,7 @@ _mali_osk_errcode_t _mali_ukk_vsync_event_report(_mali_uk_vsync_event_report_s *
 	}
 #endif
 
-	MALI_DEBUG_PRINT(4, ("Received VSYNC event: %d\n", event));
+	MALI_PRINT(("Received VSYNC event: %d\n", event));
 	MALI_SUCCESS;
 }
 

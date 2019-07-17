@@ -331,8 +331,8 @@ static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_st
 	 * Only the Mali cores can use page faults to extend buffers.
 	*/
 
-	MALI_DEBUG_PRINT(1, ("Page-fault in Mali memory region caused by the CPU.\n"));
-	MALI_DEBUG_PRINT(1, ("Tried to access %p (process local virtual address) which is not currently mapped to any Mali memory.\n", (void*)address));
+	MALI_PRINT(("Page-fault in Mali memory region caused by the CPU.\n"));
+	MALI_PRINT(("Tried to access %p (process local virtual address) which is not currently mapped to any Mali memory.\n", (void*)address));
 
 	MALI_IGNORE(address);
 
@@ -346,7 +346,7 @@ static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_st
 static void mali_kernel_memory_vma_open(struct vm_area_struct * vma)
 {
 	mali_vma_usage_tracker * vma_usage_tracker;
-	MALI_DEBUG_PRINT(4, ("Open called on vma %p\n", vma));
+	MALI_PRINT(("Open called on vma %p\n", vma));
 
 	vma_usage_tracker = (mali_vma_usage_tracker*)vma->vm_private_data;
 	vma_usage_tracker->references++;
@@ -359,7 +359,7 @@ static void mali_kernel_memory_vma_close(struct vm_area_struct * vma)
 	_mali_uk_mem_munmap_s args = {0, };
 	mali_memory_allocation * descriptor;
 	mali_vma_usage_tracker * vma_usage_tracker;
-	MALI_DEBUG_PRINT(3, ("Close called on vma %p\n", vma));
+	MALI_PRINT(("Close called on vma %p\n", vma));
 
 	vma_usage_tracker = (mali_vma_usage_tracker*)vma->vm_private_data;
 
@@ -370,7 +370,7 @@ static void mali_kernel_memory_vma_close(struct vm_area_struct * vma)
 
 	if (0 != vma_usage_tracker->references)
 	{
-		MALI_DEBUG_PRINT(3, ("Ignoring this close, %d references still exists\n", vma_usage_tracker->references));
+		MALI_PRINT(("Ignoring this close, %d references still exists\n", vma_usage_tracker->references));
 		return;
 	}
 
@@ -421,11 +421,11 @@ mali_io_address _mali_osk_mem_allocioregion( u32 *phys, u32 size )
 	 * currently is the only user of this function. */
 	virt = dma_alloc_writecombine(NULL, size, phys, GFP_KERNEL | GFP_DMA | __GFP_ZERO);
 
-	MALI_DEBUG_PRINT(3, ("Page table virt: 0x%x = dma_alloc_coherent(size:%d, phys:0x%x, )\n", virt, size, phys));
+	MALI_PRINT(("Page table virt: 0x%x = dma_alloc_coherent(size:%d, phys:0x%x, )\n", virt, size, phys));
 
  	if ( NULL == virt )
  	{
-		MALI_DEBUG_PRINT(5, ("allocioregion: Failed to allocate Pagetable memory, size=0x%.8X\n", size ));
+		MALI_PRINT(("allocioregion: Failed to allocate Pagetable memory, size=0x%.8X\n", size ));
  		return 0;
  	}
 
@@ -507,7 +507,7 @@ _mali_osk_errcode_t _mali_osk_mem_mapregion_init( mali_memory_allocation * descr
 
 	if (NULL == vma_usage_tracker)
 	{
-		MALI_DEBUG_PRINT(2, ("Failed to allocate memory to track memory usage\n"));
+		MALI_PRINT(("Failed to allocate memory to track memory usage\n"));
 		_mali_osk_free( mappingInfo );
 		return _MALI_OSK_ERR_FAULT;
 	}
@@ -621,7 +621,7 @@ _mali_osk_errcode_t _mali_osk_mem_mapregion_map( mali_memory_allocation * descri
 		alloc_item = _allocation_list_item_get();
 		if (NULL == alloc_item)
 		{
-			MALI_DEBUG_PRINT(1, ("Failed to allocate list item\n"));
+			MALI_PRINT(("Failed to allocate list item\n"));
 			return _MALI_OSK_ERR_NOMEM;
 		}
 
@@ -706,7 +706,7 @@ void _mali_osk_mem_mapregion_unmap( mali_memory_allocation * descriptor, u32 off
 				alloc = alloc->next;
 			}
 			if (alloc == NULL) {
-				MALI_DEBUG_PRINT(1, ("Unmapping memory that isn't mapped\n"));
+				MALI_PRINT(("Unmapping memory that isn't mapped\n"));
 				size -= _MALI_OSK_CPU_PAGE_SIZE;
 				offset += _MALI_OSK_CPU_PAGE_SIZE;
 				continue;

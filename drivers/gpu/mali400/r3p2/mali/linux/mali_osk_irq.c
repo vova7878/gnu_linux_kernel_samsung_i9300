@@ -53,7 +53,7 @@ _mali_osk_irq_t *_mali_osk_irq_init( u32 irqnum, _mali_osk_irq_uhandler_t uhandl
 			_mali_osk_errcode_t err;
 			int irq;
 
-			MALI_DEBUG_PRINT(2, ("Probing for irq\n"));
+			MALI_PRINT(("Probing for irq\n"));
 
 			do
 			{
@@ -77,11 +77,11 @@ _mali_osk_irq_t *_mali_osk_irq_init( u32 irqnum, _mali_osk_irq_uhandler_t uhandl
 		if (-1 != irqnum)
 		{
 			/* found an irq */
-			MALI_DEBUG_PRINT(2, ("Found irq %d\n", irqnum));
+			MALI_PRINT(("Found irq %d\n", irqnum));
 		}
 		else
 		{
-			MALI_DEBUG_PRINT(2, ("Probe for irq failed\n"));
+			MALI_PRINT(("Probe for irq failed\n"));
 		}
 	}
 	
@@ -91,14 +91,14 @@ _mali_osk_irq_t *_mali_osk_irq_init( u32 irqnum, _mali_osk_irq_uhandler_t uhandl
 
 	if (-1 == irqnum)
 	{
-		MALI_DEBUG_PRINT(2, ("No IRQ for core '%s' found during probe\n", description));
+		MALI_PRINT(("No IRQ for core '%s' found during probe\n", description));
 		kfree(irq_object);
 		return NULL;
 	}
 
 	if (0 != request_irq(irqnum, irq_handler_upper_half, irq_flags, description, irq_object))
 	{
-		MALI_DEBUG_PRINT(2, ("Unable to install IRQ handler for core '%s'\n", description));
+		MALI_PRINT(("Unable to install IRQ handler for core '%s'\n", description));
 		kfree(irq_object);
 		return NULL;
 	}

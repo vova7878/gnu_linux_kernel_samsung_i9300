@@ -30,7 +30,7 @@ struct mali_gp_core *mali_gp_create(const _mali_osk_resource_t * resource, struc
 	struct mali_gp_core* core = NULL;
 
 	MALI_DEBUG_ASSERT(NULL == mali_global_gp_core);
-	MALI_DEBUG_PRINT(2, ("Mali GP: Creating Mali GP core: %s\n", resource->description));
+	MALI_PRINT(("Mali GP: Creating Mali GP core: %s\n", resource->description));
 
 	core = _mali_osk_malloc(sizeof(struct mali_gp_core));
 	if (NULL != core)
@@ -58,7 +58,7 @@ struct mali_gp_core *mali_gp_create(const _mali_osk_resource_t * resource, struc
 					                               "mali_gp_irq_handlers");
 					if (NULL != core->irq)
 					{
-						MALI_DEBUG_PRINT(4, ("Mali GP: set global gp core from 0x%08X to 0x%08X\n", mali_global_gp_core, core));
+						MALI_PRINT(("Mali GP: set global gp core from 0x%08X to 0x%08X\n", mali_global_gp_core, core));
 						mali_global_gp_core = core;
 
 						return core;
@@ -139,7 +139,7 @@ void mali_gp_hard_reset(struct mali_gp_core *core)
 	int i;
 
 	MALI_DEBUG_ASSERT_POINTER(core);
-	MALI_DEBUG_PRINT(4, ("Mali GP: Hard reset of core %s\n", core->hw_core.description));
+	MALI_PRINT(("Mali GP: Hard reset of core %s\n", core->hw_core.description));
 
 	mali_hw_core_register_write(&core->hw_core, reset_wait_target_register, reset_invalid_value);
 
@@ -170,7 +170,7 @@ void mali_gp_reset_async(struct mali_gp_core *core)
 {
 	MALI_DEBUG_ASSERT_POINTER(core);
 
-	MALI_DEBUG_PRINT(4, ("Mali GP: Reset of core %s\n", core->hw_core.description));
+	MALI_PRINT(("Mali GP: Reset of core %s\n", core->hw_core.description));
 
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_MASK, 0); /* disable the IRQs */
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_CLEAR, MALI400GP_REG_VAL_IRQ_RESET_COMPLETED);
@@ -249,7 +249,7 @@ void mali_gp_job_start(struct mali_gp_core *core, struct mali_gp_job *job)
 		mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_PERF_CNT_1_ENABLE, MALIGP2_REG_VAL_PERF_CNT_ENABLE);
 	}
 
-	MALI_DEBUG_PRINT(3, ("Mali GP: Starting job (0x%08x) on core %s with command 0x%08X\n", job, core->hw_core.description, startcmd));
+	MALI_PRINT(("Mali GP: Starting job (0x%08x) on core %s with command 0x%08X\n", job, core->hw_core.description, startcmd));
 
 	/* Barrier to make sure the previous register write is finished */
 	_mali_osk_write_mem_barrier();
@@ -276,7 +276,7 @@ void mali_gp_resume_with_new_heap(struct mali_gp_core *core, u32 start_addr, u32
 		mali_hw_core_register_write_relaxed(&core->hw_core, MALIGP2_REG_ADDR_MGMT_PLBU_ALLOC_START_ADDR, start_addr);
 		mali_hw_core_register_write_relaxed(&core->hw_core, MALIGP2_REG_ADDR_MGMT_PLBU_ALLOC_END_ADDR, end_addr);
 
-		MALI_DEBUG_PRINT(3, ("Mali GP: Resuming job\n"));
+		MALI_PRINT(("Mali GP: Resuming job\n"));
 
 		mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_CMD, MALIGP2_REG_VAL_CMD_UPDATE_PLBU_ALLOC);
 		_mali_osk_write_mem_barrier();

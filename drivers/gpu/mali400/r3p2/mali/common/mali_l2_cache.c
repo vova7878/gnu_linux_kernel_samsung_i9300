@@ -89,7 +89,7 @@ struct mali_l2_cache_core *mali_l2_cache_create(_mali_osk_resource_t *resource)
 	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
 #endif
 
-	MALI_DEBUG_PRINT(2, ("Mali L2 cache: Creating Mali L2 cache: %s\n", resource->description));
+	MALI_PRINT(("Mali L2 cache: Creating Mali L2 cache: %s\n", resource->description));
 
 	if (mali_global_num_l2_cache_cores >= MALI_MAX_NUMBER_OF_L2_CACHE_CORES)
 	{
@@ -450,7 +450,7 @@ static _mali_osk_errcode_t mali_l2_cache_send_command(struct mali_l2_cache_core 
 	if (i == loop_count)
 	{
 		_mali_osk_lock_signal(cache->command_lock, _MALI_OSK_LOCKMODE_RW);
-		MALI_DEBUG_PRINT(1, ( "Mali L2 cache: aborting wait for command interface to go idle\n"));
+		MALI_PRINT(( "Mali L2 cache: aborting wait for command interface to go idle\n"));
 		MALI_ERROR( _MALI_OSK_ERR_FAULT );
 	}
 
