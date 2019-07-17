@@ -32,7 +32,7 @@
 #include "mali_kernel_linux.h"
 #include "mali_pm.h"
 
-#include <plat/pd.h>
+#include "pd.h"
 
 #include "exynos4_pmm.h"
 
@@ -45,11 +45,7 @@
 struct exynos_pm_domain;
 extern struct exynos_pm_domain exynos4_pd_g3d;
 void exynos_pm_add_dev_to_genpd(struct platform_device *pdev, struct exynos_pm_domain *pd);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-extern struct platform_device exynos4_device_pd[];
-#else
-extern struct platform_device s5pv310_device_pd[];
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
+#endif
 
 static void mali_platform_device_release(struct device *device);
 
@@ -137,28 +133,15 @@ static struct device_type mali_gpu_device_device_type =
 };
 #endif
 
+#if 0
 static struct platform_device mali_gpu_device =
 {
 	.name = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 	.id = 0,
-#if 0
-	/* Set in mali_platform_device_register() for these kernels */
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	.dev.parent = &exynos4_device_pd[PD_G3D].dev,
-#else
-	.dev.parent = &s5pv310_device_pd[PD_G3D].dev,
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
 	.dev.release = mali_platform_device_release,
-#if 0
-	/*
-	 * We temporarily make use of a device type so that we can control the Mali power
-	 * from within the mali.ko (since the default platform bus implementation will not do that).
-	 * Ideally .dev.pm_domain should be used instead, as this is the new framework designed
-	 * to control the power of devices.
-	 */
-	.dev.type = &mali_gpu_device_device_type, /* We should probably use the pm_domain instead of type on newer kernels */
-#endif
 };
+#endif
 
 static struct mali_gpu_device_data mali_gpu_data =
 {
@@ -176,9 +159,6 @@ int mali_platform_device_register(void)
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
 
 #if 0
-	exynos_pm_add_dev_to_genpd(&mali_gpu_device, &exynos4_pd_g3d);
-#endif
-
 	/* Connect resources to the device */
 	err = platform_device_add_resources(&mali_gpu_device, mali_gpu_resources, sizeof(mali_gpu_resources) / sizeof(mali_gpu_resources[0]));
 	if (0 == err)
@@ -224,11 +204,14 @@ plat_init_err:
 	}
 
 	return err;
+#endif
 }
 
 void mali_platform_device_unregister(void)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_unregister() called\n"));
+
+#if 0
 
 #ifdef CONFIG_PM_RUNTIME
 #if defined(USE_PM_NOTIFIER)
@@ -239,6 +222,7 @@ void mali_platform_device_unregister(void)
 	mali_platform_deinit(&(mali_gpu_device.dev));
 
 	platform_device_unregister(&mali_gpu_device);
+#endif
 }
 
 static void mali_platform_device_release(struct device *device)

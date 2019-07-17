@@ -28,12 +28,10 @@
 #include "mali_osk_profiling.h"
 #endif
 
-#if defined(CONFIG_PM_RUNTIME)
-#include <plat/pd.h>
-#endif
+#include "pd.h"
 
 #include <asm/io.h>
-#include <mach/regs-pmu.h>
+#include "regs-pmu.h"
 
 #include <linux/workqueue.h>
 
@@ -46,11 +44,6 @@
 #define MALI_DVFS_WATING 10 /* msec */
 #define MALI_DVFS_DEFAULT_STEP 1
 #define PD_G3D_LOCK_FLAG 2
-#endif
-
-#ifdef CONFIG_CPU_FREQ
-#include <mach/asv.h>
-#define EXYNOS4_ASV_ENABLED
 #endif
 
 #define MALI_DVFS_CLK_DEBUG 0
