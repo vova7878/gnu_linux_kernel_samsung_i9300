@@ -766,8 +766,7 @@ static _mali_osk_errcode_t mali_parse_config_memory(void)
 
 		if (0 == mali_dedicated_mem_start && 0 == mali_dedicated_mem_size && 0 == mali_shared_mem_size)
 		{
-			/* No GPU memory specified */
-			return _MALI_OSK_ERR_INVALID_ARGS;
+			mali_shared_mem_size = 0x10000000;
 		}
 
 		MALI_PRINT(("Using device defined memory settings (dedicated: 0x%08X@0x%08X, shared: 0x%08X)\n",
