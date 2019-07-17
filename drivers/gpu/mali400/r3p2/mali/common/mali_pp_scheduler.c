@@ -23,9 +23,6 @@
 #include "mali_pm_domain.h"
 #include "linux/mali/mali_utgard.h"
 
-#if defined(CONFIG_DMA_SHARED_BUFFER)
-#include "mali_dma_buf.h"
-#endif
 #if defined(CONFIG_GPU_TRACEPOINTS) && defined(CONFIG_TRACEPOINTS)
 #include <linux/sched.h>
 #include <trace/events/gpu.h>
@@ -973,14 +970,6 @@ MALI_STATIC_INLINE void mali_pp_scheduler_queue_job(struct mali_pp_job *job, str
 #if defined(CONFIG_GPU_TRACEPOINTS) && defined(CONFIG_TRACEPOINTS)
 	trace_gpu_job_enqueue(mali_pp_job_get_tid(job), mali_pp_job_get_id(job), "PP");
 #endif
-
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
-	/* Map buffers attached to job */
-	if (0 != job->num_memory_cookies)
-	{
-		mali_dma_buf_map_job(job);
-	}
-#endif /* CONFIG_DMA_SHARED_BUFFER */
 
 	mali_pp_scheduler_job_queued();
 

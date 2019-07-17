@@ -629,27 +629,12 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 			break;
 #endif
 
-#ifdef CONFIG_DMA_SHARED_BUFFER
-		case MALI_IOC_MEM_ATTACH_DMA_BUF:
-			err = mali_attach_dma_buf(session_data, (_mali_uk_attach_dma_buf_s __user *)arg);
-			break;
-
-		case MALI_IOC_MEM_RELEASE_DMA_BUF:
-			err = mali_release_dma_buf(session_data, (_mali_uk_release_dma_buf_s __user *)arg);
-			break;
-
-		case MALI_IOC_MEM_DMA_BUF_GET_SIZE:
-			err = mali_dma_buf_get_size(session_data, (_mali_uk_dma_buf_get_size_s __user *)arg);
-			break;
-#else
-
 		case MALI_IOC_MEM_ATTACH_DMA_BUF:   /* FALL-THROUGH */
 		case MALI_IOC_MEM_RELEASE_DMA_BUF:  /* FALL-THROUGH */
 		case MALI_IOC_MEM_DMA_BUF_GET_SIZE: /* FALL-THROUGH */
 			MALI_DEBUG_PRINT(2, ("DMA-BUF not supported\n"));
 			err = -ENOTTY;
 			break;
-#endif
 
 		case MALI_IOC_PP_START_JOB:
 			err = pp_start_job_wrapper(session_data, (_mali_uk_pp_start_job_s __user *)arg);
