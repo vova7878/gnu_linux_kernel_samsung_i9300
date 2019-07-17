@@ -446,11 +446,16 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	_mali_osk_errcode_t resource_dlbu_found;
 	_mali_osk_errcode_t resource_bcast_found;
 
+	pr_err("%s: %d\n", __func__, __LINE__);
+
 	if (!(mali_is_mali400() || mali_is_mali450()))
 	{
 		/* No known HW core */
-		return _MALI_OSK_ERR_FAULT;
+		MALI_PRINT(("Mali product detection error"));
+		return -99999999;
 	}
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 
 	if (mali_is_mali450())
 	{
@@ -458,6 +463,8 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 		cluster_id_pp_grp0 = 1;
 		cluster_id_pp_grp1 = 2;
 	}
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 
 	resource_gp_found = _mali_osk_resource_find(global_gpu_base_address + 0x00000, &resource_gp);
 	resource_gp_mmu_found = _mali_osk_resource_find(global_gpu_base_address + 0x03000, &resource_gp_mmu);
@@ -478,16 +485,20 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	resource_pp_mmu_found[6] = _mali_osk_resource_find(global_gpu_base_address + 0x1E000, &(resource_pp_mmu[6]));
 	resource_pp_mmu_found[7] = _mali_osk_resource_find(global_gpu_base_address + 0x1F000, &(resource_pp_mmu[7]));
 
-	resource_gp_found = MALI_TRUE;
-	resource_gp_mmu_found = MALI_TRUE;
-	resource_pp_found[0] = MALI_TRUE;
-	resource_pp_found[1] = MALI_TRUE;
-	resource_pp_found[2] = MALI_TRUE;
-	resource_pp_found[3] = MALI_TRUE;
-	resource_pp_mmu_found[0] = MALI_TRUE;
-	resource_pp_mmu_found[1] = MALI_TRUE;
-	resource_pp_mmu_found[2] = MALI_TRUE;
-	resource_pp_mmu_found[3] = MALI_TRUE;
+	pr_err("%s: %d\n", __func__, __LINE__);
+
+	resource_gp_found = _MALI_OSK_ERR_OK;
+	resource_gp_mmu_found = _MALI_OSK_ERR_OK;
+	resource_pp_found[0] = _MALI_OSK_ERR_OK;
+	resource_pp_found[1] = _MALI_OSK_ERR_OK;
+	resource_pp_found[2] = _MALI_OSK_ERR_OK;
+	resource_pp_found[3] = _MALI_OSK_ERR_OK;
+	resource_pp_mmu_found[0] = _MALI_OSK_ERR_OK;
+	resource_pp_mmu_found[1] = _MALI_OSK_ERR_OK;
+	resource_pp_mmu_found[2] = _MALI_OSK_ERR_OK;
+	resource_pp_mmu_found[3] = _MALI_OSK_ERR_OK;
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 
 	MALI_SET_RESOURCE(resource_gp, 0x13000000, 191, "Mali_GP");
 	MALI_SET_RESOURCE(resource_gp_mmu, 0x13003000, 186, "Mali_GP_MMU");
@@ -499,6 +510,8 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	MALI_SET_RESOURCE(resource_pp_mmu[1], 0x13005000, 183, "Mali_PP1_MMU");
 	MALI_SET_RESOURCE(resource_pp_mmu[2], 0x13006000, 184, "Mali_PP2_MMU");
 	MALI_SET_RESOURCE(resource_pp_mmu[3], 0x13007000, 185, "Mali_PP3_MMU");
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 /*
 [    1.404107] c0      1 mali_parse_config_groups: 537: res resource_gp: .description = Mali_GP, .irq = 191, .base = 13000000
 [    1.415096] c0      1 mali_parse_config_groups: 539: res resource_gp_mmu: .description = Mali_GP_MMU, .irq = 186, .base = 13003000
@@ -515,24 +528,6 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 [    1.586612] c0      1 mali_parse_config_groups: 567: res resource_pp_mmu[5]: .description = , .irq = -1061402520, .base = f1edfc80
 */
 
-	if (mali_is_mali450())
-	{
-		resource_bcast_found = _mali_osk_resource_find(global_gpu_base_address + 0x13000, &resource_bcast);
-		resource_dlbu_found = _mali_osk_resource_find(global_gpu_base_address + 0x14000, &resource_dlbu);
-		resource_pp_mmu_bcast_found = _mali_osk_resource_find(global_gpu_base_address + 0x15000, &resource_pp_mmu_bcast);
-		resource_pp_bcast_found = _mali_osk_resource_find(global_gpu_base_address + 0x16000, &resource_pp_bcast);
-
-		if (_MALI_OSK_ERR_OK != resource_bcast_found ||
-		    _MALI_OSK_ERR_OK != resource_dlbu_found ||
-		    _MALI_OSK_ERR_OK != resource_pp_mmu_bcast_found ||
-		    _MALI_OSK_ERR_OK != resource_pp_bcast_found)
-		{
-			/* Missing mandatory core(s) for Mali-450 */
-			MALI_PRINT(("Missing mandatory resources, Mali-450 needs DLBU, Broadcast unit, virtual PP core and virtual MMU\n"));
-			return _MALI_OSK_ERR_FAULT;
-		}
-	}
-
 	if (_MALI_OSK_ERR_OK != resource_gp_found ||
 	    _MALI_OSK_ERR_OK != resource_gp_mmu_found ||
 	    _MALI_OSK_ERR_OK != resource_pp_found[0] ||
@@ -540,91 +535,112 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 	{
 		/* Missing mandatory core(s) */
 		MALI_PRINT(("Missing mandatory resource, need at least one GP and one PP, both with a separate MMU\n"));
-		return _MALI_OSK_ERR_FAULT;
+		return -161;
 	}
 
-	MALI_DEBUG_ASSERT(1 <= mali_l2_cache_core_get_glob_num_l2_cores());
+	pr_err("%s: %d\n", __func__, __LINE__);
+
+	int num_l2_cores = mali_l2_cache_core_get_glob_num_l2_cores();
+
+	if (num_l2_cores <= 1) {
+		MALI_PRINT(("%s: %d: num_l2_cores == %d\n", __func__, __LINE__, num_l2_cores));
+	}
+
+	pr_err("%s: %d\n", __func__, __LINE__);
+
+	MALI_DEBUG_ASSERT(1 <= num_l2_cores);
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 	group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_gp), &resource_gp_mmu, &resource_gp, NULL);
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 	if (NULL == group)
 	{
 		MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
 
-		return _MALI_OSK_ERR_FAULT;
+		return -27323;
 	}
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 
 	/* Create group for first (and mandatory) PP core */
 	MALI_DEBUG_ASSERT(mali_l2_cache_core_get_glob_num_l2_cores() >= (cluster_id_pp_grp0 + 1)); /* >= 1 on Mali-300 and Mali-400, >= 2 on Mali-450 */
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 	group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[0], NULL, &resource_pp[0]);
+
+	pr_err("%s: %d\n", __func__, __LINE__);
 	if (NULL == group)
 	{
 		MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
-		return _MALI_OSK_ERR_FAULT;
+		return -44343;
 	}
-	if (mali_is_mali450())
-	{
-		mali_pm_domain_add_group(MALI_PMU_M450_DOM1, group);
-	}
-	else
-	{
-		mali_pm_domain_add_group(MALI_PMU_M400_PP0, group);
-	}
+
+	pr_err("%s: %d\n", __func__, __LINE__);
+	mali_pm_domain_add_group(MALI_PMU_M400_PP0, group);
+
 	mali_inited_pp_cores_group_1++;
 
+	pr_err("%s: %d\n", __func__, __LINE__);
 	/* Create groups for rest of the cores in the first PP core group */
 	for (i = 1; i < 4; i++) /* First half of the PP cores belong to first core group */
 	{
+		pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 		if (mali_inited_pp_cores_group_1 < mali_max_pp_cores_group_1)
 		{
+			pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+
 			if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
 			{
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+
 				group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[i], NULL, &resource_pp[i]);
 				if (NULL == group)
 				{
 					MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
-					return _MALI_OSK_ERR_FAULT;
+					return -273812;
 				}
-				if (mali_is_mali450())
-				{
-					mali_pm_domain_add_group(MALI_PMU_M450_DOM2, group);
-				}
-				else
-				{
-					mali_pm_domain_add_group(MALI_PMU_M400_PP0 + i, group);
-				}
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+				mali_pm_domain_add_group(MALI_PMU_M400_PP0 + i, group);
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 				mali_inited_pp_cores_group_1++;
 			}
 		}
 	}
 
+	pr_err("%s: %d: %d\n", __func__, __LINE__);
+
 	/* Create groups for cores in the second PP core group */
 	for (i = 4; i < 8; i++) /* Second half of the PP cores belong to second core group */
 	{
+		pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 		if (mali_inited_pp_cores_group_2 < mali_max_pp_cores_group_2)
 		{
+			pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 			if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
 			{
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 				MALI_DEBUG_ASSERT(mali_l2_cache_core_get_glob_num_l2_cores() >= 2); /* Only Mali-450 have a second core group */
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+
 				group = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp1), &resource_pp_mmu[i], NULL, &resource_pp[i]);
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+
 				if (NULL == group)
 				{
+					pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 					MALI_PRINT(("%s: %d: mali_create_group() == NULL\n", __func__, __LINE__));
-					return _MALI_OSK_ERR_FAULT;
+					return -2432423;
 				}
+				pr_err("%s: %d: %d\n", __func__, __LINE__, i);
+
 				mali_pm_domain_add_group(MALI_PMU_M450_DOM3, group);
 				mali_inited_pp_cores_group_2++;
 			}
 		}
 	}
 
-	if(mali_is_mali450())
-	{
-		_mali_osk_errcode_t err = mali_create_virtual_group(&resource_pp_mmu_bcast, &resource_pp_bcast, &resource_dlbu, &resource_bcast);
-		if (_MALI_OSK_ERR_OK != err)
-		{
-			return err;
-		}
-	}
-
+	pr_err("%s: %d: %d\n", __func__, __LINE__, i);
 	mali_max_pp_cores_group_1 = mali_inited_pp_cores_group_1;
 	mali_max_pp_cores_group_2 = mali_inited_pp_cores_group_2;
 	MALI_PRINT(("%d+%d PP cores initialized\n", mali_inited_pp_cores_group_1, mali_inited_pp_cores_group_2));
@@ -958,7 +974,11 @@ _mali_osk_errcode_t mali_initialize_subsystems(void)
 
 		goto config_parsing_failed;
 	}
+	//pr_err("%s: mali_parse_config_groups", __func__);
+	//goto config_parsing_failed;
+
 	err = mali_parse_config_groups();
+
 	if (_MALI_OSK_ERR_OK != err) {
 		MALI_PRINT_ERROR(("%s: mali_parse_config_groups returned %d\n", __func__, err));
 

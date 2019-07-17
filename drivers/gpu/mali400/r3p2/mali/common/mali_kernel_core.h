@@ -43,8 +43,7 @@ MALI_STATIC_INLINE mali_bool mali_is_mali450(void)
 
 MALI_STATIC_INLINE mali_bool mali_is_mali400(void)
 {
-	u32 id = mali_kernel_core_get_product_id();
-	return _MALI_PRODUCT_ID_MALI400 == id || _MALI_PRODUCT_ID_MALI300 == id;
+	return MALI_TRUE;
 }
 
 #endif /* __MALI_KERNEL_CORE_H__ */
