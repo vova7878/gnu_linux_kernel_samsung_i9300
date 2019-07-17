@@ -106,6 +106,8 @@ mali-y += \
 	common/mali_pm_domain.o \
 	linux/mali_osk_pm.o \
 	linux/mali_pmu_power_up_down.o \
+	platform/arm/arm.o \
+	platform/arm/arm_core_scaling.o \
 	platform/exynos4/exynos4.o \
 	__malidrv_build_info.o
 

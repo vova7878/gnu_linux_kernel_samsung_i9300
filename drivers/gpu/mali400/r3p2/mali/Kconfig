@@ -65,3 +65,13 @@ config MALI_SHARED_INTERRUPTS
 	  Adds functionality required to properly support shared interrupts.  Without this support,
 	  the device driver will fail during insmod if it detects shared interrupts.  Works even if
 	  the GPU is not using shared interrupts, but can cause lower performance.
+
+config MALI_DT
+	bool "Using device tree to initialize module"
+	#depends on MALI400 && CONFIG_OF
+	default y
+	---help---
+	  This enable the Mali driver to choose the device tree path to get platform resoures
+	  and disable the old config method. Mali driver could run on the platform which the
+	  device tree is enabled in kernel and corresponding hardware description is implemented
+	  properly in device DTS file.

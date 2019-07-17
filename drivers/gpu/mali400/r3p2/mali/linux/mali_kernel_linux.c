@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -22,6 +22,9 @@
 #include "mali_kernel_license.h"
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
+#include <linux/bug.h>
+#include <linux/of.h>
+
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 #include "mali_session.h"
@@ -124,14 +127,18 @@ static int mali_driver_runtime_idle(struct device *dev);
 #endif
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
+#if defined(CONFIG_MALI_DT)
+extern int mali_platform_device_init(struct platform_device *device);
+extern int mali_platform_device_deinit(struct platform_device *device);
+#else
 extern int mali_platform_device_register(void);
 extern int mali_platform_device_unregister(void);
+#endif
 #endif
 
 /* Linux power management operations provided by the Mali device driver */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
-struct pm_ext_ops mali_dev_ext_pm_ops =
-{
+struct pm_ext_ops mali_dev_ext_pm_ops = {
 	.base =
 	{
 		.suspend = mali_driver_suspend_scheduler,
@@ -155,12 +162,23 @@ static const struct dev_pm_ops mali_dev_pm_ops =
 };
 #endif
 
+#ifdef CONFIG_MALI_DT
+static struct of_device_id base_dt_ids[] = {
+	{.compatible = "arm,mali-300"},
+	{.compatible = "arm,mali-400"},
+	{.compatible = "arm,mali-450"},
+	{.compatible = "arm,mali-utgard"},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, base_dt_ids);
+#endif
+
 /* The Mali device driver struct */
-static struct platform_driver mali_platform_driver =
-{
+static struct platform_driver mali_platform_driver = {
 	.probe  = mali_probe,
 	.remove = mali_remove,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29))
 	.pm = &mali_dev_ext_pm_ops,
 #endif
 	.driver =
@@ -168,15 +186,17 @@ static struct platform_driver mali_platform_driver =
 		.name   = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 		.owner  = THIS_MODULE,
 		.bus = &platform_bus_type,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 		.pm = &mali_dev_pm_ops,
+#endif
+#ifdef CONFIG_MALI_DT
+		.of_match_table = of_match_ptr(base_dt_ids),
 #endif
 	},
 };
 
 /* Linux misc device operations (/dev/mali) */
-struct file_operations mali_fops =
-{
+struct file_operations mali_fops = {
 	.owner = THIS_MODULE,
 	.open = mali_open,
 	.release = mali_release,
@@ -200,12 +220,14 @@ int mali_module_init(void)
 	mali_osk_low_level_mem_init();
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
+#ifndef CONFIG_MALI_DT
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering device\n"));
 	err = mali_platform_device_register();
 	if (0 != err)
 	{
 		return err;
 	}
+#endif
 #endif
 
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering driver\n"));
@@ -216,7 +238,9 @@ int mali_module_init(void)
 	{
 		MALI_DEBUG_PRINT(2, ("mali_module_init() Failed to register driver (%d)\n", err));
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
+#ifndef CONFIG_MALI_DT
 		mali_platform_device_unregister();
+#endif
 #endif
 		mali_platform_device = NULL;
 		return err;
@@ -249,8 +273,10 @@ void mali_module_exit(void)
 	platform_driver_unregister(&mali_platform_driver);
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
+#ifndef CONFIG_MALI_DT
 	MALI_DEBUG_PRINT(2, ("mali_module_exit() unregistering device\n"));
 	mali_platform_device_unregister();
+#endif
 #endif
 
 	mali_osk_low_level_mem_term();
@@ -264,8 +290,7 @@ static int mali_probe(struct platform_device *pdev)
 
 	MALI_DEBUG_PRINT(2, ("mali_probe(): Called for platform device %s\n", pdev->name));
 
-	if (NULL != mali_platform_device)
-	{
+	if (NULL != mali_platform_device) {
 		/* Already connected to a device, return error */
 		MALI_PRINT_ERROR(("mali_probe(): The Mali driver is already connected with a Mali device."));
 		return -EEXIST;
@@ -273,36 +298,37 @@ static int mali_probe(struct platform_device *pdev)
 
 	mali_platform_device = pdev;
 
-	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init())
-	{
+#ifdef CONFIG_MALI_DT
+	/* If we use DT to initialize our DDK, we have to prepare somethings. */
+	err = mali_platform_device_init(mali_platform_device);
+	if (0 != err) {
+		MALI_PRINT_ERROR(("mali_probe(): Failed to initialize platform device."));
+		return -EFAULT;
+	}
+#endif
+
+	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
 		/* Initialize the Mali GPU HW specified by pdev */
-		if (_MALI_OSK_ERR_OK == mali_initialize_subsystems())
-		{
+		if (_MALI_OSK_ERR_OK == mali_initialize_subsystems()) {
 			/* Register a misc device (so we are accessible from user space) */
 			err = mali_miscdevice_register(pdev);
-			if (0 == err)
-			{
+			if (0 == err) {
 				/* Setup sysfs entries */
 				err = mali_sysfs_register(mali_dev_name);
-				if (0 == err)
-				{
+
+				if (0 == err) {
 					MALI_DEBUG_PRINT(2, ("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
+
 					return 0;
-				}
-				else
-				{
+				} else {
 					MALI_PRINT_ERROR(("mali_probe(): failed to register sysfs entries"));
 				}
 				mali_miscdevice_unregister();
-			}
-			else
-			{
+			} else {
 				MALI_PRINT_ERROR(("mali_probe(): failed to register Mali misc device."));
 			}
 			mali_terminate_subsystems();
-		}
-		else
-		{
+		} else {
 			MALI_PRINT_ERROR(("mali_probe(): Failed to initialize Mali device driver."));
 		}
 		_mali_osk_wq_term();
@@ -319,6 +345,9 @@ static int mali_remove(struct platform_device *pdev)
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
 	_mali_osk_wq_term();
+#ifdef CONFIG_MALI_DT
+	mali_platform_device_deinit(mali_platform_device);
+#endif
 	mali_platform_device = NULL;
 	return 0;
 }
@@ -333,8 +362,7 @@ static int mali_miscdevice_register(struct platform_device *pdev)
 	mali_miscdevice.parent = get_device(&pdev->dev);
 
 	err = misc_register(&mali_miscdevice);
-	if (0 != err)
-	{
+	if (0 != err) {
 		MALI_PRINT_ERROR(("Failed to register misc device, misc_register() returned %d\n", err));
 	}
 

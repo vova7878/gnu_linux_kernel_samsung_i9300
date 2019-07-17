@@ -12,6 +12,7 @@ USE_UMPV2=0
 USING_PROFILING ?= 1
 USING_INTERNAL_PROFILING ?= 0
 MALI_DMA_BUF_MAP_ON_ATTACH ?= 1
+USING_DT ?= 1
 
 # The Makefile sets up "arch" based on the CONFIG, creates the version info
 # string and the __malidrv_build_info.c file, and then call the Linux build
@@ -92,6 +93,13 @@ endif
 
 # Set up build config
 export CONFIG_MALI400=m
+
+ifdef CONFIG_OF
+ifeq ($(USING_DT),1)
+export CONFIG_MALI_DT=y
+export EXTRA_DEFINES += -DCONFIG_MALI_DT
+endif
+endif
 
 ifneq ($(MALI_PLATFORM),)
 export EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
