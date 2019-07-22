@@ -41,11 +41,11 @@
 
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
-#define __init		__section(.init.text) __cold notrace
-#define __initdata	__section(.init.data)
-#define __initconst	__section(.init.rodata)
-#define __exitdata	__section(.exit.data)
-#define __exit_call	__used __section(.exitcall.exit)
+#define __init
+#define __initdata
+#define __initconst
+#define __exitdata
+#define __exit_call
 
 /*
  * modpost check for section mismatches during the kernel build.
@@ -80,52 +80,52 @@
 #define __exitused  __used
 #endif
 
-#define __exit          __section(.exit.text) __exitused __cold notrace
+#define __exit
 
 /* Used for HOTPLUG */
-#define __devinit        __section(.devinit.text) __cold notrace
-#define __devinitdata    __section(.devinit.data)
-#define __devinitconst   __section(.devinit.rodata)
-#define __devexit        __section(.devexit.text) __exitused __cold notrace
-#define __devexitdata    __section(.devexit.data)
-#define __devexitconst   __section(.devexit.rodata)
+#define __devinit
+#define __devinitdata
+#define __devinitconst
+#define __devexit
+#define __devexitdata
+#define __devexitconst
 
 /* Used for HOTPLUG_CPU */
-#define __cpuinit        __section(.cpuinit.text) __cold notrace
-#define __cpuinitdata    __section(.cpuinit.data)
-#define __cpuinitconst   __section(.cpuinit.rodata)
-#define __cpuexit        __section(.cpuexit.text) __exitused __cold notrace
-#define __cpuexitdata    __section(.cpuexit.data)
-#define __cpuexitconst   __section(.cpuexit.rodata)
+#define __cpuinit
+#define __cpuinitdata
+#define __cpuinitconst
+#define __cpuexit
+#define __cpuexitdata
+#define __cpuexitconst
 
 /* Used for MEMORY_HOTPLUG */
-#define __meminit        __section(.meminit.text) __cold notrace
-#define __meminitdata    __section(.meminit.data)
-#define __meminitconst   __section(.meminit.rodata)
-#define __memexit        __section(.memexit.text) __exitused __cold notrace
-#define __memexitdata    __section(.memexit.data)
-#define __memexitconst   __section(.memexit.rodata)
+#define __meminit
+#define __meminitdata
+#define __meminitconst
+#define __memexit
+#define __memexitdata
+#define __memexitconst
 
 /* For assembly routines */
 #define __HEAD		.section	".head.text","ax"
-#define __INIT		.section	".init.text","ax"
-#define __FINIT		.previous
+#define __INIT
+#define __FINIT
 
-#define __INITDATA	.section	".init.data","aw",%progbits
-#define __INITRODATA	.section	".init.rodata","a",%progbits
-#define __FINITDATA	.previous
+#define __INITDATA
+#define __INITRODATA
+#define __FINITDATA
 
-#define __DEVINIT        .section	".devinit.text", "ax"
-#define __DEVINITDATA    .section	".devinit.data", "aw"
-#define __DEVINITRODATA  .section	".devinit.rodata", "a"
+#define __DEVINIT
+#define __DEVINITDATA
+#define __DEVINITRODATA
 
-#define __CPUINIT        .section	".cpuinit.text", "ax"
-#define __CPUINITDATA    .section	".cpuinit.data", "aw"
-#define __CPUINITRODATA  .section	".cpuinit.rodata", "a"
+#define __CPUINIT
+#define __CPUINITDATA
+#define __CPUINITRODATA
 
-#define __MEMINIT        .section	".meminit.text", "ax"
-#define __MEMINITDATA    .section	".meminit.data", "aw"
-#define __MEMINITRODATA  .section	".meminit.rodata", "a"
+#define __MEMINIT
+#define __MEMINITDATA
+#define __MEMINITRODATA
 
 /* silence warnings when references are OK */
 #define __REF            .section       ".ref.text", "ax"
