@@ -103,7 +103,7 @@ tune-$(CONFIG_CPU_V6K)		:=$(call cc-option,-mtune=arm1136j-s,-mtune=strongarm)
 tune-$(CONFIG_ARCH_EXYNOS)   :=-mtune=cortex-a9
 
 ifeq ($(CONFIG_AEABI),y)
-CFLAGS_ABI	:=
+CFLAGS_ABI	:=-mabi=aapcs-linux -mfpu=vfp
 else
 CFLAGS_ABI	:=$(call cc-option,-mapcs-32,-mabi=apcs-gnu) $(call cc-option,-mno-thumb-interwork,)
 endif
