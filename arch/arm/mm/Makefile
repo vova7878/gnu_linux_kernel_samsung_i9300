@@ -18,6 +18,8 @@ endif
 obj-$(CONFIG_MMU)		+= fault-armv.o flush.o idmap.o ioremap.o \
 				   mmap.o pgd.o vmregion.o
 
+obj-$(CONFIG_ARCH_EXYNOS)	+= mmu-legacy.o
+
 ifeq ($(CONFIG_MMU),y)
 ifeq ($(CONFIG_SLP),y)
 obj-y				+= mmu-slp.o
