@@ -41,11 +41,7 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
-#ifdef CONFIG_HZ_432
-#include "timeconst432.h"
-#else
 #include "timeconst.h"
-#endif
 
 /*
  * The timezone where the local system is located.  Used as a default by some
