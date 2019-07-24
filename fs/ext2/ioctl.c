@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  * linux/fs/ext2/ioctl.c
  *
@@ -96,14 +93,7 @@ setflags_out:
 		__u32 generation;
 
 		if (!inode_owner_or_capable(inode))
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-	return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+			return -EPERM;
 		ret = mnt_want_write_file(filp);
 		if (ret)
 			return ret;

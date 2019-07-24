@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 #include <linux/proc_fs.h>
 #include <linux/nsproxy.h>
 #include <linux/sched.h>

@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  * inode.c
  *
@@ -1122,15 +1119,7 @@ int udf_setsize(struct inode *inode, loff_t newsize)
 	      S_ISLNK(inode->i_mode)))
 		return -EINVAL;
 	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
-		
-#ifdef CONFIG_GOD_MODE
-{
- if (!god_mode_enabled)
-#endif
-return -EPERM;
-#ifdef CONFIG_GOD_MODE
-}
-#endif
+		return -EPERM;
 
 	iinfo = UDF_I(inode);
 	if (newsize > inode->i_size) {

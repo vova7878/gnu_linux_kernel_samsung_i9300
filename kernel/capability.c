@@ -1,6 +1,3 @@
-#ifdef CONFIG_GOD_MODE
-#include <linux/god_mode.h>
-#endif
 /*
  * linux/kernel/capability.c
  *
@@ -308,10 +305,6 @@ bool has_ns_capability(struct task_struct *t,
 	rcu_read_lock();
 	ret = security_capable(__task_cred(t), ns, cap);
 	rcu_read_unlock();
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-        return true;
-#endif
 
 	return (ret == 0);
 }
@@ -348,10 +341,6 @@ bool has_ns_capability_noaudit(struct task_struct *t,
 			       struct user_namespace *ns, int cap)
 {
 	int ret;
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-        return true;
-#endif
 
 	rcu_read_lock();
 	ret = security_capable_noaudit(__task_cred(t), ns, cap);
@@ -374,11 +363,6 @@ if (god_mode_enabled)
  */
 bool has_capability_noaudit(struct task_struct *t, int cap)
 {
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-	return true;
-#endif
-
 	return has_ns_capability_noaudit(t, &init_user_ns, cap);
 }
 
@@ -395,11 +379,6 @@ if (god_mode_enabled)
  */
 bool ns_capable(struct user_namespace *ns, int cap)
 {
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-        return true;
-#endif
-
 	if (unlikely(!cap_valid(cap))) {
 		printk(KERN_CRIT "capable() called with invalid cap=%u\n", cap);
 		BUG();
@@ -425,10 +404,6 @@ EXPORT_SYMBOL(ns_capable);
  */
 bool capable(int cap)
 {
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-        return true;
-#endif
 	return ns_capable(&init_user_ns, cap);
 }
 EXPORT_SYMBOL(capable);
@@ -442,10 +417,5 @@ EXPORT_SYMBOL(capable);
  */
 bool nsown_capable(int cap)
 {
-#ifdef CONFIG_GOD_MODE
-if (god_mode_enabled)
-        return true;
-#endif
-
 	return ns_capable(current_user_ns(), cap);
 }
