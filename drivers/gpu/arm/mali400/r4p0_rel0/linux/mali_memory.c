@@ -107,7 +107,12 @@ static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma,
 	void __user * address;
 	mali_mem_allocation *descriptor;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	address = (void*)(vmf->address);
+#else
 	address = vmf->virtual_address;
+#endif
+
 	descriptor = (mali_mem_allocation *)vma->vm_private_data;
 
 	MALI_DEBUG_ASSERT(MALI_MEM_ALLOCATION_VALID_MAGIC == descriptor->magic);
