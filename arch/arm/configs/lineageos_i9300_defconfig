@@ -761,7 +761,7 @@ CONFIG_ARM_FLUSH_CONSOLE_ON_RESTART=y
 # CONFIG_USE_OF is not set
 CONFIG_ZBOOT_ROM_TEXT=0
 CONFIG_ZBOOT_ROM_BSS=0
-CONFIG_CMDLINE="console=ttySAC2,115200 consoleblank=0 androidboot.hardware=smdk4x12 androidboot.selinux=permissive nmi_watchdog=nopanic"
+CONFIG_CMDLINE="root=PARTUUID=52444e41-494f-2044-5359-5354454d0000 console=ttySAC2,115200 consoleblank=0 androidboot.hardware=smdk4x12 androidboot.selinux=permissive nmi_watchdog=nopanic"
 #CONFIG_CMDLINE="console=ttySAC2,115200 consoleblank=0 androidboot.hardware=smdk4x12"
 # CONFIG_CMDLINE_FROM_BOOTLOADER is not set
 CONFIG_CMDLINE_EXTEND=y
