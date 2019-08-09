@@ -1046,12 +1046,27 @@ keep:
  *
  * returns 0 on success, -ve errno on failure.
  */
-int __isolate_lru_page(struct page *page, isolate_mode_t mode)
+int __isolate_lru_page(struct page *page, isolate_mode_t mode, int file)
 {
+	bool all_lru_mode;
 	int ret = -EINVAL;
 
 	/* Only take pages on the LRU. */
 	if (!PageLRU(page))
+		return ret;
+
+	all_lru_mode = (mode & (ISOLATE_ACTIVE|ISOLATE_INACTIVE)) ==
+		(ISOLATE_ACTIVE|ISOLATE_INACTIVE);
+
+	/*
+	 * When checking the active state, we need to be sure we are
+	 * dealing with comparible boolean values.  Take the logical not
+	 * of each.
+	 */
+	if (!all_lru_mode && !PageActive(page) != !(mode & ISOLATE_ACTIVE))
+		return ret;
+
+	if (!all_lru_mode && !!page_is_file_cache(page) != file)
 		return ret;
 
 	/* Do not give back unevictable pages for compaction */
@@ -1154,7 +1169,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 
 		VM_BUG_ON(!PageLRU(page));
 
-		switch (__isolate_lru_page(page, mode)) {
+		switch (__isolate_lru_page(page, mode, file)) {
 		case 0:
 			mem_cgroup_lru_del_list(page, lru);
 			list_move(&page->lru, dst);
@@ -1325,7 +1340,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 	unsigned long nr_taken;
 	unsigned long nr_dirty = 0;
 	unsigned long nr_writeback = 0;
-	isolate_mode_t isolate_mode = 0;
+	isolate_mode_t isolate_mode = ISOLATE_INACTIVE;
 	int file = is_file_lru(lru);
 	struct zone *zone = mz->zone;
 	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
@@ -1497,7 +1512,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 	struct page *page;
 	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(mz);
 	unsigned long nr_rotated = 0;
-	isolate_mode_t isolate_mode = 0;
+	isolate_mode_t isolate_mode = ISOLATE_ACTIVE;
 	int file = is_file_lru(lru);
 	struct zone *zone = mz->zone;
 	struct lruvec *lruvec = mem_cgroup_zone_lruvec(zone, mz->mem_cgroup);
