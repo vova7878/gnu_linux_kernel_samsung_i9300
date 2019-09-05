@@ -1858,3 +1858,10 @@ config MACH_KONA_SENSOR
           BMA254 / BOSCH
           YAS532 / YAMAHA
           GP2A030A / SHARP
+
+config EXYNOS_REBOOT_RECOVERY
+	bool "Always reboot to recovery"
+	default n
+	help
+	  Always reboot to recovery. Useful for kernel crash debugging.
+	  Say N if unsure.

@@ -117,6 +117,10 @@ static void sec_reboot(char str, const char *cmd)
 	if (!cmd) {
 		writel(REBOOT_MODE_PREFIX | REBOOT_MODE_NONE, S5P_INFORM3);
 	} else {
+#ifdef CONFIG_EXYNOS_REBOOT_RECOVERY
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_RECOVERY,
+			       S5P_INFORM3);
+#else
 		unsigned long value;
 		if (!strcmp(cmd, "fota"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
@@ -156,6 +160,7 @@ static void sec_reboot(char str, const char *cmd)
 		else
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_NONE,
 			       S5P_INFORM3);
+#endif
 	}
 
 	flush_cache_all();
