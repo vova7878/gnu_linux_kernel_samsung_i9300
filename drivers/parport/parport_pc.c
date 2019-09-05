@@ -2075,7 +2075,7 @@ struct parport *parport_pc_probe_port(unsigned long int base,
 
 	printk(KERN_INFO "%s: PC-style at 0x%lx", p->name, p->base);
 	if (p->base_hi && priv->ecr)
-		printk(KERN_CONT " (0x%lx)", p->base_hi);
+		printk(" (0x%lx)", p->base_hi);
 	if (p->irq == PARPORT_IRQ_AUTO) {
 		p->irq = PARPORT_IRQ_NONE;
 		parport_irq_probe(p);
@@ -2086,7 +2086,7 @@ struct parport *parport_pc_probe_port(unsigned long int base,
 		p->irq = PARPORT_IRQ_NONE;
 	}
 	if (p->irq != PARPORT_IRQ_NONE) {
-		printk(KERN_CONT ", irq %d", p->irq);
+		printk(", irq %d", p->irq);
 		priv->ctr_writable |= 0x10;
 
 		if (p->dma == PARPORT_DMA_AUTO) {
@@ -2110,21 +2110,21 @@ struct parport *parport_pc_probe_port(unsigned long int base,
 		/* p->ops->ecp_read_data = parport_pc_ecp_read_block_pio; */
 #endif /* IEEE 1284 support */
 		if (p->dma != PARPORT_DMA_NONE) {
-			printk(KERN_CONT ", dma %d", p->dma);
+			printk(", dma %d", p->dma);
 			p->modes |= PARPORT_MODE_DMA;
 		} else
-			printk(KERN_CONT ", using FIFO");
+			printk(", using FIFO");
 	} else
 		/* We can't use the DMA channel after all. */
 		p->dma = PARPORT_DMA_NONE;
 #endif /* Allowed to use FIFO/DMA */
 
-	printk(KERN_CONT " [");
+	printk(" [");
 
 #define printmode(x) \
 	{\
 		if (p->modes & PARPORT_MODE_##x) {\
-			printk(KERN_CONT "%s%s", f ? "," : "", #x);\
+			printk("%s%s", f ? "," : "", #x);\
 			f++;\
 		} \
 	}
@@ -2140,9 +2140,9 @@ struct parport *parport_pc_probe_port(unsigned long int base,
 	}
 #undef printmode
 #ifndef CONFIG_PARPORT_1284
-	printk(KERN_CONT "(,...)");
+	printk("(,...)");
 #endif /* CONFIG_PARPORT_1284 */
-	printk(KERN_CONT "]\n");
+	printk("]\n");
 	if (probedirq != PARPORT_IRQ_NONE)
 		printk(KERN_INFO "%s: irq %d detected\n", p->name, probedirq);
 

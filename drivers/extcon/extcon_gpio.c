@@ -55,7 +55,8 @@ static void gpio_extcon_work(struct work_struct *work)
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
-	struct gpio_extcon_data *extcon_data = dev_id;
+	struct gpio_extcon_data *extcon_data =
+	    (struct gpio_extcon_data *)dev_id;
 
 	schedule_delayed_work(&extcon_data->work,
 			      extcon_data->debounce_jiffies);
@@ -77,7 +78,7 @@ static ssize_t extcon_gpio_print_state(struct extcon_dev *edev, char *buf)
 	return -EINVAL;
 }
 
-static int __devinit gpio_extcon_probe(struct platform_device *pdev)
+static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_platform_data *pdata = pdev->dev.platform_data;
 	struct gpio_extcon_data *extcon_data;
@@ -107,9 +108,13 @@ static int __devinit gpio_extcon_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_extcon_dev_register;
 
-	ret = gpio_request_one(extcon_data->gpio, GPIOF_DIR_IN, pdev->name);
+	ret = gpio_request(extcon_data->gpio, pdev->name);
 	if (ret < 0)
 		goto err_request_gpio;
+
+	ret = gpio_direction_input(extcon_data->gpio);
+	if (ret < 0)
+		goto err_set_gpio_input;
 
 	INIT_DELAYED_WORK(&extcon_data->work, gpio_extcon_work);
 
@@ -125,6 +130,7 @@ static int __devinit gpio_extcon_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_request_irq;
 
+	platform_set_drvdata(pdev, extcon_data);
 	/* Perform initial detection */
 	gpio_extcon_work(&extcon_data->work.work);
 
@@ -132,6 +138,7 @@ static int __devinit gpio_extcon_probe(struct platform_device *pdev)
 
 err_request_irq:
 err_detect_irq_num_failed:
+err_set_gpio_input:
 	gpio_free(extcon_data->gpio);
 err_request_gpio:
 	extcon_dev_unregister(&extcon_data->edev);
@@ -141,11 +148,12 @@ err_extcon_dev_register:
 	return ret;
 }
 
-static int __devexit gpio_extcon_remove(struct platform_device *pdev)
+static int gpio_extcon_remove(struct platform_device *pdev)
 {
 	struct gpio_extcon_data *extcon_data = platform_get_drvdata(pdev);
 
 	cancel_delayed_work_sync(&extcon_data->work);
+	free_irq(extcon_data->irq, extcon_data);
 	gpio_free(extcon_data->gpio);
 	extcon_dev_unregister(&extcon_data->edev);
 	devm_kfree(&pdev->dev, extcon_data);
@@ -155,7 +163,7 @@ static int __devexit gpio_extcon_remove(struct platform_device *pdev)
 
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
-	.remove		= __devexit_p(gpio_extcon_remove),
+	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.owner	= THIS_MODULE,

@@ -66,9 +66,6 @@ const char *extcon_cable_name[] = {
 };
 
 struct class *extcon_class;
-#if defined(CONFIG_ANDROID)
-static struct class_compat *switch_class;
-#endif /* CONFIG_ANDROID */
 
 static LIST_HEAD(extcon_dev_list);
 static DEFINE_MUTEX(extcon_dev_list_lock);
@@ -259,7 +256,7 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
 				if (prop_buf[length - 1] == '\n')
 					prop_buf[length - 1] = 0;
 				snprintf(name_buf, sizeof(name_buf),
-					"NAME=%s", prop_buf);
+					"SWITCH_NAME=%s", prop_buf);
 				envp[env_offset++] = name_buf;
 			}
 			length = state_show(edev->dev, NULL, prop_buf);
@@ -267,7 +264,7 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
 				if (prop_buf[length - 1] == '\n')
 					prop_buf[length - 1] = 0;
 				snprintf(state_buf, sizeof(state_buf),
-					"STATE=%s", prop_buf);
+					"SWITCH_STATE=%s", prop_buf);
 				envp[env_offset++] = state_buf;
 			}
 			envp[env_offset] = NULL;
@@ -539,12 +536,6 @@ static int create_extcon_class(void)
 		if (IS_ERR(extcon_class))
 			return PTR_ERR(extcon_class);
 		extcon_class->dev_attrs = extcon_attrs;
-
-#if defined(CONFIG_ANDROID)
-		switch_class = class_compat_register("switch");
-		if (WARN(!switch_class, "cannot allocate"))
-			return -ENOMEM;
-#endif /* CONFIG_ANDROID */
 	}
 
 	return 0;
@@ -629,8 +620,6 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 	}
 
 	edev->dev = kzalloc(sizeof(struct device), GFP_KERNEL);
-	if (!edev->dev)
-		return -ENOMEM;
 	edev->dev->parent = dev;
 	edev->dev->class = extcon_class;
 	edev->dev->release = extcon_dev_release;
@@ -638,8 +627,8 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 	dev_set_name(edev->dev, edev->name ? edev->name : dev_name(dev));
 
 	if (edev->max_supported) {
-		char buf[10];
-		char *str;
+		char buf[6 + CABLE_NAME_MAX];
+		char *str, *cable_name;
 		struct extcon_cable *cable;
 
 		edev->cables = kzalloc(sizeof(struct extcon_cable) *
@@ -650,8 +639,10 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 		}
 		for (index = 0; index < edev->max_supported; index++) {
 			cable = &edev->cables[index];
+			cable_name = edev->supported_cable[index];
 
-			snprintf(buf, 10, "cable.%d", index);
+			snprintf(buf, 6 + CABLE_NAME_MAX, "cable.%s",
+					cable_name);
 			str = kzalloc(sizeof(char) * (strlen(buf) + 1),
 				      GFP_KERNEL);
 			if (!str) {
@@ -759,11 +750,6 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 		put_device(edev->dev);
 		goto err_dev;
 	}
-#if defined(CONFIG_ANDROID)
-	if (switch_class)
-		ret = class_compat_create_link(switch_class, edev->dev,
-					       dev);
-#endif /* CONFIG_ANDROID */
 
 	spin_lock_init(&edev->lock);
 

@@ -720,21 +720,21 @@ static int acpi_pci_link_add(struct acpi_device *device)
 	       acpi_device_bid(device));
 	for (i = 0; i < link->irq.possible_count; i++) {
 		if (link->irq.active == link->irq.possible[i]) {
-			printk(KERN_CONT " *%d", link->irq.possible[i]);
+			printk(" *%d", link->irq.possible[i]);
 			found = 1;
 		} else
-			printk(KERN_CONT " %d", link->irq.possible[i]);
+			printk(" %d", link->irq.possible[i]);
 	}
 
-	printk(KERN_CONT ")");
+	printk(")");
 
 	if (!found)
-		printk(KERN_CONT " *%d", link->irq.active);
+		printk(" *%d", link->irq.active);
 
 	if (!link->device->status.enabled)
-		printk(KERN_CONT ", disabled.");
+		printk(", disabled.");
 
-	printk(KERN_CONT "\n");
+	printk("\n");
 
 	list_add_tail(&link->list, &acpi_link_list);
 
