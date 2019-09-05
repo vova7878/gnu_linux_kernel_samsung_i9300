@@ -48,6 +48,7 @@ struct fimc_global *fimc_dev;
 int s3c_csis_get_pkt(int csis_id, void *pktdata) {}
 #endif
 
+#ifdef CONFIG_PM_RUNTIME
 void s3c_fimc_irq_work(struct work_struct *work)
 {
 	struct fimc_control *ctrl = container_of(work, struct fimc_control,
@@ -63,6 +64,7 @@ void s3c_fimc_irq_work(struct work_struct *work)
 		} while (ret != 1);
 	}
 }
+#endif
 
 int fimc_dma_alloc(struct fimc_control *ctrl, struct fimc_buf_set *bs,
 							int i, int align)
@@ -2201,7 +2203,9 @@ static int __devinit fimc_probe(struct platform_device *pdev)
 		goto err_wq;
 	}
 
+#ifdef CONFIG_PM_RUNTIME
 	INIT_WORK(&ctrl->work_struct, s3c_fimc_irq_work);
+#endif
 	atomic_set(&ctrl->irq_cnt, 0);
 
 	ctrl->power_status = FIMC_POWER_OFF;

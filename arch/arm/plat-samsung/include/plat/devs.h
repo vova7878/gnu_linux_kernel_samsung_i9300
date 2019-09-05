@@ -137,7 +137,9 @@ extern struct platform_device exynos_device_i2s1;
 extern struct platform_device exynos_device_i2s2;
 extern struct platform_device exynos_device_spdif;
 extern struct platform_device exynos_device_srp;
+#ifdef CONFIG_EXYNOS_DEV_PD
 extern struct platform_device exynos4_device_pd[];
+#endif
 extern struct platform_device exynos4_device_ahci;
 extern struct platform_device exynos_device_pdma0;
 extern struct platform_device exynos_device_pdma1;

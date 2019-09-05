@@ -51,14 +51,18 @@ _mali_osk_errcode_t mali_mem_validation_add_range(u32 start, u32 size)
 	}
 
 	/* MALI_SEC */
+#ifdef CONFIG_EXYNOS_DEV_PD
 #if defined(MALI_SEC_MEM_VALIDATION)
 	if (cma_info(&mem_info, &exynos4_device_pd[PD_G3D].dev, "fimd")) {
 		MALI_PRINT_ERROR(("Failed to get framebuffer information from CMA\n"));
 		return _MALI_OSK_ERR_FAULT;
 	} else {
+#endif
 		start = mem_info.lower_bound;
 		size = mem_info.total_size - mem_info.free_size;
+#ifdef CONFIG_EXYNOS_DEV_PD
 	}
+#endif
 #endif
 
 	/* Check restrictions on page alignment */

@@ -1299,7 +1299,9 @@ struct platform_device mdnie_device = {
 		.name		 = "mdnie",
 		.id	 = -1,
 		.dev		 = {
+#ifdef CONFIG_EXYNOS_DEV_PD
 			.parent = &exynos4_device_pd[PD_LCD0].dev,
+#endif
 #ifdef CONFIG_FB_S5P_MDNIE
 			.platform_data = &mdnie_data,
 #endif

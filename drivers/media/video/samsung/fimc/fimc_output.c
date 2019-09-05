@@ -3063,7 +3063,9 @@ int fimc_dqbuf_output(void *fh, struct v4l2_buffer *b)
 			return -EAGAIN;
 		} else if (ret == -ERESTARTSYS) {
 			fimc_print_signal(ctrl);
+#ifdef CONFIG_PM_RUNTIME
 			pm_runtime_put_sync(ctrl->dev);
+#endif
 		} else {
 			/* Normal case */
 			ret = fimc_pop_outq(ctrl, ctx, &idx);

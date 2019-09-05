@@ -23,6 +23,8 @@ extern void p4_config_sleep_gpio_table(void);
 #endif
 
 extern int brcm_wlan_init(void);
+#ifdef CONFIG_EXYNOS4_CPUIDLE
 extern void set_gps_uart_op(int onoff);
+#endif
 
 #endif

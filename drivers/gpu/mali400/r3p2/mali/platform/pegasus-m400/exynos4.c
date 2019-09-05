@@ -36,7 +36,9 @@
 
 #include "exynos4_pmm.h"
 
+#ifdef CONFIG_EXYNOS_DEV_PD
 extern struct platform_device exynos4_device_pd[];
+#endif
 static void mali_platform_device_release(struct device *device);
 
 /* This is for the Odroid boards */
@@ -67,7 +69,9 @@ static struct platform_device mali_gpu_device =
 {
 	.name = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 	.id = 0,
+#ifdef CONFIG_EXYNOS_DEV_PD
 	.dev.parent = &exynos4_device_pd[PD_G3D].dev,
+#endif
 	.dev.release = mali_platform_device_release,
 };
 

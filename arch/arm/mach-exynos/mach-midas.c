@@ -205,7 +205,9 @@ static struct s3c2410_uartcfg smdk4212_uartcfgs[] __initdata = {
 		.ucon		= SMDK4212_UCON_DEFAULT,
 		.ulcon		= SMDK4212_ULCON_DEFAULT,
 		.ufcon		= SMDK4212_UFCON_GPS,
+#ifdef CONFIG_EXYNOS4_CPUIDLE
 		.set_runstate	= set_gps_uart_op,
+#endif
 	},
 	[2] = {
 		.hwport		= 2,
@@ -2116,6 +2118,7 @@ static struct platform_device *midas_devices[] __initdata = {
 	&ram_console_device,
 #endif
 	/* Samsung Power Domain */
+#ifdef CONFIG_EXYNOS_DEV_PD
 	&exynos4_device_pd[PD_MFC],
 	&exynos4_device_pd[PD_G3D],
 	&exynos4_device_pd[PD_LCD0],
@@ -2126,6 +2129,7 @@ static struct platform_device *midas_devices[] __initdata = {
 	&exynos4_device_pd[PD_ISP],
 #endif
 	&exynos4_device_pd[PD_GPS_ALIVE],
+#endif
 	/* legacy fimd */
 #ifdef CONFIG_FB_S5P
 	&s3c_device_fb,
@@ -2761,6 +2765,7 @@ static void __init midas_map_io(void)
 
 static void __init exynos_sysmmu_init(void)
 {
+#ifdef CONFIG_EXYNOS_DEV_PD
 	ASSIGN_SYSMMU_POWERDOMAIN(fimc0, &exynos4_device_pd[PD_CAM].dev);
 	ASSIGN_SYSMMU_POWERDOMAIN(fimc1, &exynos4_device_pd[PD_CAM].dev);
 	ASSIGN_SYSMMU_POWERDOMAIN(fimc2, &exynos4_device_pd[PD_CAM].dev);
@@ -2772,9 +2777,13 @@ static void __init exynos_sysmmu_init(void)
 	ASSIGN_SYSMMU_POWERDOMAIN(mfc_r, &exynos4_device_pd[PD_MFC].dev);
 #endif
 	ASSIGN_SYSMMU_POWERDOMAIN(tv, &exynos4_device_pd[PD_TV].dev);
+#endif // CONFIG_EXYNOS_DEV_PD
+
 #ifdef CONFIG_VIDEO_FIMG2D
 	sysmmu_set_owner(&SYSMMU_PLATDEV(g2d_acp).dev, &s5p_device_fimg2d.dev);
 #endif
+
+#ifdef CONFIG_EXYNOS_DEV_PD
 #ifdef CONFIG_VIDEO_MFC5X
 	sysmmu_set_owner(&SYSMMU_PLATDEV(mfc_l).dev, &s5p_device_mfc.dev);
 	sysmmu_set_owner(&SYSMMU_PLATDEV(mfc_r).dev, &s5p_device_mfc.dev);
@@ -2791,9 +2800,12 @@ static void __init exynos_sysmmu_init(void)
 #ifdef CONFIG_VIDEO_JPEG_V2X
 	sysmmu_set_owner(&SYSMMU_PLATDEV(jpeg).dev, &s5p_device_jpeg.dev);
 #endif
+#endif // CONFIG_EXYNOS_DEV_PD
+
 #ifdef CONFIG_FB_S5P_SYSMMU
 	sysmmu_set_owner(&SYSMMU_PLATDEV(fimd0).dev, &s3c_device_fb.dev);
 #endif
+#ifdef CONFIG_EXYNOS_DEV_PD
 #ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
 	ASSIGN_SYSMMU_POWERDOMAIN(is_isp, &exynos4_device_pd[PD_ISP].dev);
 	ASSIGN_SYSMMU_POWERDOMAIN(is_drc, &exynos4_device_pd[PD_ISP].dev);
@@ -2808,6 +2820,7 @@ static void __init exynos_sysmmu_init(void)
 		&exynos4_device_fimc_is.dev);
 	sysmmu_set_owner(&SYSMMU_PLATDEV(is_cpu).dev,
 		&exynos4_device_fimc_is.dev);
+#endif
 #endif
 }
 
@@ -2922,7 +2935,9 @@ static void __init midas_machine_init(void)
 
 	/* initialise the gpios */
 	midas_config_gpio_table();
+#ifdef CONFIG_EXYNOS4_CPUIDLE
 	exynos4_sleep_gpio_table_set = midas_config_sleep_gpio_table;
+#endif
 
 	midas_power_init();
 
