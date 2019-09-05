@@ -33,7 +33,7 @@ struct ram_console_buffer {
 	uint8_t     data[0];
 };
 
-#define RAM_CONSOLE_SIG (0x43474244) /* DBGC */
+#define RAM_CONSOLE_SIG (0x4d474f4c) /* LOGM */
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE_EARLY_INIT
 static char __initdata

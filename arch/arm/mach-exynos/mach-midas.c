@@ -61,6 +61,8 @@
 #endif
 
 #include <asm/io.h>
+#include <asm/mach/map.h>
+#include <asm/mmu-legacy.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
@@ -1471,6 +1473,23 @@ static struct i2c_board_info i2c_devs30[] __initdata = {
 
 #endif /* CONFIG_FELICA */
 
+extern void register_log_char_hook(void (*f) (char c));
+
+static struct map_desc log_buf_iodesc[] __initdata = {
+	{
+		.virtual = (unsigned long)S3C_VA_KLOG_BUF,
+		.type = MT_DEVICE
+	}
+};
+/*
+static inline void emit_sec_log_char(char c)
+{
+	if (sec_log_buf && sec_log_ptr) {
+		sec_log_buf[*sec_log_ptr & (sec_log_size - 1)] = c;
+		(*sec_log_ptr)++;
+	}
+}*/
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 static struct resource ram_console_resource[] = {
 	{
@@ -1485,28 +1504,56 @@ static struct platform_device ram_console_device = {
 	.resource = ram_console_resource,
 };
 
-static int __init setup_ram_console_mem(char *str)
+static int __init sec_log_setup(char *str)
 {
 	unsigned size = memparse(str, &str);
+	unsigned long base = 0;
+	unsigned *sec_log_mag;
 
-	if (size && (*str == '@')) {
-		unsigned long long base = 0;
+	/* If we encounter any problem parsing str ... */
+	if (!size || size != roundup_pow_of_two(size) || *str != '@'
+	    || kstrtoul(str + 1, 0, &base))
+		goto out;
 
-		base = simple_strtoul(++str, &str, 0);
-		if (reserve_bootmem(base, size, BOOTMEM_EXCLUSIVE)) {
-			pr_err("%s: failed reserving size %d "
-			       "at base 0x%llx\n", __func__, size, base);
-			return -1;
-		}
-
-		ram_console_resource[0].start = base;
-		ram_console_resource[0].end = base + size - 1;
-		pr_err("%s: %x at %llx\n", __func__, size, base);
+	if (reserve_bootmem(base - 8, size + 8, BOOTMEM_EXCLUSIVE)) {
+		pr_err("%s: failed reserving size %d + 8 "
+		       "at base 0x%lx - 8\n", __func__, size, base);
+		goto out;
 	}
+	log_buf_iodesc[0].pfn = __phys_to_pfn((unsigned long)base - 0x100000);
+	log_buf_iodesc[0].length = (unsigned long)(size + 0x100000);
+	iotable_init_legacy(log_buf_iodesc, ARRAY_SIZE(log_buf_iodesc));
+
+	ram_console_resource[0].start = base;
+	ram_console_resource[0].end = base + size - 1;
+	pr_err("%s: %x at %lx\n", __func__, size, base);
+/*
+	sec_log_mag = (S3C_VA_KLOG_BUF + 0x100000) - 8;
+	sec_log_ptr = (S3C_VA_KLOG_BUF + 0x100000) - 4;
+	sec_log_buf = S3C_VA_KLOG_BUF + 0x100000;
+
+	sec_log_size = size;
+	pr_info("%s: *sec_log_mag:%x *sec_log_ptr:%x "
+		"sec_log_buf:%p sec_log_size:%d\n",
+		__func__, *sec_log_mag, *sec_log_ptr, sec_log_buf,
+		sec_log_size);
+
+	if (*sec_log_mag != LOG_MAGIC) {
+		pr_info("%s: no old log found\n", __func__);
+		*sec_log_ptr = 0;
+		*sec_log_mag = LOG_MAGIC;
+	} else
+		sec_log_save_old();
+*/
+	//register_log_char_hook(emit_sec_log_char);
+
+	//sec_getlog_supply_kloginfo(phys_to_virt(base));
+
+out:
 	return 0;
 }
 
-__setup("ram_console=", setup_ram_console_mem);
+__setup("sec_log=", sec_log_setup);
 #endif
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
@@ -2115,7 +2162,7 @@ static struct platform_device *midas_devices[] __initdata = {
 	&watchdog_reset_device,
 #endif
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
-	&ram_console_device,
+	//&ram_console_device,
 #endif
 	/* Samsung Power Domain */
 #ifdef CONFIG_EXYNOS_DEV_PD
@@ -3209,6 +3256,10 @@ static void __init midas_machine_init(void)
 
 	exynos_sysmmu_init();
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	if (ram_console_device.num_resources == 1)
+		platform_device_register(&ram_console_device);
+#endif
 	platform_add_devices(midas_devices, ARRAY_SIZE(midas_devices));
 
 #ifdef CONFIG_S3C_ADC
