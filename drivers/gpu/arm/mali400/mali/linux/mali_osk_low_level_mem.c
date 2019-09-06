@@ -38,8 +38,9 @@
 static void mali_kernel_memory_vma_open(struct vm_area_struct * vma);
 static void mali_kernel_memory_vma_close(struct vm_area_struct * vma);
 
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+static vm_fault_t mali_kernel_memory_cpu_page_fault_handler(struct vm_fault *vmf);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma, struct vm_fault *vmf);
 #else
 static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct * vma, unsigned long address);
@@ -299,14 +300,21 @@ static void _allocation_list_item_release(AllocationList * item)
 	_mali_osk_free( item );
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+static vm_fault_t mali_kernel_memory_cpu_page_fault_handler(struct vm_fault *vmf)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma, struct vm_fault *vmf)
 #else
 static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct * vma, unsigned long address)
 #endif
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	unsigned long address;
+	address = vmf->address;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	void __user * address;
+	address = vmf->virtual_address;
+#else
 	address = vmf->virtual_address;
 #endif
 	/*
@@ -317,7 +325,9 @@ static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_st
 	MALI_DEBUG_PRINT(1, ("Page-fault in Mali memory region caused by the CPU.\n"));
 	MALI_DEBUG_PRINT(1, ("Tried to access %p (process local virtual address) which is not currently mapped to any Mali memory.\n", (void*)address));
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	return (vm_fault_t)VM_FAULT_SIGBUS;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	return VM_FAULT_SIGBUS;
 #else
 	return NOPFN_SIGBUS;
