@@ -15,9 +15,7 @@
 
 /* Make sure debug is defined when it should be */
 #ifndef DEBUG
-	#if defined(_DEBUG)
-		#define DEBUG
-	#endif
+#define DEBUG
 #endif
 
 /* MALI_SEC */
@@ -137,14 +135,13 @@ extern int mali_debug_level;
 
 #define MALI_DEBUG_CODE(code) code
 #define MALI_DEBUG_PRINT(level, args)  do { \
-	if((level) <=  mali_debug_level)\
-        {MALI_PRINTF(("Mali<" #level ">: ")); MALI_PRINTF(args); } \
+        MALI_PRINTF(("Mali<" #level ">: ")); MALI_PRINTF(args);  \
 	} while (0)
 
 #define MALI_DEBUG_PRINT_ERROR(args) MALI_PRINT_ERROR(args)
 
 #define MALI_DEBUG_PRINT_IF(level,condition,args)  \
-	if((condition)&&((level) <=  mali_debug_level))\
+	if(condition)\
         {MALI_PRINTF(("Mali<" #level ">: ")); MALI_PRINTF(args); }
 
 #define MALI_DEBUG_PRINT_ELSE(level, args)\

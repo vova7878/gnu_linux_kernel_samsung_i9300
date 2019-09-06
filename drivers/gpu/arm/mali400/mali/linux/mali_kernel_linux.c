@@ -220,15 +220,15 @@ int mali_module_init(void)
 {
 	int err = 0;
 
-	MALI_DEBUG_PRINT(2, ("Inserting Mali v%d device driver. \n",_MALI_API_VERSION));
-//	MALI_DEBUG_PRINT(2, ("Compiled: %s, time: %s.\n", __DATE__, __TIME__));
-	MALI_DEBUG_PRINT(2, ("Driver revision: %s\n", SVN_REV_STRING));
+	MALI_PRINT(("Inserting Mali v%d device driver. \n",_MALI_API_VERSION));
+//	MALI_PRINT(("Compiled: %s, time: %s.\n", __DATE__, __TIME__));
+	MALI_PRINT(("Driver revision: %s\n", SVN_REV_STRING));
 
 	/* Initialize module wide settings */
 	mali_osk_low_level_mem_init();
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
-	MALI_DEBUG_PRINT(2, ("mali_module_init() registering device\n"));
+	MALI_PRINT(("mali_module_init() registering device\n"));
 	err = mali_platform_device_register();
 	if (0 != err)
 	{
@@ -236,13 +236,13 @@ int mali_module_init(void)
 	}
 #endif
 
-	MALI_DEBUG_PRINT(2, ("mali_module_init() registering driver\n"));
+	MALI_PRINT(("mali_module_init() registering driver\n"));
 
 	err = platform_driver_register(&mali_platform_driver);
 
 	if (0 != err)
 	{
-		MALI_DEBUG_PRINT(2, ("mali_module_init() Failed to register driver (%d)\n", err));
+		MALI_PRINT(("mali_module_init() Failed to register driver (%d)\n", err));
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
 		mali_platform_device_unregister();
 #endif
@@ -266,9 +266,9 @@ int mali_module_init(void)
 
 void mali_module_exit(void)
 {
-	MALI_DEBUG_PRINT(2, ("Unloading Mali v%d device driver.\n",_MALI_API_VERSION));
+	MALI_PRINT(("Unloading Mali v%d device driver.\n",_MALI_API_VERSION));
 
-	MALI_DEBUG_PRINT(2, ("mali_module_exit() unregistering driver\n"));
+	MALI_PRINT(("mali_module_exit() unregistering driver\n"));
 
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
         _mali_internal_profiling_term();
@@ -277,7 +277,7 @@ void mali_module_exit(void)
 	platform_driver_unregister(&mali_platform_driver);
 
 #if defined(MALI_FAKE_PLATFORM_DEVICE)
-	MALI_DEBUG_PRINT(2, ("mali_module_exit() unregistering device\n"));
+	MALI_PRINT(("mali_module_exit() unregistering device\n"));
 	mali_platform_device_unregister();
 #endif
 
@@ -290,7 +290,7 @@ static int mali_probe(struct platform_device *pdev)
 {
 	int err;
 
-	MALI_DEBUG_PRINT(2, ("mali_probe(): Called for platform device %s\n", pdev->name));
+	MALI_PRINT(("mali_probe(): Called for platform device %s\n", pdev->name));
 
 	if (NULL != mali_platform_device)
 	{
@@ -321,7 +321,7 @@ static int mali_probe(struct platform_device *pdev)
 				err = mali_sysfs_register(mali_dev_name);
 				if (0 == err)
 				{
-					MALI_DEBUG_PRINT(2, ("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
+					MALI_PRINT(("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
 					return 0;
 				}
 				else
@@ -349,7 +349,7 @@ static int mali_probe(struct platform_device *pdev)
 
 static int mali_remove(struct platform_device *pdev)
 {
-	MALI_DEBUG_PRINT(2, ("mali_remove() called for platform device %s\n", pdev->name));
+	MALI_PRINT(("mali_remove() called for platform device %s\n", pdev->name));
 	mali_sysfs_unregister();
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
@@ -447,12 +447,12 @@ static int mali_mmap(struct file * filp, struct vm_area_struct * vma)
 	if ( VM_SHARED== (VM_SHARED  & vma->vm_flags))
 	{
 		args.cache_settings = MALI_CACHE_STANDARD ;
-		MALI_DEBUG_PRINT(3,("Allocate - Standard - Size: %d kb\n", args.size/1024));
+		MALI_PRINT(("Allocate - Standard - Size: %d kb\n", args.size/1024));
 	}
 	else
 	{
 		args.cache_settings = MALI_CACHE_GP_READ_ALLOCATE;
-		MALI_DEBUG_PRINT(3,("Allocate - GP Cached - Size: %d kb\n", args.size/1024));
+		MALI_PRINT(("Allocate - GP Cached - Size: %d kb\n", args.size/1024));
 	}
 	/* Setting it equal to VM_SHARED and not Private, which would have made the later io_remap fail for MALI_CACHE_GP_READ_ALLOCATE */
 	vma->vm_flags = 0x000000fb;
@@ -607,7 +607,7 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		case MALI_IOC_PROFILING_CLEAR:              /* FALL-THROUGH */
 		case MALI_IOC_PROFILING_GET_CONFIG:         /* FALL-THROUGH */
 		case MALI_IOC_PROFILING_REPORT_SW_COUNTERS: /* FALL-THROUGH */
-			MALI_DEBUG_PRINT(2, ("Profiling not supported\n"));
+			MALI_PRINT(("Profiling not supported\n"));
 			err = -ENOTTY;
 			break;
 
@@ -651,7 +651,7 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 		case MALI_IOC_MEM_ATTACH_UMP:
 		case MALI_IOC_MEM_RELEASE_UMP: /* FALL-THROUGH */
-			MALI_DEBUG_PRINT(2, ("UMP not supported\n"));
+			MALI_PRINT(("UMP not supported\n"));
 			err = -ENOTTY;
 			break;
 #endif
@@ -673,7 +673,7 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		case MALI_IOC_MEM_ATTACH_DMA_BUF:   /* FALL-THROUGH */
 		case MALI_IOC_MEM_RELEASE_DMA_BUF:  /* FALL-THROUGH */
 		case MALI_IOC_MEM_DMA_BUF_GET_SIZE: /* FALL-THROUGH */
-			MALI_DEBUG_PRINT(2, ("DMA-BUF not supported\n"));
+			MALI_PRINT(("DMA-BUF not supported\n"));
 			err = -ENOTTY;
 			break;
 #endif
@@ -730,12 +730,12 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 			err = sync_fence_validate_wrapper(session_data, (_mali_uk_fence_validate_s __user *)arg);
 #else
-			MALI_DEBUG_PRINT(2, ("Sync objects not supported\n"));
+			MALI_PRINT(("Sync objects not supported\n"));
 			err = -ENOTTY;
 #endif
 			break;
 #else
-			MALI_DEBUG_PRINT(2, ("Sync objects not supported\n"));
+			MALI_PRINT(("Sync objects not supported\n"));
 			err = -ENOTTY;
 			break;
 #endif
@@ -747,7 +747,7 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 			break;
 
 		default:
-			MALI_DEBUG_PRINT(2, ("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
+			MALI_PRINT(("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
 			err = -ENOTTY;
 	};
 
