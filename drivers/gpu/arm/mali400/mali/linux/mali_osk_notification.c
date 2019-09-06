@@ -14,6 +14,7 @@
  */
 
 #include "mali_osk.h"
+#include "mali_kernel_linux.h"
 #include "mali_kernel_common.h"
 
 #include <linux/sched.h>
