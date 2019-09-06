@@ -9,7 +9,7 @@
  */
 
 #include <linux/fs.h>       /* file system operations */
-#include <asm/uaccess.h>    /* user space access */
+#include <linux/uaccess.h>    /* user space access */
 
 #include "mali_ukk.h"
 #include "mali_osk.h"
