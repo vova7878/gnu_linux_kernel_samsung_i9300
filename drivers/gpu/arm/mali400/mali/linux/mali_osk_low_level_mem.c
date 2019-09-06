@@ -307,12 +307,7 @@ static unsigned long mali_kernel_memory_cpu_page_fault_handler(struct vm_area_st
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	void __user * address;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-	address = vmf->address;
-#else
 	address = vmf->virtual_address;
-#endif
 #endif
 	/*
 	 * We always fail the call since all memory is pre-faulted when assigned to the process.
