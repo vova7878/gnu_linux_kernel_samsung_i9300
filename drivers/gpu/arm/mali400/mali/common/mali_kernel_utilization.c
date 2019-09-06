@@ -31,7 +31,7 @@ static u32 mali_utilization_timeout = 1000;
 static int gpu_entry_count = 0;
 void (*mali_utilization_callback)(unsigned int) = NULL;
 
-static void calculate_gpu_utilization(void* arg)
+static void calculate_gpu_utilization(struct timer_list *t)
 {
 	u64 time_now;
 	u64 time_period;
