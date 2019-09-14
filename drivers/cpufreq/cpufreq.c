@@ -367,8 +367,8 @@ static ssize_t show_##file_name				\
 	return sprintf(buf, "%u\n", policy->object);	\
 }
 
-show_one(cpuinfo_min_freq, cpuinfo.min_freq);
-show_one(cpuinfo_max_freq, cpuinfo.max_freq);
+show_one(cpuinfo_min_freq, min);
+show_one(cpuinfo_max_freq, max);
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
@@ -402,7 +402,56 @@ static ssize_t store_##file_name					\
 }
 
 store_one(scaling_min_freq, min);
-store_one(scaling_max_freq, max);
+
+/* Yank555.lu - while storing scaling_max also set cpufreq_max_limit accordingly */
+/* store_one(scaling_max_freq, max); */
+static ssize_t store_scaling_max_freq
+(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+#ifdef CONFIG_DVFS_LIMIT
+	unsigned int cpufreq_level;
+	int lock_ret;
+#endif
+	unsigned int ret = -EINVAL;
+	struct cpufreq_policy new_policy;
+
+	ret = cpufreq_get_policy(&new_policy, policy->cpu);
+	if (ret)
+		return -EINVAL;
+
+	ret = sscanf(buf, "%u", &new_policy.max);
+	if (ret != 1)
+		return -EINVAL;
+
+	// andip71: 1700 is not available, convert everyone still using it to 1704
+	if (new_policy.max == 1700000)
+		new_policy.max = 1704000;
+
+	ret = __cpufreq_set_policy(policy, &new_policy);
+	policy->user_policy.max = policy->max;
+
+	/* Yank555.lu : set cpufreq_max_limit accordingly if dvfs limit is defined */
+#ifdef CONFIG_DVFS_LIMIT
+	/*
+	 * Keep scaling_max linked to cpufreq_max_limit only if it was previously linked,
+	 * link will be re-established when cpufreq_max_limit is released again, this will
+	 * enable Powersave mode to continue working as designed !
+	 */
+	if ((cpufreq_max_limit_coupled == SCALING_MAX_COUPLED)   ||
+	    (cpufreq_max_limit_coupled == SCALING_MAX_UNDEFINED)    ) {
+		if (get_cpufreq_level(policy->max, &cpufreq_level) == VALID_LEVEL) {
+			if (cpufreq_max_limit_val != -1)
+				/* Unlock the previous lock */
+				exynos_cpufreq_upper_limit_free(DVFS_LOCK_ID_USER);
+			lock_ret = exynos_cpufreq_upper_limit(DVFS_LOCK_ID_USER, cpufreq_level);
+			cpufreq_max_limit_val = policy->max;
+			cpufreq_max_limit_coupled = SCALING_MAX_COUPLED;
+		}
+	}
+#endif
+
+	return ret ? ret : count;
+}
 
 /**
  * show_cpuinfo_cur_freq - current CPU frequency as detected by hardware
@@ -950,6 +999,13 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 		pr_debug("initialization failed\n");
 		goto err_unlock_policy;
 	}
+
+	/*
+	 * affected cpus must always be the one, which are online. We aren't
+	 * managing offline cpus here.
+	 */
+	cpumask_and(policy->cpus, policy->cpus, cpu_online_mask);
+
 	policy->user_policy.min = policy->min;
 	policy->user_policy.max = policy->max;
 
