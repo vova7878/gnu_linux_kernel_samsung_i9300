@@ -804,7 +804,6 @@ struct opp *exynos4x12_monitor(struct busfreq_data *data)
 {
 	struct opp *opp = data->curr_opp;
 	int i;
-	unsigned int cpu_load_average = 0;
 	unsigned int dmc0_load_average = 0;
 	unsigned int dmc1_load_average = 0;
 	unsigned int dmc_load_average;
@@ -839,13 +838,11 @@ struct opp *exynos4x12_monitor(struct busfreq_data *data)
 		data->index = 0;
 
 	for (i = 0; i < load_history_size; i++) {
-		cpu_load_average += data->load_history[PPMU_CPU][i];
 		dmc0_load_average += data->load_history[PPMU_DMC0][i];
 		dmc1_load_average += data->load_history[PPMU_DMC1][i];
 	}
 
 	/* Calculate average Load */
-	cpu_load_average /= load_history_size;
 	dmc0_load_average /= load_history_size;
 	dmc1_load_average /= load_history_size;
 
