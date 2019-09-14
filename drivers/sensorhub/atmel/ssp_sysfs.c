@@ -20,14 +20,7 @@
 
 unsigned int get_msdelay(int64_t dDelayRate)
 {
-	if (dDelayRate <= SENSOR_NS_DELAY_FASTEST)
-		return SENSOR_MS_DELAY_FASTEST;
-	else if (dDelayRate <= SENSOR_NS_DELAY_GAME)
-		return SENSOR_MS_DELAY_GAME;
-	else if (dDelayRate <= SENSOR_NS_DELAY_UI)
-		return SENSOR_MS_DELAY_UI;
-	else
-		return SENSOR_MS_DELAY_NORMAL;
+	return div_s64(dDelayRate, 1000000);
 }
 
 unsigned int get_delay_cmd(u8 uDelayRate)
@@ -190,7 +183,7 @@ static ssize_t set_sensors_enable(struct device *dev,
 	int iRet;
 
 	if (kstrtoll(buf, 10, &dTemp) < 0)
-		return -1;
+		return -EINVAL;
 
 	uNewEnable = (unsigned int)dTemp;
 	ssp_dbg("[SSP]: %s - new_enable = %u, old_enable = %u\n", __func__,
@@ -217,6 +210,7 @@ static ssize_t set_sensors_enable(struct device *dev,
                                       else if (uChangedSensor == PROXIMITY_SENSOR) {
                                                proximity_open_lcd_ldi(data);
                                                proximity_open_calibration(data);
+											   set_proximity_threshold(data, data->uProxHiThresh, data->uProxLoThresh);
                                       }
                              }
                              data->aiCheckStatus[uChangedSensor] = ADD_SENSOR_STATE;
@@ -245,7 +239,7 @@ static ssize_t set_acc_delay(struct device *dev,
 	struct ssp_data *data = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	if ((atomic_read(&data->aSensorEnable) & (1 << ORIENTATION_SENSOR)) &&
 		(data->adDelayBuf[ORIENTATION_SENSOR] < dNewDelay))
@@ -271,7 +265,7 @@ static ssize_t set_ori_delay(struct device *dev,
 	struct ssp_data *data = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	if (data->aiCheckStatus[ACCELEROMETER_SENSOR] == NO_SENSOR_STATE) {
 		data->aiCheckStatus[ACCELEROMETER_SENSOR] = ADD_SENSOR_STATE;
@@ -302,7 +296,7 @@ static ssize_t set_gyro_delay(struct device *dev,
 	struct ssp_data *data = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	change_sensor_delay(data, GYROSCOPE_SENSOR, dNewDelay);
 	return size;
@@ -323,7 +317,7 @@ static ssize_t set_mag_delay(struct device *dev,
 	struct ssp_data *data = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	change_sensor_delay(data, GEOMAGNETIC_SENSOR, dNewDelay);
 
@@ -345,7 +339,7 @@ static ssize_t set_pressure_delay(struct device *dev,
 	struct ssp_data *data  = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	change_sensor_delay(data, PRESSURE_SENSOR, dNewDelay);
 	return size;
@@ -366,7 +360,7 @@ static ssize_t set_light_delay(struct device *dev,
 	struct ssp_data *data  = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	change_sensor_delay(data, LIGHT_SENSOR, dNewDelay);
 	return size;
@@ -387,7 +381,7 @@ static ssize_t set_prox_delay(struct device *dev,
 	struct ssp_data *data  = dev_get_drvdata(dev);
 
 	if (kstrtoll(buf, 10, &dNewDelay) < 0)
-		return -1;
+		return -EINVAL;
 
 	change_sensor_delay(data, PROXIMITY_SENSOR, dNewDelay);
 	return size;
