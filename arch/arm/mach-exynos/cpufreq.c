@@ -758,8 +758,11 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 #ifdef CONFIG_MACH_T0
 	policy->max = 1600000;
 	policy->min = 200000;
-#else
+#elif CONFIG_MACH_M0
 	policy->max = 1400000;
+	policy->min = 200000;
+#else
+	policy->max = 1200000;
 	policy->min = 200000;
 #endif
 
