@@ -754,9 +754,12 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 	ret = cpufreq_frequency_table_cpuinfo(policy, exynos_info->freq_table);
 
-#ifdef CONFIG_MACH_T0
 	/* Set default startup frq. */
+#ifdef CONFIG_MACH_T0
 	policy->max = 1600000;
+	policy->min = 200000;
+#else
+	policy->max = 1400000;
 	policy->min = 200000;
 #endif
 
