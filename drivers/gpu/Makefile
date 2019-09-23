@@ -3,10 +3,3 @@ obj-y			+= drm/ vga/ stub/ ion/
 else
 obj-y			+= drm/ vga/ stub/ ion/
 endif
-
-ifeq ($(CONFIG_MALI400),y)
-ifeq ($(CONFIG_MALI_VER_R4P0),y)
-obj-y           += mali400/r4p0/mali/
-obj-y           += mali400/r4p0/ump/
-endif
-endif
