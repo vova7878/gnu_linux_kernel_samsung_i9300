@@ -64,11 +64,7 @@ static u64 exynos3472_g3d_dma_mask = DMA_BIT_MASK(32);
 #else
 
 /* This is for the Odroid boards */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0))
 #define MALI_BASE_IRQ 182
-#else
-#define MALI_BASE_IRQ 150
-#endif
 
 #endif
 
@@ -125,13 +121,7 @@ struct platform_device mali_gpu_device =
 {
 	.name = "mali_dev", /* MALI_SEC MALI_GPU_NAME_UTGARD, */
 	.id = 0,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
-	/* Set in mali_platform_device_register() for these kernels */
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	.dev.parent = &exynos4_device_pd[PD_G3D].dev,
-#else
-	.dev.parent = &s5pv310_device_pd[PD_G3D].dev,
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
 	.dev.release = mali_platform_device_release,
 	/*
 	 * We temporarily make use of a device type so that we can control the Mali power
@@ -180,11 +170,6 @@ int mali_platform_device_register(void)
 			err = platform_device_register(&mali_gpu_device);
 			if (0 == err)
 			{
-#ifdef CONFIG_PM_RUNTIME	
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-				exynos3_add_mali_dev_to_domain();
-#endif
-#endif
 				mali_platform_init(&(mali_gpu_device.dev));
 
 #ifdef CONFIG_PM_RUNTIME
