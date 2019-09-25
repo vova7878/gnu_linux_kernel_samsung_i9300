@@ -1,6 +1,0 @@
-service uci /sbin/uci
-	class main
-	user root
-	group root
-	seclabel u:r:init:s0
-	oneshot
