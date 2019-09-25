@@ -828,7 +828,7 @@ static int set_con2fb_map(int unit, int newidx, int user)
 
 	if (!search_for_mapped_con() || !con_is_bound(&fb_con)) {
 		info_idx = newidx;
-		return do_fbcon_takeover(0);
+		return fbcon_takeover(0);
 	}
 
 	if (oldidx != -1)
