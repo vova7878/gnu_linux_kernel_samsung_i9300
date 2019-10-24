@@ -3554,8 +3554,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
 	mutex_lock(&tp->control);
 
 	ret = tp->rtl_ops.eee_set(tp, edata);
-	if (!ret)
-		ret = mii_nway_restart(&tp->mii);
 
 	mutex_unlock(&tp->control);
 
