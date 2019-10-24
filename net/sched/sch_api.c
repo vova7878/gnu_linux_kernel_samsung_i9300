@@ -594,14 +594,13 @@ void qdisc_watchdog_init(struct qdisc_watchdog *wd, struct Qdisc *qdisc)
 }
 EXPORT_SYMBOL(qdisc_watchdog_init);
 
-void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires, bool throttle)
+void qdisc_watchdog_schedule_ns(struct qdisc_watchdog *wd, u64 expires)
 {
 	if (test_bit(__QDISC_STATE_DEACTIVATED,
 		     &qdisc_root_sleeping(wd->qdisc)->state))
 		return;
 
-	if (throttle)
-		qdisc_throttled(wd->qdisc);
+	qdisc_throttled(wd->qdisc);
 
 	hrtimer_start(&wd->timer,
 		      ns_to_ktime(expires),
