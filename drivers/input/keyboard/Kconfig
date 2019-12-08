@@ -687,4 +687,4 @@ config KEYBOARD_CAP1106
 endif
 
 config INPUT_WAKE_ON_POWER
-	bool
+	bool "Wake on powerkey"
