@@ -570,42 +570,6 @@ static int pl2303_carrier_raised(struct usb_serial_port *port)
 	return 0;
 }
 
-static int wait_modem_info(struct usb_serial_port *port, unsigned int arg)
-{
-	struct pl2303_private *priv = usb_get_serial_port_data(port);
-	unsigned long flags;
-	unsigned int prevstatus;
-	unsigned int status;
-	unsigned int changed;
-
-	spin_lock_irqsave(&priv->lock, flags);
-	prevstatus = priv->line_status;
-	spin_unlock_irqrestore(&priv->lock, flags);
-
-	while (1) {
-		interruptible_sleep_on(&priv->delta_msr_wait);
-		/* see if a signal did it */
-		if (signal_pending(current))
-			return -ERESTARTSYS;
-
-		spin_lock_irqsave(&priv->lock, flags);
-		status = priv->line_status;
-		spin_unlock_irqrestore(&priv->lock, flags);
-
-		changed = prevstatus ^ status;
-
-		if (((arg & TIOCM_RNG) && (changed & UART_RING)) ||
-		    ((arg & TIOCM_DSR) && (changed & UART_DSR)) ||
-		    ((arg & TIOCM_CD)  && (changed & UART_DCD)) ||
-		    ((arg & TIOCM_CTS) && (changed & UART_CTS))) {
-			return 0;
-		}
-		prevstatus = status;
-	}
-	/* NOTREACHED */
-	return 0;
-}
-
 static int pl2303_ioctl(struct tty_struct *tty,
 			unsigned int cmd, unsigned long arg)
 {
@@ -628,7 +592,7 @@ static int pl2303_ioctl(struct tty_struct *tty,
 
 	case TIOCMIWAIT:
 		dbg("%s (%d) TIOCMIWAIT", __func__,  port->number);
-		return wait_modem_info(port, arg);
+		return usb_serial_generic_tiocmiwait(port, arg);
 	default:
 		dbg("%s not supported = 0x%04x", __func__, cmd);
 		break;
