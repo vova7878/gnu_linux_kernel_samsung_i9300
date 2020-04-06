@@ -985,8 +985,8 @@ ffs_sb_make_inode(struct super_block *sb, void *data,
 
 		inode->i_ino	 = get_next_ino();
 		inode->i_mode    = perms->mode;
-		inode->i_uid     = perms->uid;
-		inode->i_gid     = perms->gid;
+		inode->i_uid.val     = perms->uid;
+		inode->i_gid.val     = perms->gid;
 		inode->i_atime   = current_time;
 		inode->i_mtime   = current_time;
 		inode->i_ctime   = current_time;
@@ -1074,7 +1074,7 @@ static int ffs_sb_fill(struct super_block *sb, void *_data, int silent)
 				  &data->perms);
 	if (unlikely(!inode))
 		goto enomem1;
-	d = d_alloc_root(inode);
+	d = d_make_root(inode);
 	if (unlikely(!d))
 		goto enomem2;
 	sb->s_root = d;
