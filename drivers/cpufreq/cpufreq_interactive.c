@@ -34,6 +34,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
+#define cputime64_sub(__a, __b)		((__a) - (__b))
+
 static atomic_t active_count = ATOMIC_INIT(0);
 
 struct cpufreq_interactive_cpuinfo {
