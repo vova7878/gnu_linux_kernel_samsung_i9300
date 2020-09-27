@@ -2417,7 +2417,7 @@ static int boeffla_sound_init(void)
 	regdump_bank = 0;
 
 	// Initialize delayed work for Eq reapplication
-	INIT_DELAYED_WORK_DEFERRABLE(&apply_settings_work, apply_settings);
+	INIT_DELAYED_WORK(&apply_settings_work, apply_settings);
 
 	// Print debug info
 	printk("Boeffla-sound: engine version %s started\n", BOEFFLA_SOUND_VERSION);
