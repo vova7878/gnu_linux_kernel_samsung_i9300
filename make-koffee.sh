@@ -8,8 +8,8 @@ CUST_CONF=no
 BUILD_NUMBER=
 DEVICE=UNKNOWN
 KCONF_REPLACE=false
-KERNEL_NAME="desktop-gnulinux"
-BOEFFLA_VERSION=""
+KERNEL_NAME="ubuntu"
+BOEFFLA_VERSION="-"
 SKIP_MODULES=true
 DONTPACK=false
 USER=$USER
@@ -132,13 +132,13 @@ make_flashable()
 	fi
 	# replace variables in anykernel script
 	cd $REPACK_PATH
-	KERNELNAME="Flashing Koffee (NR)"
+	KERNELNAME="GNU/Linux 3.18 kernel for i9300"
 	sed -i "s;###kernelname###;'${KERNELNAME}';" META-INF/com/google/android/update-binary;
-	COPYRIGHT=$(echo '(c) A\$teroid × ChronoMonochrome × Lord Boeffla, 2019')
+	COPYRIGHT=$(echo '(c) A\$teroid, ChronoMonochrome, 2020')
 	sed -i "s;###copyright###;${COPYRIGHT};" META-INF/com/google/android/update-binary;
-	BUILDINFO="Release ${BUILD_NUMBER}, $DATE"
+	BUILDINFO="Release 3.18 (${BUILD_NUMBER}), $DATE"
 	sed -i "s;###buildinfo###;${BUILDINFO};" META-INF/com/google/android/update-binary;
-	SOURCECODE="Official source code:  https://github.com/acroreiser/Koffee"
+	SOURCECODE="NOT COMPATIBLE WITH ANDROID!"
 	sed -i "s;###sourcecode###;${SOURCECODE};" META-INF/com/google/android/update-binary;
 
 
@@ -209,7 +209,7 @@ then
 	DEFCONFIG=".config"
 fi
 
-if [ "$DEFCONFIG" == "lineageos_i9300_defconfig" ]; then
+if [ "$DEFCONFIG" == "ubuntu_i9300_defconfig" ]; then
 	DEVICE="m0"
 fi
  
