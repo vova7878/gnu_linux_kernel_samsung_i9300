@@ -3781,9 +3781,9 @@ static irqreturn_t wm8958_mic_irq(int irq, void *data)
 		}
 	}
 
-	if (wm8994->mic_detecting)
-		wm8994->mic_id_cb(wm8994->mic_id_cb_data, reg);
-	else
+//	if (wm8994->mic_detecting)
+//		wm8994->mic_id_cb(wm8994->mic_id_cb_data, reg);
+//	else
 		wm8958_button_det(codec, reg);
 
 out:
