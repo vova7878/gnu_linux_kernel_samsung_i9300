@@ -29,7 +29,7 @@
 #define AOR40_BASE_110		171
 #define base_20to100			110
 
-unsigned int brightness_config;
+unsigned int brightness_config = 1;
 
 unsigned char aid_108nit_F8_18th = 0x38;
 unsigned char aid_106nit_F8_18th = 0x2F;
