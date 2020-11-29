@@ -1847,7 +1847,7 @@ struct gpio_keys_button m0_rev11_buttons[] = {
 		  1, 0, NULL),
 	GPIO_KEYS(KEY_POWER, GPIO_nPOWER,
 		  1, 1, NULL),
-	GPIO_KEYS(KEY_HOMEPAGE, GPIO_OK_KEY_ANDROID,
+	GPIO_KEYS(KEY_SYSRQ, GPIO_OK_KEY_ANDROID,
 		  1, 1, NULL),
 };
 #endif
