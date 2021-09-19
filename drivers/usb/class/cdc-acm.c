@@ -64,6 +64,11 @@ static DEFINE_MUTEX(acm_table_lock);
  * acm_table accessors
  */
 
+static inline int usb_endpoint_maxp(const struct usb_endpoint_descriptor *epd)
+{
+	return __le16_to_cpu(epd->wMaxPacketSize);
+}
+
 /*
  * Look up an ACM structure by index. If found and not disconnected, increment
  * its refcount and return it with its mutex held.
@@ -1804,7 +1809,7 @@ static struct usb_driver acm_driver = {
 #ifdef CONFIG_PM
 	.supports_autosuspend = 1,
 #endif
-	.disable_hub_initiated_lpm = 1,
+//	.disable_hub_initiated_lpm = 1,
 };
 
 /*
