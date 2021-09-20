@@ -44,6 +44,7 @@ obj-$(CONFIG_MWL8K)	+= mwl8k.o
 obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
 obj-$(CONFIG_IWLEGACY)	+= iwlegacy/
 obj-$(CONFIG_RT2X00)	+= rt2x00/
+obj-$(CONFIG_MT7601U)	+= mt7601u/
 
 obj-$(CONFIG_P54_COMMON)	+= p54/
 
