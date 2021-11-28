@@ -9,6 +9,12 @@ config KEYBOARD_CYPRESS_TOUCH
 
 	  To compile this driver as a module, choose M here.
 
+config KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+	bool "Emulate right mouse click on menu button"
+	depends on KEYBOARD_CYPRESS_TOUCH && VIRTUAL_MOUSE_EXPORT_RIGHT_CLICK
+	help
+	  Use virtual mouse driver to send BTN_RIGHT (instead of KEY_MENU/KEY_COMPOSE) event to X11.
+
 config TOUCHKEY_BLN
 	bool "BLN Support"
 	depends on KEYBOARD_CYPRESS_TOUCH

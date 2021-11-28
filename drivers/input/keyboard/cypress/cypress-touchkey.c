@@ -934,6 +934,11 @@ static int touchkey_firmware_update(struct touchkey_i2c *tkey_i2c)
 #endif
 
 #ifndef TEST_JIG_MODE
+
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+extern void report_virtual_right_button(int state);
+#endif
+
 static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 {
 	struct touchkey_i2c *tkey_i2c = dev_id;
@@ -980,9 +985,19 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 	if (get_tsp_status() && pressed)
 		printk(KERN_DEBUG "[TouchKey] touchkey pressed but don't send event because touch is pressed.\n");
 	else {
-		input_report_key(tkey_i2c->input_dev,
-				 touchkey_keycode[keycode_type], pressed);
-		input_sync(tkey_i2c->input_dev);
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+		if(keycode_type == 2)
+			report_virtual_right_button(pressed);
+		else
+		{
+#endif
+			input_report_key(tkey_i2c->input_dev,
+					 touchkey_keycode[keycode_type], pressed);
+			input_sync(tkey_i2c->input_dev);
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+		}
+#endif
+
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 		printk(KERN_DEBUG "[TouchKey] keycode:%d pressed:%d\n",
 		   touchkey_keycode[keycode_type], pressed);
