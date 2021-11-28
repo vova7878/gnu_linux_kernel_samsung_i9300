@@ -92,6 +92,19 @@ int __init virmouse_init(void)
         set_bit(BTN_MIDDLE, virmouse_input_dev->keybit);
         set_bit(BTN_RIGHT, virmouse_input_dev->keybit);
 
+        virmouse_input_dev->name = "Virtual Mouse";
+        virmouse_input_dev->phys = "vmd/input0"; // "vmd" is the driver's name
+        virmouse_input_dev->id.bustype = BUS_VIRTUAL;
+        virmouse_input_dev->id.vendor  = 0x0000;
+        virmouse_input_dev->id.product = 0x0000;
+        virmouse_input_dev->id.version = 0x0000;
+
+        virmouse_input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REL);
+        virmouse_input_dev->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_LEFT) | BIT_MASK(BTN_RIGHT) | BIT_MASK(BTN_MIDDLE);
+        virmouse_input_dev->relbit[0] = BIT_MASK(REL_X) | BIT_MASK(REL_Y);
+        virmouse_input_dev->keybit[BIT_WORD(BTN_MOUSE)] |= BIT_MASK(BTN_SIDE) | BIT_MASK(BTN_EXTRA);
+        virmouse_input_dev->relbit[0] |= BIT_MASK(REL_WHEEL);
+
         /* Register with the input subsystem */
         input_register_device(virmouse_input_dev);
 
