@@ -59,6 +59,15 @@ static struct attribute_group virmouse_attr_group = {
         .attrs = virmouse_attrs,
 };
 
+#ifdef CONFIG_VIRTUAL_MOUSE_EXPORT_RIGHT_CLICK
+void report_virtual_right_button(int state)
+{
+    input_report_key(virmouse_input_dev, BTN_RIGHT, state);
+    input_sync(virmouse_input_dev);
+}
+EXPORT_SYMBOL(report_virtual_right_button);
+#endif
+
 /* Driver Initializing */
 int __init virmouse_init(void)
 {

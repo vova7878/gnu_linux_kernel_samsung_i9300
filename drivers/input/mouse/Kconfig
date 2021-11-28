@@ -310,6 +310,10 @@ config MOUSE_VIRTUAL
 	  Example:
 	  # echo "168 68 0" > /sys/devices/platform/virmouse/vmevent
 
+config VIRTUAL_MOUSE_EXPORT_RIGHT_CLICK
+	bool "allow other drivers to trigger right click of virtual mouse"
+	depends on MOUSE_VIRTUAL
+
 config MOUSE_GPIO
 	tristate "GPIO mouse"
 	depends on GPIOLIB
