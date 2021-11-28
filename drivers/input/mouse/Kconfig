@@ -293,6 +293,23 @@ config MOUSE_VSXXXAA
 	  described in the source file). This driver also works with the
 	  digitizer (VSXXX-AB) DEC produced.
 
+config MOUSE_VIRTUAL
+	bool "Virtual Mouse Driver to send fake events from userspace"
+	help
+	  Write events to /sys/devices/platform/virmouse/vmevent sysfs node
+
+	  echo "X Y Key" > /sys/devices/platform/virmouse/vmevent
+
+	  Where "Key" is:
+
+	    0 - key not pressed
+	    1 - left mouse key pressed
+	    2 - middle mouse key pressed
+	    3+ - right mouse key
+
+	  Example:
+	  # echo "168 68 0" > /sys/devices/platform/virmouse/vmevent
+
 config MOUSE_GPIO
 	tristate "GPIO mouse"
 	depends on GPIOLIB
