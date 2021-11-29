@@ -67,6 +67,14 @@ void report_virtual_right_button(int state)
 }
 EXPORT_SYMBOL(report_virtual_right_button);
 #endif
+#ifdef CONFIG_VIRTUAL_MOUSE_EXPORT_LEFT_CLICK
+void report_virtual_left_button(int state)
+{
+    input_report_key(virmouse_input_dev, BTN_LEFT, state);
+    input_sync(virmouse_input_dev);
+}
+EXPORT_SYMBOL(report_virtual_left_button);
+#endif
 
 /* Driver Initializing */
 int __init virmouse_init(void)
