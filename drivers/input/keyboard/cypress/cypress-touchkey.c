@@ -68,7 +68,7 @@ static int touchkey_keycode[] = { 0,
 	KEY_SEARCH, KEY_BACK, KEY_HOME, KEY_MENU,
 
 #elif defined(TK_USE_2KEY_TYPE_M0)
-	KEY_BACKSPACE, KEY_COMPOSE,
+	KEY_BACK, KEY_COMPOSE,
 
 #else
 	KEY_MENU, KEY_BACK,
