@@ -936,6 +936,7 @@ static int touchkey_firmware_update(struct touchkey_i2c *tkey_i2c)
 #ifndef TEST_JIG_MODE
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+extern void report_virtual_left_button(int state);
 extern void report_virtual_right_button(int state);
 #endif
 
@@ -986,7 +987,9 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 		printk(KERN_DEBUG "[TouchKey] touchkey pressed but don't send event because touch is pressed.\n");
 	else {
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
-		if(keycode_type == 2)
+		if(keycode_type == 1)
+			report_virtual_left_button(pressed);
+		else if (keycode_type == 2)
 			report_virtual_right_button(pressed);
 		else
 		{
