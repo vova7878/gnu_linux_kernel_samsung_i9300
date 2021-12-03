@@ -2642,8 +2642,14 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	else if (flags & MS_MOVE)
 		retval = do_move_mount(&path, dev_name);
 	else
+	{
+#ifdef CONFIG_SDCARD_READ_ONLY
+		if(!strncmp("/dev/mmcblk1p1", dev_name, 14))
+			mnt_flags |= MNT_READONLY;
+#endif
 		retval = do_new_mount(&path, type_page, flags, mnt_flags,
 				      dev_name, data_page);
+	}
 dput_out:
 	path_put(&path);
 	return retval;

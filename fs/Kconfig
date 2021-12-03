@@ -53,6 +53,9 @@ config FS_POSIX_ACL
 config EXPORTFS
 	tristate
 
+config SDCARD_READ_ONLY
+	bool "Mount external sdcard only for read"
+
 config FILE_LOCKING
 	bool "Enable POSIX file locking API" if EXPERT
 	default y
