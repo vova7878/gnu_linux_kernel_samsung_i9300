@@ -17,7 +17,6 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/device.h>
-#include <linux/sysdev.h>
 #include <linux/timer.h>
 #include <linux/rwsem.h>
 #include <linux/leds.h>
@@ -225,7 +224,7 @@ void led_trigger_event(struct led_trigger *trigger,
 		struct led_classdev *led_cdev;
 
 		led_cdev = list_entry(entry, struct led_classdev, trig_list);
-		__led_set_brightness(led_cdev, brightness);
+		led_set_brightness(led_cdev, brightness);
 	}
 	read_unlock(&trigger->leddev_list_lock);
 }
