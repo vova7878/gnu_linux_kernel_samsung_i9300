@@ -1612,6 +1612,9 @@ config GPS_BRCM_475X
 	bool "BRCM_475X_CHIPSET"
 	default n
 
+config GPS_BCM47511
+	bool "BCM47511 GPS receiver"
+
 if BT
 config BT_CSR8811
 	bool "Enable CSR8811 driver"
