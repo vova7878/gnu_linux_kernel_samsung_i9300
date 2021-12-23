@@ -607,6 +607,18 @@ static int wm8994_device_init(struct wm8994 *wm8994, int irq)
 	dev_info(wm8994->dev, "%s revision %c CUST_ID %02x\n", devname,
 		 'A' + wm8994->revision, wm8994->cust_id);
 
+	/* Explicitly put the device into reset in case regulators
+	 * don't get disabled in order to ensure we know the device
+	 * state.
+	 */
+	ret = wm8994_reg_write(wm8994, WM8994_SOFTWARE_RESET,
+			       wm8994_reg_read(wm8994, WM8994_SOFTWARE_RESET));
+	if (ret != 0) {
+		dev_err(wm8994->dev, "Failed to reset device: %d\n", ret);
+		return ret;
+	}
+
+
 	if (pdata) {
 		wm8994->irq_base = pdata->irq_base;
 		wm8994->gpio_base = pdata->gpio_base;
