@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/vermagic.h>
 #include <drm/drmP.h>
+#include <drm/drm_legacy.h>
 #include "mali_drv.h"
 
 static struct platform_device *dev0;
@@ -54,14 +55,12 @@ static struct file_operations mali_fops = {
 	 .open = drm_open,
 	 .release = drm_release,
 	 .unlocked_ioctl = drm_ioctl,
-	 .mmap = drm_mmap,
+	 .mmap = drm_legacy_mmap,
 	 .poll = drm_poll,
-	 .fasync = drm_fasync,
 };
 
 static struct drm_driver driver =
 {
-	.driver_features = DRIVER_BUS_PLATFORM,
 	.load = mali_drm_load,
 	.unload = mali_drm_unload,
 	.context_dtor = NULL,
@@ -77,11 +76,11 @@ static struct drm_driver driver =
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
+    .set_busid = drm_platform_set_busid,
 };
 
 static struct drm_driver driver1 =
 {
-	.driver_features = DRIVER_BUS_PLATFORM,
 	.load = mali_drm_load,
 	.unload = mali_drm_unload,
 	.context_dtor = NULL,
@@ -97,6 +96,7 @@ static struct drm_driver driver1 =
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
+    .set_busid = drm_platform_set_busid,
 };
 
 int mali_drm_init(struct platform_device *dev)
@@ -104,11 +104,9 @@ int mali_drm_init(struct platform_device *dev)
 	printk(KERN_INFO "Mali DRM initialize, driver name: %s, version %d.%d\n", DRIVER_NAME, DRIVER_MAJOR, DRIVER_MINOR);
 	if (dev == dev0) {
 		driver.num_ioctls = 0;
-		driver.kdriver.platform_device = dev;
 		return drm_platform_init(&driver, dev);
 	} else if (dev == dev1) {
 		driver1.num_ioctls = 0;
-		driver1.kdriver.platform_device = dev;
 		return drm_platform_init(&driver1, dev);
 	}
 	return 0;
@@ -116,11 +114,7 @@ int mali_drm_init(struct platform_device *dev)
 
 void mali_drm_exit(struct platform_device *dev)
 {
-	if (driver.kdriver.platform_device == dev) {
-		drm_platform_exit(&driver, dev);
-	} else if (driver1.kdriver.platform_device == dev) {
-		drm_platform_exit(&driver1, dev);
-	}
+	drm_put_dev(platform_get_drvdata(dev));
 }
 
 static int mali_platform_drm_probe(struct platform_device *dev)
