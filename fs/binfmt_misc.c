@@ -26,8 +26,6 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 
-#include "internal.h"
-
 #ifdef DEBUG
 # define USE_DEBUG 1
 #else
