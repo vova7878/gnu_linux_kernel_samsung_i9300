@@ -48,7 +48,7 @@ usage() {
 
 prepare() 
 {
- 	make -j4 clean
+ 	make ARCH=arm CROSS_COMPILE=$TOOLCHAIN mrproper
 }
 
 make_config() 
