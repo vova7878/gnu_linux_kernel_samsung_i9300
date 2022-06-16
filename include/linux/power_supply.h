@@ -239,6 +239,11 @@ struct power_supply {
 	char *charging_high_trig_name;
 	struct led_trigger *charging_full_trig;
 	char *charging_full_trig_name;
+	
+	struct led_trigger *charging_critical_low_trig;
+	char *charging_critical_low_trig_name;
+	struct led_trigger *charging_high_full_trig;
+	char *charging_high_full_trig_name;
 
 	struct led_trigger *online_trig;
 	char *online_trig_name;

@@ -100,7 +100,7 @@ static struct an30259_led_conf led_conf[] = {
 		.flags = 0,
 	}, {
 		.name = "led_b",
-		.default_trigger = "battery-charging-high_full",
+		.default_trigger = "battery-charging-high-full",
 		.brightness = LED_OFF,
 		.max_brightness = LED_B_CURRENT,
 		.flags = 0,

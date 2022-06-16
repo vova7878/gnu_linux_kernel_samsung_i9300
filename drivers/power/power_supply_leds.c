@@ -39,6 +39,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 				led_trigger_event(psy->charging_normal_trig, LED_OFF);
 				led_trigger_event(psy->charging_high_trig, LED_OFF);
 				led_trigger_event(psy->charging_full_trig, LED_OFF);
+				led_trigger_event(psy->charging_critical_low_trig, LED_FULL);
+				led_trigger_event(psy->charging_high_full_trig, LED_OFF);
 				goto success;
 			case POWER_SUPPLY_CAPACITY_LEVEL_LOW:
 				led_trigger_event(psy->charging_trig, LED_FULL);
@@ -47,6 +49,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 				led_trigger_event(psy->charging_normal_trig, LED_OFF);
 				led_trigger_event(psy->charging_high_trig, LED_OFF);
 				led_trigger_event(psy->charging_full_trig, LED_OFF);
+				led_trigger_event(psy->charging_critical_low_trig, LED_FULL);
+				led_trigger_event(psy->charging_high_full_trig, LED_OFF);
 				goto success;
 			case POWER_SUPPLY_CAPACITY_LEVEL_NORMAL:
 				led_trigger_event(psy->charging_trig, LED_FULL);
@@ -55,6 +59,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 				led_trigger_event(psy->charging_normal_trig, LED_FULL);
 				led_trigger_event(psy->charging_high_trig, LED_OFF);
 				led_trigger_event(psy->charging_full_trig, LED_OFF);
+				led_trigger_event(psy->charging_critical_low_trig, LED_OFF);
+				led_trigger_event(psy->charging_high_full_trig, LED_OFF);
 				goto success;
 			case POWER_SUPPLY_CAPACITY_LEVEL_HIGH:
 				led_trigger_event(psy->charging_trig, LED_FULL);
@@ -63,6 +69,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 				led_trigger_event(psy->charging_normal_trig, LED_OFF);
 				led_trigger_event(psy->charging_high_trig, LED_FULL);
 				led_trigger_event(psy->charging_full_trig, LED_OFF);
+				led_trigger_event(psy->charging_critical_low_trig, LED_OFF);
+				led_trigger_event(psy->charging_high_full_trig, LED_FULL);
 				goto success;
 			case POWER_SUPPLY_CAPACITY_LEVEL_FULL:
 				led_trigger_event(psy->charging_trig, LED_FULL);
@@ -71,6 +79,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 				led_trigger_event(psy->charging_normal_trig, LED_OFF);
 				led_trigger_event(psy->charging_high_trig, LED_OFF);
 				led_trigger_event(psy->charging_full_trig, LED_FULL);
+				led_trigger_event(psy->charging_critical_low_trig, LED_OFF);
+				led_trigger_event(psy->charging_high_full_trig, LED_FULL);
 				goto success;
 		}
 	}
@@ -81,6 +91,8 @@ static void power_supply_update_bat_leds(struct power_supply *psy)
 	led_trigger_event(psy->charging_normal_trig, LED_OFF);
 	led_trigger_event(psy->charging_high_trig, LED_OFF);
 	led_trigger_event(psy->charging_full_trig, LED_OFF);
+	led_trigger_event(psy->charging_critical_low_trig, LED_OFF);
+	led_trigger_event(psy->charging_high_full_trig, LED_OFF);
 
 	success:
 	return ;
@@ -120,6 +132,16 @@ static int power_supply_create_bat_triggers(struct power_supply *psy)
 	if (!psy->charging_full_trig_name)
 		goto charging_full_failed;
 
+	psy->charging_critical_low_trig_name = kasprintf(GFP_KERNEL,
+					"%s-charging-critical-low", psy->name);
+	if (!psy->charging_critical_low_trig_name)
+		goto charging_critical_low_failed;
+
+	psy->charging_high_full_trig_name = kasprintf(GFP_KERNEL,
+					"%s-charging-high-full", psy->name);
+	if (!psy->charging_high_full_trig_name)
+		goto charging_high_full_failed;
+
 	led_trigger_register_simple(psy->charging_trig_name,
 				    &psy->charging_trig);
 	led_trigger_register_simple(psy->charging_critical_trig_name,
@@ -132,9 +154,17 @@ static int power_supply_create_bat_triggers(struct power_supply *psy)
 				    &psy->charging_high_trig);
 	led_trigger_register_simple(psy->charging_full_trig_name,
 				    &psy->charging_full_trig);
+	led_trigger_register_simple(psy->charging_critical_low_trig_name,
+				    &psy->charging_critical_low_trig);
+	led_trigger_register_simple(psy->charging_high_full_trig_name,
+				    &psy->charging_high_full_trig);
 
 	goto success;
 
+charging_high_full_failed:
+	kfree(psy->charging_critical_low_trig_name);
+charging_critical_low_failed:
+	kfree(psy->charging_full_trig_name);
 charging_full_failed:
 	kfree(psy->charging_high_trig_name);
 charging_high_failed:
@@ -159,12 +189,16 @@ static void power_supply_remove_bat_triggers(struct power_supply *psy)
 	led_trigger_unregister_simple(psy->charging_normal_trig);
 	led_trigger_unregister_simple(psy->charging_high_trig);
 	led_trigger_unregister_simple(psy->charging_full_trig);
+	led_trigger_unregister_simple(psy->charging_critical_low_trig);
+	led_trigger_unregister_simple(psy->charging_high_full_trig);
 	kfree(psy->charging_trig);
 	kfree(psy->charging_critical_trig);
 	kfree(psy->charging_low_trig);
 	kfree(psy->charging_normal_trig);
 	kfree(psy->charging_high_trig);
 	kfree(psy->charging_full_trig);
+	kfree(psy->charging_critical_low_trig);
+	kfree(psy->charging_high_full_trig);
 }
 
 /* Generated power specific LEDs triggers. */
