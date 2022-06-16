@@ -88,16 +88,19 @@ u8 LED_LOWPOWER_MODE = 0x0;
 static struct an30259_led_conf led_conf[] = {
 	{
 		.name = "led_r",
+		.default_trigger = "battery-charging-critical-low",
 		.brightness = LED_OFF,
 		.max_brightness = LED_R_CURRENT,
 		.flags = 0,
 	}, {
 		.name = "led_g",
+		.default_trigger = "battery-charging-normal",
 		.brightness = LED_OFF,
 		.max_brightness = LED_G_CURRENT,
 		.flags = 0,
 	}, {
 		.name = "led_b",
+		.default_trigger = "battery-charging-high_full",
 		.brightness = LED_OFF,
 		.max_brightness = LED_B_CURRENT,
 		.flags = 0,
@@ -831,6 +834,7 @@ static int an30259a_initialize(struct i2c_client *client,
 	led->channel = channel;
 	led->cdev.brightness_set = an30259a_set_brightness;
 	led->cdev.name = led_conf[channel].name;
+	led->cdev.default_trigger = led_conf[channel].default_trigger;
 	led->cdev.brightness = led_conf[channel].brightness;
 	led->cdev.max_brightness = led_conf[channel].max_brightness;
 	led->cdev.flags = led_conf[channel].flags;

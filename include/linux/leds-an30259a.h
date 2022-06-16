@@ -49,6 +49,7 @@
 
 struct an30259_led_conf {
 	const char      *name;
+	const char *default_trigger;
 	int          brightness;
 	int          max_brightness;
 	int          flags;
