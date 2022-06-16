@@ -111,14 +111,14 @@ struct s3cfb_chroma {
 };
 
 struct s3cfb_lcd_timing {
-	int	h_fp;
-	int	h_bp;
-	int	h_sw;
-	int	v_fp;
+	int	h_fp; //right_margin
+	int	h_bp; //left_margin
+	int	h_sw; //hsync_len
+	int	v_fp; //lower_margin
 	int	v_fpe;
-	int	v_bp;
+	int	v_bp; //upper_margin
 	int	v_bpe;
-	int	v_sw;
+	int	v_sw; //vsync_len
 #if defined(CONFIG_FB_S5P_MIPI_DSIM) || defined(CONFIG_S5P_MIPI_DSI2)
 	int	cmd_allow_len;
 	int	stable_vfp;

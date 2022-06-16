@@ -1888,6 +1888,7 @@ static enum power_supply_property samsung_battery_props[] = {
 #ifdef CONFIG_SLP
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
 #endif
+	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TEMP,
 };
 
@@ -1936,6 +1937,28 @@ static int samsung_battery_get_property(struct power_supply *ps,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = info->battery_soc;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+		switch (info->battery_soc) {
+			case 0 ... 5:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
+				break;
+			case 6 ... 15:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_LOW;
+				break;
+			case 16 ... 80:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
+				break;
+			case 81 ... 99:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_HIGH;
+				break;
+			case 100:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_FULL;
+				break;
+			default:
+				val->intval = POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
+				break;
+			}
 		break;
 #ifdef CONFIG_SLP
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
