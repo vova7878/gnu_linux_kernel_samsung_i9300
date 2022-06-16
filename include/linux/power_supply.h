@@ -227,16 +227,21 @@ struct power_supply {
 	struct wake_lock work_wake_lock;
 
 #ifdef CONFIG_LEDS_TRIGGERS
-	struct led_trigger *charging_full_trig;
-	char *charging_full_trig_name;
 	struct led_trigger *charging_trig;
 	char *charging_trig_name;
-	struct led_trigger *full_trig;
-	char *full_trig_name;
+	struct led_trigger *charging_critical_trig;
+	char *charging_critical_trig_name;
+	struct led_trigger *charging_low_trig;
+	char *charging_low_trig_name;
+	struct led_trigger *charging_normal_trig;
+	char *charging_normal_trig_name;
+	struct led_trigger *charging_high_trig;
+	char *charging_high_trig_name;
+	struct led_trigger *charging_full_trig;
+	char *charging_full_trig_name;
+
 	struct led_trigger *online_trig;
 	char *online_trig_name;
-	struct led_trigger *charging_blink_full_solid_trig;
-	char *charging_blink_full_solid_trig_name;
 #endif
 };
 
