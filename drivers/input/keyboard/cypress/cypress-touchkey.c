@@ -183,6 +183,9 @@ struct bln_breathing_step {
 struct bln_breathing_step bln_breathing_steps[MAX_BLN_BREATHING_STEPS];
 static int bln_breathing_idx = 0;
 static int bln_breathing_step_idx = 0;
+struct bln_breathing_step bln_led_control_steps_backup[2];
+static int bln_breathing_step_count_backup = 0;
+static unsigned int bln_breathing_backup = 0;
 #endif
 
 /* Led-blink control variables */
@@ -194,10 +197,7 @@ struct bln_led_blink_control {
 };
 static int bln_led_blink_timeout = 600000;
 static struct bln_led_blink_control bln_led_blink;
-struct bln_breathing_step bln_led_control_steps_backup[2];
-static int bln_breathing_step_count_backup = 0;
 static int bln_notification_timeout_backup = 0;
-static unsigned int bln_breathing_backup = 0;
 
 #endif
 
@@ -2059,7 +2059,9 @@ static void enable_led_notification(void) {
 	if (touchkey_enable == 1) {
 		printk(KERN_DEBUG "[TouchKey-BLN] bln_ongoing set to true\n");
 		bln_ongoing = true;
+#ifdef LED_LDO_WITH_REGULATOR
 		set_touch_constraints(true);
+#endif
 		enable_touchkey_backlights();
 
 #ifdef LED_LDO_WITH_REGULATOR
@@ -2124,7 +2126,9 @@ static void enable_led_notification(void) {
 
 static void disable_led_notification(void) {
 	mutex_lock(&led_notification_mutex);
+#ifdef LED_LDO_WITH_REGULATOR
 	set_touch_constraints(false);
+#endif
 	printk(KERN_DEBUG "[TouchKey-BLN] %s\n", __func__);
 	bln_blink_enabled = false;
 	bln_blink_freezed = false;
