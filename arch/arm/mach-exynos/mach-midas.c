@@ -300,12 +300,12 @@ static struct spi_board_info spi2_board_info[] __initdata = {
 static struct i2c_board_info i2c_devs8_emul[];
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-static void touchkey_init_hw(void)
+/*static void touchkey_init_hw(void)
 {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)
 #if defined(CONFIG_MACH_M0_CHNOPEN) || defined(CONFIG_MACH_M0_HKTW) || \
 	defined(CONFIG_TARGET_LOCALE_KOR)
-	/* do nothing */
+	// do nothing
 #elif defined(CONFIG_MACH_C1)
 #if defined(CONFIG_MACH_C1_KOR_SKT) || defined(CONFIG_MACH_C1_KOR_KT)
 	if (system_rev < 8)
@@ -319,7 +319,7 @@ static void touchkey_init_hw(void)
 #endif
 #else
 	if (system_rev < 11)
-		return; /* rev 1.0 */
+		return; // rev 1.0
 #endif
 #endif
 
@@ -346,7 +346,7 @@ static void touchkey_init_hw(void)
 
 	s3c_gpio_setpull(GPIO_3_TOUCH_SCL, S3C_GPIO_PULL_DOWN);
 	s3c_gpio_setpull(GPIO_3_TOUCH_SDA, S3C_GPIO_PULL_DOWN);
-}
+}*/
 
 static int touchkey_suspend(void)
 {
@@ -444,7 +444,7 @@ static struct touchkey_platform_data touchkey_pdata = {
 	.gpio_sda = GPIO_3_TOUCH_SDA,
 	.gpio_scl = GPIO_3_TOUCH_SCL,
 	.gpio_int = GPIO_3_TOUCH_INT,
-	.init_platform_hw = touchkey_init_hw,
+	//.init_platform_hw = touchkey_init_hw,
 	.suspend = touchkey_suspend,
 	.resume = touchkey_resume,
 	.power_on = touchkey_power_on,
