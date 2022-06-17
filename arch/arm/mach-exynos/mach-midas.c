@@ -300,7 +300,7 @@ static struct spi_board_info spi2_board_info[] __initdata = {
 static struct i2c_board_info i2c_devs8_emul[];
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-/*static void touchkey_init_hw(void)
+static void touchkey_init_hw(void)
 {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)
 #if defined(CONFIG_MACH_M0_CHNOPEN) || defined(CONFIG_MACH_M0_HKTW) || \
@@ -346,7 +346,7 @@ static struct i2c_board_info i2c_devs8_emul[];
 
 	s3c_gpio_setpull(GPIO_3_TOUCH_SCL, S3C_GPIO_PULL_DOWN);
 	s3c_gpio_setpull(GPIO_3_TOUCH_SDA, S3C_GPIO_PULL_DOWN);
-}*/
+}
 
 static int touchkey_suspend(void)
 {
