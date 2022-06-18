@@ -12,6 +12,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
+#include <linux/leds.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -54,17 +55,15 @@ struct touchkey_i2c {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct early_suspend early_suspend;
+	struct led_classdev cdev;
 	struct mutex lock;
 	struct device	*dev;
-    struct work_struct	work;
-    struct workqueue_struct *wq;
 	int irq;
 	int module_ver;
 	int firmware_ver;
 	struct touchkey_platform_data *pdata;
 	char *name;
 	int (*power)(int on);
-	struct work_struct update_work;
 	int update_status;
 	atomic_t keypad_enable;
 };

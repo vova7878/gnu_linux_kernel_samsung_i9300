@@ -38,6 +38,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/i2c/touchkey_i2c_v2.h>
 
+#include "cypress-touchkey-leds.h"
+
 #ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT540E
 #include <linux/i2c/mxt540e.h>
 #else
@@ -75,9 +77,6 @@ static const struct i2c_device_id sec_touchkey_id[] = {
 };
 
 MODULE_DEVICE_TABLE(i2c, sec_touchkey_id);
-
-static int touchkey_led_status;
-static int touchled_cmd_reversed;
 
 static int touchkey_debug_count;
 static char touchkey_debug[104];
@@ -118,7 +117,7 @@ static int i2c_touchkey_read(struct i2c_client *client,
 
 }
 
-static int i2c_touchkey_write(struct i2c_client *client,
+int i2c_touchkey_write(struct i2c_client *client,
 		u8 *val, unsigned int len)
 {
 	int err = 0;
@@ -420,10 +419,10 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 	}
 
 	/* disable ldo18 */
-	tkey_i2c->pdata->led_power_on(0);
+	//tkey_i2c->pdata->led_power_on(0);
 
 	/* disable ldo11 */
-	tkey_i2c->pdata->power_on(0);
+	//tkey_i2c->pdata->power_on(0);
 
 	return 0;
 }
@@ -437,26 +436,19 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 	printk(KERN_DEBUG "[TouchKey] sec_touchkey_late_resume\n");
 
 	/* enable ldo11 */
-	tkey_i2c->pdata->power_on(1);
+	//tkey_i2c->pdata->power_on(1);
 
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
 		       __func__, touchkey_enable);
 		return 0;
 	}
-	msleep(50);
-	tkey_i2c->pdata->led_power_on(1);
+	//msleep(50);
+	//tkey_i2c->pdata->led_power_on(1);
 
 	touchkey_enable = 1;
 
 	touchkey_autocalibration(tkey_i2c);
-
-	if (touchled_cmd_reversed) {
-		touchled_cmd_reversed = 0;
-		i2c_touchkey_write(tkey_i2c->client,
-			(u8 *) &touchkey_led_status, 1);
-		printk(KERN_DEBUG "[Touchkey] LED returned on\n");
-	}
 
 	enable_irq(tkey_i2c->irq);
 
@@ -525,40 +517,6 @@ static ssize_t touch_update_read(struct device *dev,
 		count = sprintf(buf, "Fail\n");
 
 	return count;
-}
-
-static ssize_t touchkey_led_control(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t size)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	int data;
-	int ret;
-	static const int ledCmd[] = {TK_CMD_LED_OFF, TK_CMD_LED_ON};
-
-	ret = sscanf(buf, "%d", &data);
-	if (ret != 1) {
-		printk(KERN_DEBUG "[TouchKey] %s, %d err\n",
-			__func__, __LINE__);
-		return size;
-	}
-	printk(KERN_DEBUG "[TouchKey] %s: %d\n", __func__, data);
-	if (data != 0 && data != 1) {
-		printk(KERN_DEBUG "[TouchKey] %s wrong cmd %x\n",
-			__func__, data);
-		return size;
-	}
-
-	data = ledCmd[data];
-
-	ret = i2c_touchkey_write(tkey_i2c->client, (u8 *) &data, 1);
-
-	if (ret == -ENODEV)
-		touchled_cmd_reversed = 1;
-
-	touchkey_led_status = data;
-
-	return size;
 }
 
 static ssize_t touchkey_menu_show(struct device *dev,
@@ -710,8 +668,6 @@ static DEVICE_ATTR(keypad_enable, S_IRUGO|S_IWUSR, sec_keypad_enable_show,
 
 static DEVICE_ATTR(recommended_version, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touch_version_read, touch_version_write);
-static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
-		   touchkey_led_control);
 static DEVICE_ATTR(touchkey_menu, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touchkey_menu_show, NULL);
 static DEVICE_ATTR(touchkey_back, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -740,7 +696,6 @@ static DEVICE_ATTR(autocal_stat, S_IRUGO | S_IWUSR | S_IWGRP,
 
 static struct attribute *touchkey_attributes[] = {
 	&dev_attr_recommended_version.attr,
-	&dev_attr_brightness.attr,
 	&dev_attr_touchkey_menu.attr,
 	&dev_attr_touchkey_back.attr,
 	&dev_attr_touch_sensitivity.attr,
@@ -886,7 +841,14 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 		return -EBUSY;
 	}
 
-	tkey_i2c->pdata->led_power_on(1);
+	ret = touchkey_led_start(tkey_i2c);
+	if (ret < 0) {
+		printk(KERN_ERR
+			"[Touchkey]: failed to create led device");
+		input_unregister_device(input_dev);
+		touchkey_probe = false;
+		return ret;
+	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	tkey_i2c->early_suspend.suspend =
@@ -932,6 +894,7 @@ static int __init touchkey_init(void)
 static void __exit touchkey_exit(void)
 {
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
+	touchkey_led_exit();
 	i2c_del_driver(&touchkey_i2c_driver);
 }
 
