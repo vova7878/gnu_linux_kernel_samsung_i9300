@@ -36,47 +36,19 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/i2c/touchkey_i2c_v2.h>
 
 #ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT540E
 #include <linux/i2c/mxt540e.h>
 #else
 #include <linux/i2c/mxt224_u1.h>
 #endif
-#include <linux/i2c/touchkey_i2c.h>
-
-/* M0 Touchkey temporary setting */
-
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_M3)
-#define CONFIG_MACH_Q1_BD
-#elif defined(CONFIG_MACH_C1) && !defined(CONFIG_TARGET_LOCALE_KOR)
-#define CONFIG_MACH_Q1_BD
-#elif defined(CONFIG_MACH_C1) && defined(CONFIG_TARGET_LOCALE_KOR)
-/* C1 KOR doesn't use Q1_BD */
-#endif
-
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
-/* Temp Fix NAGSM_SEL_ANDROID_MOHAMMAD_ANSARI_20111224*/
-#define CONFIG_TARGET_LOCALE_NAATT
-#endif
 
 static int touchkey_keycode[] = { 0,
-#if defined(TK_USE_4KEY_TYPE_ATT)
-	KEY_MENU, KEY_ENTER, KEY_BACK, KEY_END,
-
-#elif defined(TK_USE_4KEY_TYPE_NA)
-	KEY_SEARCH, KEY_BACK, KEY_HOME, KEY_MENU,
-
-#elif defined(TK_USE_2KEY_TYPE_M0)
 	KEY_BACK, KEY_MENU,
-
-#else
-	KEY_MENU, KEY_BACK,
-
-#endif
 };
 static const int touchkey_count = sizeof(touchkey_keycode) / sizeof(int);
 
-#if defined(TK_HAS_AUTOCAL)
 static u16 raw_data0;
 static u16 raw_data1;
 static u16 raw_data2;
@@ -88,32 +60,11 @@ static u8 idac3;
 static u8 touchkey_threshold;
 
 static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c);
-#endif
-
-#if defined(CONFIG_TARGET_LOCALE_KOR)
-#ifndef TRUE
-#define TRUE	1
-#endif
-
-#ifndef FALSE
-#define FALSE	0
-#endif
-
-#if defined(SEC_TKEY_EVENT_DEBUG)
-static bool g_debug_tkey = TRUE;
-#else
-static bool g_debug_tkey = FALSE;
-#endif
-#endif
 
 static int touchkey_i2c_check(struct touchkey_i2c *tkey_i2c);
 
 static u16 menu_sensitivity;
 static u16 back_sensitivity;
-#if defined(TK_USE_4KEY)
-static u8 home_sensitivity;
-static u8 search_sensitivity;
-#endif
 
 static int touchkey_enable;
 static bool touchkey_probe = true;
@@ -145,9 +96,6 @@ static int i2c_touchkey_read(struct i2c_client *client,
 {
 	int err = 0;
 	int retry = 3;
-#if !defined(TK_USE_GENERAL_SMBUS)
-	struct i2c_msg msg[1];
-#endif
 
 	if ((client == NULL) || !(touchkey_enable == 1)
 	    || !touchkey_probe) {
@@ -157,16 +105,8 @@ static int i2c_touchkey_read(struct i2c_client *client,
 	}
 
 	while (retry--) {
-#if defined(TK_USE_GENERAL_SMBUS)
 		err = i2c_smbus_read_i2c_block_data(client,
 				KEYCODE_REG, len, val);
-#else
-		msg->addr = client->addr;
-		msg->flags = I2C_M_RD;
-		msg->len = len;
-		msg->buf = val;
-		err = i2c_transfer(client->adapter, msg, 1);
-#endif
 
 		if (err >= 0)
 			return 0;
@@ -183,9 +123,6 @@ static int i2c_touchkey_write(struct i2c_client *client,
 {
 	int err = 0;
 	int retry = 3;
-#if !defined(TK_USE_GENERAL_SMBUS)
-	struct i2c_msg msg[1];
-#endif
 
 	if ((client == NULL) || !(touchkey_enable == 1)
 	    || !touchkey_probe) {
@@ -195,16 +132,8 @@ static int i2c_touchkey_write(struct i2c_client *client,
 	}
 
 	while (retry--) {
-#if defined(TK_USE_GENERAL_SMBUS)
 		err = i2c_smbus_write_i2c_block_data(client,
 				KEYCODE_REG, len, val);
-#else
-		msg->addr = client->addr;
-		msg->flags = I2C_M_WR;
-		msg->len = len;
-		msg->buf = val;
-		err = i2c_transfer(client->adapter, msg, 1);
-#endif
 
 		if (err >= 0)
 			return 0;
@@ -216,18 +145,12 @@ static int i2c_touchkey_write(struct i2c_client *client,
 	return err;
 }
 
-#if defined(TK_HAS_AUTOCAL)
 static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c)
 {
 	u8 data[6] = { 0, };
 	int count = 0;
 	int ret = 0;
 	unsigned short retry = 0;
-
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	if (tkey_i2c->module_ver < 8)
-		return -1;
-#endif
 
 	while (retry < 3) {
 		ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 4);
@@ -266,43 +189,7 @@ static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c)
 
 	return count;
 }
-#endif
 
-#ifdef CONFIG_TARGET_LOCALE_NAATT
-static ssize_t set_touchkey_autocal_testmode(struct device *dev,
-					     struct device_attribute *attr,
-					     const char *buf, size_t size)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	int count = 0;
-	u8 set_data;
-	int on_off;
-
-	if (sscanf(buf, "%d\n", &on_off) == 1) {
-		printk(KERN_ERR "[TouchKey] Test Mode : %d\n", on_off);
-
-		if (on_off == 1) {
-			set_data = 0x40;
-			count = i2c_touchkey_write(tkey_i2c->client,
-					&set_data, 1);
-		} else {
-			tkey_i2c->pdata->power_on(0);
-			msleep(50);
-			tkey_i2c->pdata->power_on(1);
-			msleep(50);
-#if defined(TK_HAS_AUTOCAL)
-			touchkey_autocalibration(tkey_i2c);
-#endif
-		}
-	} else {
-		printk(KERN_ERR "[TouchKey] touch_led_brightness Error\n");
-	}
-
-	return count;
-}
-#endif
-
-#if defined(TK_HAS_AUTOCAL)
 static ssize_t touchkey_raw_data0_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
@@ -312,25 +199,9 @@ static ssize_t touchkey_raw_data0_show(struct device *dev,
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 26);
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	printk(KERN_DEBUG "called %s data[18] =%d,data[19] = %d\n", __func__,
-	       data[18], data[19]);
-	raw_data0 = ((0x00FF & data[18]) << 8) | data[19];
-#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)\
-|| defined(CONFIG_MACH_M3)\
-	 || defined(CONFIG_MACH_T0)
 	printk(KERN_DEBUG "called %s data[16] =%d,data[17] = %d\n", __func__,
 	       data[16], data[17]);
 	raw_data0 = ((0x00FF & data[16]) << 8) | data[17]; /* menu*/
-#elif defined(CONFIG_MACH_Q1_BD)
-	printk(KERN_DEBUG "called %s data[16] =%d,data[17] = %d\n", __func__,
-	       data[16], data[17]);
-	raw_data0 = ((0x00FF & data[14]) << 8) | data[15];
-#else
-	printk(KERN_DEBUG "called %s data[18] =%d,data[19] = %d\n", __func__,
-	       data[10], data[11]);
-	raw_data0 = ((0x00FF & data[10]) << 8) | data[11];
-#endif
 	return sprintf(buf, "%d\n", raw_data0);
 }
 
@@ -343,25 +214,9 @@ static ssize_t touchkey_raw_data1_show(struct device *dev,
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 26);
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	printk(KERN_DEBUG "called %s data[20] =%d,data[21] = %d\n", __func__,
-	       data[20], data[21]);
-	raw_data1 = ((0x00FF & data[20]) << 8) | data[21];
-#elif defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)\
-|| defined(CONFIG_MACH_M3)\
-	 || defined(CONFIG_MACH_T0)
 	printk(KERN_DEBUG "called %s data[14] =%d,data[15] = %d\n", __func__,
 	       data[14], data[15]);
 	raw_data1 = ((0x00FF & data[14]) << 8) | data[15]; /*back*/
-#elif defined(CONFIG_MACH_Q1_BD)
-	printk(KERN_DEBUG "called %s data[14] =%d,data[15] = %d\n", __func__,
-			   data[14], data[15]);
-	raw_data1 = ((0x00FF & data[16]) << 8) | data[17];
-#else
-	printk(KERN_DEBUG "called %s data[20] =%d,data[21] = %d\n", __func__,
-	       data[12], data[13]);
-	raw_data1 = ((0x00FF & data[12]) << 8) | data[13];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
 	return sprintf(buf, "%d\n", raw_data1);
 }
 
@@ -374,15 +229,9 @@ static ssize_t touchkey_raw_data2_show(struct device *dev,
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 26);
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	printk(KERN_DEBUG "called %s data[22] =%d,data[23] = %d\n", __func__,
-	       data[22], data[23]);
-	raw_data2 = ((0x00FF & data[22]) << 8) | data[23];
-#else
 	printk(KERN_DEBUG "called %s data[22] =%d,data[23] = %d\n", __func__,
 	       data[14], data[15]);
 	raw_data2 = ((0x00FF & data[14]) << 8) | data[15];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
 	return sprintf(buf, "%d\n", raw_data2);
 }
 
@@ -395,15 +244,9 @@ static ssize_t touchkey_raw_data3_show(struct device *dev,
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 26);
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	printk(KERN_DEBUG "called %s data[24] =%d,data[25] = %d\n", __func__,
-	       data[24], data[25]);
-	raw_data3 = ((0x00FF & data[24]) << 8) | data[25];
-#else
 	printk(KERN_DEBUG "called %s data[24] =%d,data[25] = %d\n", __func__,
 	       data[16], data[17]);
 	raw_data3 = ((0x00FF & data[16]) << 8) | data[17];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
 	return sprintf(buf, "%d\n", raw_data3);
 }
 
@@ -413,10 +256,6 @@ static ssize_t touchkey_idac0_show(struct device *dev,
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8)
-		return 0;
-#endif
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
@@ -431,10 +270,6 @@ static ssize_t touchkey_idac1_show(struct device *dev,
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8)
-		return 0;
-#endif
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
@@ -449,10 +284,6 @@ static ssize_t touchkey_idac2_show(struct device *dev,
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8)
-		return 0;
-#endif
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
@@ -467,10 +298,6 @@ static ssize_t touchkey_idac3_show(struct device *dev,
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8)
-		return 0;
-#endif
 
 	printk(KERN_DEBUG "called %s\n", __func__);
 	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
@@ -492,7 +319,6 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 	touchkey_threshold = data[4];
 	return sprintf(buf, "%d\n", touchkey_threshold);
 }
-#endif
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
 extern void report_virtual_left_button(int state);
@@ -560,22 +386,8 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 		}
 #endif
 
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-		printk(KERN_DEBUG "[TouchKey] keycode:%d pressed:%d\n",
-		   touchkey_keycode[keycode_type], pressed);
-#else
 		printk(KERN_DEBUG "[TouchKey] pressed:%d\n",
 			pressed);
-#endif
-
-		#if defined(CONFIG_TARGET_LOCALE_KOR)
-		if (g_debug_tkey == true) {
-			printk(KERN_DEBUG "[TouchKey] keycode[%d]=%d pressed:%d\n",
-			keycode_type, touchkey_keycode[keycode_type], pressed);
-		} else {
-			printk(KERN_DEBUG "[TouchKey] pressed:%d\n", pressed);
-		}
-		#endif
 	}
 	set_touchkey_debug('A');
 	return IRQ_HANDLED;
@@ -637,9 +449,7 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 
 	touchkey_enable = 1;
 
-#if defined(TK_HAS_AUTOCAL)
 	touchkey_autocalibration(tkey_i2c);
-#endif
 
 	if (touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
@@ -726,10 +536,6 @@ static ssize_t touchkey_led_control(struct device *dev,
 	int ret;
 	static const int ledCmd[] = {TK_CMD_LED_OFF, TK_CMD_LED_ON};
 
-#if defined(CONFIG_TARGET_LOCALE_KOR)
-	if (touchkey_probe == false)
-		return size;
-#endif
 	ret = sscanf(buf, "%d", &data);
 	if (ret != 1) {
 		printk(KERN_DEBUG "[TouchKey] %s, %d err\n",
@@ -743,12 +549,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 		return size;
 	}
 
-#if defined(CONFIG_TARGET_LOCALE_NA)
-	if (tkey_i2c->module_ver >= 8)
-		data = ledCmd[data];
-#else
 	data = ledCmd[data];
-#endif
 
 	ret = i2c_touchkey_write(tkey_i2c->client, (u8 *) &data, 1);
 
@@ -760,122 +561,10 @@ static ssize_t touchkey_led_control(struct device *dev,
 	return size;
 }
 
-#if defined(TK_USE_4KEY)
 static ssize_t touchkey_menu_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	u8 data[18] = { 0, };
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 18);
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8) {
-		printk(KERN_DEBUG "called %s data[12] =%d,data[13] = %d\n",
-		       __func__, data[12], data[13]);
-		menu_sensitivity = ((0x00FF & data[12]) << 8) | data[13];
-	} else {
-		printk(KERN_DEBUG "called %s data[17] =%d\n", __func__,
-		       data[17]);
-		menu_sensitivity = data[17];
-	}
-#else
-	printk(KERN_DEBUG "called %s data[10] =%d,data[11] = %d\n", __func__,
-	       data[10], data[11]);
-	menu_sensitivity = ((0x00FF & data[10]) << 8) | data[11];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
-	return sprintf(buf, "%d\n", menu_sensitivity);
-}
-
-static ssize_t touchkey_home_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	u8 data[18] = { 0, };
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 18);
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8) {
-		printk(KERN_DEBUG "called %s data[10] =%d,data[11] = %d\n",
-		       __func__, data[10], data[11]);
-		home_sensitivity = ((0x00FF & data[10]) << 8) | data[11];
-	} else {
-		printk(KERN_DEBUG "called %s data[15] =%d\n", __func__,
-		       data[15]);
-		home_sensitivity = data[15];
-	}
-#else
-	printk(KERN_DEBUG "called %s data[12] =%d,data[13] = %d\n", __func__,
-	       data[12], data[13]);
-	home_sensitivity = ((0x00FF & data[12]) << 8) | data[13];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
-	return sprintf(buf, "%d\n", home_sensitivity);
-}
-
-static ssize_t touchkey_back_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	u8 data[18] = { 0, };
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 18);
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8) {
-		printk(KERN_DEBUG "called %s data[8] =%d,data[9] = %d\n",
-		       __func__, data[8], data[9]);
-		back_sensitivity = ((0x00FF & data[8]) << 8) | data[9];
-	} else {
-		printk(KERN_DEBUG "called %s data[13] =%d\n", __func__,
-		       data[13]);
-		back_sensitivity = data[13];
-	}
-#else
-	printk(KERN_DEBUG "called %s data[14] =%d,data[15] = %d\n", __func__,
-	       data[14], data[15]);
-	back_sensitivity = ((0x00FF & data[14]) << 8) | data[15];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
-	return sprintf(buf, "%d\n", back_sensitivity);
-}
-
-static ssize_t touchkey_search_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-	u8 data[18] = { 0, };
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 18);
-#ifdef CONFIG_TARGET_LOCALE_NA
-	if (tkey_i2c->module_ver < 8) {
-		printk(KERN_DEBUG "called %s data[6] =%d,data[7] = %d\n",
-		       __func__, data[6], data[7]);
-		search_sensitivity = ((0x00FF & data[6]) << 8) | data[7];
-	} else {
-		printk(KERN_DEBUG "called %s data[11] =%d\n", __func__,
-		       data[11]);
-		search_sensitivity = data[11];
-	}
-#else
-	printk(KERN_DEBUG "called %s data[16] =%d,data[17] = %d\n", __func__,
-	       data[16], data[17]);
-	search_sensitivity = ((0x00FF & data[16]) << 8) | data[17];
-#endif				/* CONFIG_TARGET_LOCALE_NA */
-	return sprintf(buf, "%d\n", search_sensitivity);
-}
-#else
-static ssize_t touchkey_menu_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-#if defined(CONFIG_MACH_Q1_BD) \
-|| (defined(CONFIG_MACH_C1) && defined(CONFIG_TARGET_LOCALE_KOR))\
-	|| defined(CONFIG_MACH_T0)
 	u8 data[14] = { 0, };
 	int ret;
 
@@ -886,15 +575,6 @@ static ssize_t touchkey_menu_show(struct device *dev,
 	menu_sensitivity = ((0x00FF & data[12]) << 8) | data[13];
 	printk(KERN_DEBUG "called %s menu_sensitivity =%d\n", __func__,
 			menu_sensitivity);
-
-#else
-	u8 data[10];
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
-	menu_sensitivity = data[7];
-#endif
 	return sprintf(buf, "%d\n", menu_sensitivity);
 }
 
@@ -902,9 +582,6 @@ static ssize_t touchkey_back_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-#if defined(CONFIG_MACH_Q1_BD) \
-	|| (defined(CONFIG_MACH_C1) && defined(CONFIG_TARGET_LOCALE_KOR))\
-	|| defined(CONFIG_MACH_T0)
 	u8 data[14] = { 0, };
 	int ret;
 
@@ -915,19 +592,9 @@ static ssize_t touchkey_back_show(struct device *dev,
 	back_sensitivity =((0x00FF & data[10]) << 8) | data[11];
 	printk(KERN_DEBUG "called %s back_sensitivity =%d\n", __func__,
 			back_sensitivity);
-#else
-	u8 data[10];
-	int ret;
-
-	printk(KERN_DEBUG "called %s\n", __func__);
-	ret = i2c_touchkey_read(tkey_i2c->client, KEYCODE_REG, data, 10);
-	back_sensitivity = data[9];
-#endif
 	return sprintf(buf, "%d\n", back_sensitivity);
 }
-#endif
 
-#if defined(TK_HAS_AUTOCAL)
 static ssize_t autocalibration_enable(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t size)
@@ -959,7 +626,6 @@ static ssize_t autocalibration_status(struct device *dev,
 		return sprintf(buf, "Disabled\n");
 
 }
-#endif				/* CONFIG_TARGET_LOCALE_NA */
 
 static ssize_t touch_sensitivity_control(struct device *dev,
 					 struct device_attribute *attr,
@@ -1051,11 +717,6 @@ static DEVICE_ATTR(touchkey_menu, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(touchkey_back, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touchkey_back_show, NULL);
 
-#if defined(TK_USE_4KEY)
-static DEVICE_ATTR(touchkey_home, S_IRUGO, touchkey_home_show, NULL);
-static DEVICE_ATTR(touchkey_search, S_IRUGO, touchkey_search_show, NULL);
-#endif
-
 static DEVICE_ATTR(touch_sensitivity, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   touch_sensitivity_control);
 static DEVICE_ATTR(touchkey_firm_update_status, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -1063,12 +724,6 @@ static DEVICE_ATTR(touchkey_firm_update_status, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP,
 		   set_touchkey_firm_version_read_show, NULL);
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
-static DEVICE_ATTR(touchkey_autocal_start, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
-		   set_touchkey_autocal_testmode);
-#endif
-
-#if defined(TK_HAS_AUTOCAL)
 static DEVICE_ATTR(touchkey_raw_data0, S_IRUGO, touchkey_raw_data0_show, NULL);
 static DEVICE_ATTR(touchkey_raw_data1, S_IRUGO, touchkey_raw_data1_show, NULL);
 static DEVICE_ATTR(touchkey_raw_data2, S_IRUGO, touchkey_raw_data2_show, NULL);
@@ -1082,22 +737,13 @@ static DEVICE_ATTR(autocal_enable, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   autocalibration_enable);
 static DEVICE_ATTR(autocal_stat, S_IRUGO | S_IWUSR | S_IWGRP,
 		   autocalibration_status, NULL);
-#endif
 
 static struct attribute *touchkey_attributes[] = {
 	&dev_attr_recommended_version.attr,
 	&dev_attr_brightness.attr,
 	&dev_attr_touchkey_menu.attr,
 	&dev_attr_touchkey_back.attr,
-#if defined(TK_USE_4KEY)
-	&dev_attr_touchkey_home.attr,
-	&dev_attr_touchkey_search.attr,
-#endif
 	&dev_attr_touch_sensitivity.attr,
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
-	&dev_attr_touchkey_autocal_start.attr,
-#endif
-#if defined(TK_HAS_AUTOCAL)
 	&dev_attr_touchkey_raw_data0.attr,
 	&dev_attr_touchkey_raw_data1.attr,
 	&dev_attr_touchkey_raw_data2.attr,
@@ -1110,7 +756,6 @@ static struct attribute *touchkey_attributes[] = {
 	&dev_attr_autocal_enable.attr,
 	&dev_attr_autocal_stat.attr,
 	&dev_attr_keypad_enable.attr,
-#endif
 	NULL,
 };
 
@@ -1214,7 +859,6 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 		}
 	}
 
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)
 	gpio_request(GPIO_OLED_DET, "OLED_DET");
 	ret = gpio_get_value(GPIO_OLED_DET);
 	printk(KERN_DEBUG
@@ -1228,15 +872,6 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 		touchkey_probe = false;
 		return -EBUSY;
 	}
-#else
-	ret = touchkey_i2c_check(tkey_i2c);
-	if (ret < 0) {
-		printk(KERN_DEBUG"[TouchKey] probe failed\n");
-		input_unregister_device(input_dev);
-		touchkey_probe = false;
-		return -EBUSY;
-	}
-#endif
 
 	ret =
 		request_threaded_irq(tkey_i2c->irq, NULL, touchkey_interrupt,
@@ -1261,9 +896,7 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	register_early_suspend(&tkey_i2c->early_suspend);
 #endif
 
-#if defined(TK_HAS_AUTOCAL)
 	touchkey_autocalibration(tkey_i2c);
-#endif
 	set_touchkey_debug('K');
 	return 0;
 }
@@ -1280,19 +913,11 @@ static int __init touchkey_init(void)
 {
 	int ret = 0;
 
-#if defined(CONFIG_MACH_M0)
 	if (system_rev < TOUCHKEY_FW_UPDATEABLE_HW_REV) {
 		printk(KERN_DEBUG "[Touchkey] Doesn't support this board rev %d\n",
 				system_rev);
 		return 0;
 	}
-#elif defined(CONFIG_MACH_C1)
-	if (system_rev < TOUCHKEY_FW_UPDATEABLE_HW_REV) {
-		printk(KERN_DEBUG "[Touchkey] Doesn't support this board rev %d\n",
-				system_rev);
-		return 0;
-	}
-#endif
 
 	ret = i2c_add_driver(&touchkey_i2c_driver);
 

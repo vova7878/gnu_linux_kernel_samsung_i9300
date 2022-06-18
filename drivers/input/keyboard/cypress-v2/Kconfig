@@ -4,6 +4,7 @@
 
 config KEYBOARD_CYPRESS_TOUCH_V2
 	tristate "Cypress touchkey v2 support"
+	depends on MACH_M0 && TARGET_LOCALE_EUR
 	help
 	  Say Y here to enable the cypress touchkey.
 

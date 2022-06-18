@@ -160,8 +160,12 @@ struct s3cfb_extdsp_lcd {
 #include <linux/host_notify.h>
 #endif
 
-#if defined(CONFIG_KEYBOARD_CYPRESS_TOUCH) || defined(CONFIG_KEYBOARD_CYPRESS_TOUCH_V2)
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/i2c/touchkey_i2c.h>
+#endif
+
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_V2
+#include <linux/i2c/touchkey_i2c_v2.h>
 #endif
 
 #if defined(CONFIG_MACH_GC1)
@@ -299,7 +303,7 @@ static struct spi_board_info spi2_board_info[] __initdata = {
 
 static struct i2c_board_info i2c_devs8_emul[];
 
-#if defined(CONFIG_KEYBOARD_CYPRESS_TOUCH) || defined(CONFIG_KEYBOARD_CYPRESS_TOUCH_V2)
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 static void touchkey_init_hw(void)
 {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)
@@ -451,6 +455,79 @@ static struct touchkey_platform_data touchkey_pdata = {
 	.led_power_on = touchkey_led_power_on,
 };
 #endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
+
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_V2
+static void touchkey_init_hw(void)
+{
+	if (system_rev < 11)
+		return; // rev 1.0
+
+	gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
+
+	gpio_request(GPIO_3_TOUCH_INT, "3_TOUCH_INT");
+	s3c_gpio_setpull(GPIO_3_TOUCH_INT, S3C_GPIO_PULL_NONE);
+	s5p_register_gpio_interrupt(GPIO_3_TOUCH_INT);
+	gpio_direction_input(GPIO_3_TOUCH_INT);
+
+	i2c_devs8_emul[0].irq = gpio_to_irq(GPIO_3_TOUCH_INT);
+	irq_set_irq_type(gpio_to_irq(GPIO_3_TOUCH_INT), IRQF_TRIGGER_FALLING);
+	s3c_gpio_cfgpin(GPIO_3_TOUCH_INT, S3C_GPIO_SFN(0xf));
+
+	s3c_gpio_setpull(GPIO_3_TOUCH_SCL, S3C_GPIO_PULL_DOWN);
+	s3c_gpio_setpull(GPIO_3_TOUCH_SDA, S3C_GPIO_PULL_DOWN);
+}
+
+static int touchkey_power_on(bool on)
+{
+	int ret;
+
+	if (on) {
+		gpio_direction_output(GPIO_3_TOUCH_INT, 1);
+		irq_set_irq_type(gpio_to_irq(GPIO_3_TOUCH_INT),
+			IRQF_TRIGGER_FALLING);
+		s3c_gpio_cfgpin(GPIO_3_TOUCH_INT, S3C_GPIO_SFN(0xf));
+		s3c_gpio_setpull(GPIO_3_TOUCH_INT, S3C_GPIO_PULL_NONE);
+	} else
+		gpio_direction_input(GPIO_3_TOUCH_INT);
+
+	struct regulator *regulator;
+	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
+	if (IS_ERR(regulator))
+		return 0;
+
+	if (on) {
+		regulator_enable(regulator);
+		regulator_put(regulator);
+
+		s3c_gpio_setpull(GPIO_3_TOUCH_SCL, S3C_GPIO_PULL_NONE);
+		s3c_gpio_setpull(GPIO_3_TOUCH_SDA, S3C_GPIO_PULL_NONE);
+	} else{
+		if (regulator_is_enabled(regulator))
+			regulator_force_disable(regulator);
+
+		s3c_gpio_setpull(GPIO_3_TOUCH_SCL, S3C_GPIO_PULL_DOWN);
+		s3c_gpio_setpull(GPIO_3_TOUCH_SDA, S3C_GPIO_PULL_DOWN);
+
+		regulator_put(regulator);
+	}
+
+	return ret;
+}
+
+static int touchkey_led_power_on(bool on)
+{
+	if (on)
+		gpio_direction_output(GPIO_3_TOUCH_EN, 1);
+	else
+		gpio_direction_output(GPIO_3_TOUCH_EN, 0);
+	return 1;
+}
+
+static struct touchkey_platform_data touchkey_pdata = {
+	.power_on = touchkey_power_on,
+	.led_power_on = touchkey_led_power_on,
+};
+#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH_V2*/
 
 
 #if defined(CONFIG_TDMB) || defined(CONFIG_TDMB_MODULE)

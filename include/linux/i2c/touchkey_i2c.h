@@ -163,7 +163,7 @@ struct touchkey_platform_data {
 	int gpio_sda;
 	int gpio_scl;
 	int gpio_int;
-	//void (*init_platform_hw)(void);
+	void (*init_platform_hw)(void);
 	int (*suspend) (void);
 	int (*resume) (void);
 	int (*power_on) (bool);
