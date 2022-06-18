@@ -48,7 +48,9 @@ usage() {
 
 prepare() 
 {
+	mv .config .config.bak
  	make ARCH=arm CROSS_COMPILE=$TOOLCHAIN mrproper
+	mv .config.bak .config
 }
 
 make_config() 
