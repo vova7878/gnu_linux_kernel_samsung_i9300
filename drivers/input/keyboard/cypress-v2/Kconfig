@@ -1,0 +1,19 @@
+#
+# Cypress touchkey configuration
+#
+
+config KEYBOARD_CYPRESS_TOUCH_V2
+	tristate "Cypress touchkey v2 support"
+	help
+	  Say Y here to enable the cypress touchkey.
+
+	  To compile this driver as a module, choose M here.
+
+config KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
+	bool "Emulate mouse buttons on touch keys"
+	depends on KEYBOARD_CYPRESS_TOUCH_V2 && VIRTUAL_MOUSE_EXPORT_LEFT_CLICK && VIRTUAL_MOUSE_EXPORT_RIGHT_CLICK
+	help
+	  Use virtual mouse driver to send BTN_LEFT/BTN_RIGHT events to X11.
+
+	  Menu key now is right mouse button and Back key is left.
+

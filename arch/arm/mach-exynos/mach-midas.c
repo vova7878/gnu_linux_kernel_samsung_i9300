@@ -160,7 +160,7 @@ struct s3cfb_extdsp_lcd {
 #include <linux/host_notify.h>
 #endif
 
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+#ifdef defined(KEYBOARD_CYPRESS_TOUCH) || defined(KEYBOARD_CYPRESS_TOUCH_V2)
 #include <linux/i2c/touchkey_i2c.h>
 #endif
 
@@ -299,7 +299,7 @@ static struct spi_board_info spi2_board_info[] __initdata = {
 
 static struct i2c_board_info i2c_devs8_emul[];
 
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+#ifdef defined(KEYBOARD_CYPRESS_TOUCH) || defined(KEYBOARD_CYPRESS_TOUCH_V2)
 static void touchkey_init_hw(void)
 {
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_C1)
@@ -444,7 +444,7 @@ static struct touchkey_platform_data touchkey_pdata = {
 	.gpio_sda = GPIO_3_TOUCH_SDA,
 	.gpio_scl = GPIO_3_TOUCH_SCL,
 	.gpio_int = GPIO_3_TOUCH_INT,
-	//.init_platform_hw = touchkey_init_hw,
+	.init_platform_hw = touchkey_init_hw,
 	.suspend = touchkey_suspend,
 	.resume = touchkey_resume,
 	.power_on = touchkey_power_on,
@@ -1236,7 +1236,7 @@ struct platform_device s3c_device_i2c8 = {
 
 /* I2C8 */
 static struct i2c_board_info i2c_devs8_emul[] = {
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+#ifdef defined(KEYBOARD_CYPRESS_TOUCH) || defined(KEYBOARD_CYPRESS_TOUCH_V2)
 	{
 		I2C_BOARD_INFO("sec_touchkey", 0x20),
 		.platform_data = &touchkey_pdata,
@@ -3048,7 +3048,7 @@ static void __init midas_machine_init(void)
 	s3c_i2c7_set_platdata(NULL);
 	i2c_register_board_info(7, i2c_devs7, ARRAY_SIZE(i2c_devs7));
 #endif
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+#ifdef defined(KEYBOARD_CYPRESS_TOUCH) || defined(KEYBOARD_CYPRESS_TOUCH_V2)
 	touchkey_init_hw();
 #endif
 	i2c_register_board_info(8, i2c_devs8_emul, ARRAY_SIZE(i2c_devs8_emul));

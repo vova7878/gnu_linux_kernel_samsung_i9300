@@ -3,7 +3,7 @@
 #
 
 config KEYBOARD_CYPRESS_TOUCH_BLN
-	tristate "Cypress touchkey support"
+	tristate "Cypress touchkey with BLN support"
 	help
 	  Say Y here to enable the cypress touchkey with BLN support.
 

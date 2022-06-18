@@ -660,6 +660,8 @@ config SENSORS_HALL
 
 source "drivers/input/keyboard/cypress/Kconfig"
 
+source "drivers/input/keyboard/cypress-v2/Kconfig"
+
 source "drivers/input/keyboard/cypressbln/Kconfig"
 
 config KEYBOARD_CROS_EC
