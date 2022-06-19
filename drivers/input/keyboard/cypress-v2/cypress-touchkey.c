@@ -796,6 +796,12 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 			"[Touchkey]: failed to create led device");
 		goto exit_irq;
 	}
+	
+#ifdef CONFIG_LEDS_TRIGGERS
+	tkey_i2c->touchkey_trig_name = "touchkey";
+	led_trigger_register_simple(tkey_i2c->touchkey_trig_name,
+				    &tkey_i2c->touchkey_trig);
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	tkey_i2c->early_suspend.suspend =
@@ -823,6 +829,9 @@ exit_tkey_i2c:
 
 static int i2c_touchkey_remove(struct i2c_client *client)
 {
+#ifdef CONFIG_LEDS_TRIGGERS
+	led_trigger_unregister_simple(tkey_i2c->touchkey_trig);
+#endif
 	touchkey_led_remove();
 	tkey_i2c->pdata->power_on(0);
 	free_irq(tkey_i2c->irq, touchkey_interrupt);

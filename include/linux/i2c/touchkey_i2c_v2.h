@@ -55,7 +55,14 @@ struct touchkey_i2c {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct early_suspend early_suspend;
+
+	/* Leds support */
 	struct led_classdev cdev;
+#ifdef CONFIG_LEDS_TRIGGERS
+	struct led_trigger *touchkey_trig;
+	char *touchkey_trig_name;
+#endif
+
 	//struct mutex lock;
 	struct device	*dev;
 	int irq;
