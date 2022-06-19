@@ -191,14 +191,14 @@ static void power_supply_remove_bat_triggers(struct power_supply *psy)
 	led_trigger_unregister_simple(psy->charging_full_trig);
 	led_trigger_unregister_simple(psy->charging_critical_low_trig);
 	led_trigger_unregister_simple(psy->charging_high_full_trig);
-	kfree(psy->charging_trig);
-	kfree(psy->charging_critical_trig);
-	kfree(psy->charging_low_trig);
-	kfree(psy->charging_normal_trig);
-	kfree(psy->charging_high_trig);
-	kfree(psy->charging_full_trig);
-	kfree(psy->charging_critical_low_trig);
-	kfree(psy->charging_high_full_trig);
+	kfree(psy->charging_trig_name);
+	kfree(psy->charging_critical_trig_name);
+	kfree(psy->charging_low_trig_name);
+	kfree(psy->charging_normal_trig_name);
+	kfree(psy->charging_high_trig_name);
+	kfree(psy->charging_full_trig_name);
+	kfree(psy->charging_critical_low_trig_name);
+	kfree(psy->charging_high_full_trig_name);
 }
 
 /* Generated power specific LEDs triggers. */
