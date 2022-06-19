@@ -27,7 +27,6 @@ EXPORT_SYMBOL_GPL(leds_list);
 static void led_stop_software_blink(struct led_classdev *led_cdev)
 {
 	/* deactivate previous settings */
-	del_timer_sync(&led_cdev->blink_timer);
 	led_cdev->blink_delay_on = 0;
 	led_cdev->blink_delay_off = 0;
 }
@@ -60,11 +59,12 @@ static void led_set_software_blink(struct led_classdev *led_cdev,
 	mod_timer(&led_cdev->blink_timer, jiffies + 1);
 }
 
-void led_blink_set(struct led_classdev *led_cdev,
+void led_blink_setup(struct led_classdev *led_cdev,
 		   unsigned long *delay_on,
 		   unsigned long *delay_off)
 {
-	if (led_cdev->blink_set &&
+	if (!(led_cdev->flags & LED_BLINK_ONESHOT) &&
+	    led_cdev->blink_set &&
 	    !led_cdev->blink_set(led_cdev, delay_on, delay_off))
 		return;
 
@@ -73,6 +73,39 @@ void led_blink_set(struct led_classdev *led_cdev,
 		*delay_on = *delay_off = 500;
 
 	led_set_software_blink(led_cdev, *delay_on, *delay_off);
+}
+
+void led_blink_set_oneshot(struct led_classdev *led_cdev,
+			   unsigned long *delay_on,
+			   unsigned long *delay_off,
+			   int invert)
+{
+	if ((led_cdev->flags & LED_BLINK_ONESHOT) &&
+	     timer_pending(&led_cdev->blink_timer))
+		return;
+
+	led_cdev->flags |= LED_BLINK_ONESHOT;
+	led_cdev->flags &= ~LED_BLINK_ONESHOT_STOP;
+
+	if (invert)
+		led_cdev->flags |= LED_BLINK_INVERT;
+	else
+		led_cdev->flags &= ~LED_BLINK_INVERT;
+
+	led_blink_setup(led_cdev, delay_on, delay_off);
+}
+EXPORT_SYMBOL(led_blink_set_oneshot);
+
+void led_blink_set(struct led_classdev *led_cdev,
+		   unsigned long *delay_on,
+		   unsigned long *delay_off)
+{
+	del_timer_sync(&led_cdev->blink_timer);
+
+	led_cdev->flags &= ~LED_BLINK_ONESHOT;
+	led_cdev->flags &= ~LED_BLINK_ONESHOT_STOP;
+
+	led_blink_setup(led_cdev, delay_on, delay_off);
 }
 EXPORT_SYMBOL(led_blink_set);
 
