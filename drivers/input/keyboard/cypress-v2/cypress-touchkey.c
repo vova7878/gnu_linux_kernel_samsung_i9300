@@ -307,6 +307,30 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 	return sprintf(buf, "%d\n", touchkey_threshold);
 }
 
+#ifdef CONFIG_LEDS_TRIGGERS
+static void update_touchkey_leds(enum touchkey_led_event event)
+{
+	//unsigned long delay_on = 1000;
+	//unsigned long delay_off = 100;
+
+	switch(event){
+		case TOUCHKEY_EVENT_TYPE_POWER_OFF:
+		case TOUCHKEY_EVENT_TYPE_SUSPEND:
+			led_trigger_event(tkey_i2c->touchkey_trig, LED_OFF);
+			break;
+		case TOUCHKEY_EVENT_TYPE_POWER_ON:
+		case TOUCHKEY_EVENT_TYPE_RESUME:
+		case TOUCHKEY_EVENT_TYPE_PRESSED:
+			//led_trigger_blink(tkey_i2c->touchkey_trig, &delay_on, &delay_off);
+			led_trigger_event(tkey_i2c->touchkey_trig, LED_FULL);
+			break;
+		case TOUCHKEY_EVENT_TYPE_RELEASED:
+			/* nothing to do */
+			break;
+	}
+}
+#endif
+
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH_VIRTUAL_MOUSE
 extern void report_virtual_left_button(int state);
 extern void report_virtual_right_button(int state);
@@ -372,6 +396,11 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 		}
 #endif
 
+#ifdef CONFIG_LEDS_TRIGGERS
+	update_touchkey_leds(pressed ? TOUCHKEY_EVENT_TYPE_PRESSED : 
+										TOUCHKEY_EVENT_TYPE_RELEASED);
+#endif
+
 		printk(KERN_DEBUG "[TouchKey] pressed:%d\n",
 			pressed);
 	}
@@ -396,6 +425,10 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] sec_touchkey_early_suspend\n");
 
+#ifdef CONFIG_LEDS_TRIGGERS
+	update_touchkey_leds(TOUCHKEY_EVENT_TYPE_SUSPEND);
+#endif
+
 	/* disable ldo18 */
 	//tkey_i2c->pdata->led_power_on(0);
 
@@ -415,6 +448,10 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 
 	//msleep(50);
 	//tkey_i2c->pdata->led_power_on(1);
+
+#ifdef CONFIG_LEDS_TRIGGERS
+	update_touchkey_leds(TOUCHKEY_EVENT_TYPE_RESUME);
+#endif
 
 	touchkey_autocalibration();
 
@@ -811,6 +848,10 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	register_early_suspend(&tkey_i2c->early_suspend);
 #endif
 
+#ifdef CONFIG_LEDS_TRIGGERS
+	update_touchkey_leds(TOUCHKEY_EVENT_TYPE_POWER_ON);
+#endif
+
 	touchkey_autocalibration();
 	set_touchkey_debug('K');
 	return 0;
@@ -830,6 +871,7 @@ exit_tkey_i2c:
 static int i2c_touchkey_remove(struct i2c_client *client)
 {
 #ifdef CONFIG_LEDS_TRIGGERS
+	update_touchkey_leds(TOUCHKEY_EVENT_TYPE_POWER_OFF);
 	led_trigger_unregister_simple(tkey_i2c->touchkey_trig);
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND

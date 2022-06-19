@@ -45,6 +45,18 @@
 
 #define  TOUCHKEY_FW_UPDATEABLE_HW_REV  11
 
+#ifdef CONFIG_LEDS_TRIGGERS
+enum touchkey_led_event {
+	TOUCHKEY_EVENT_TYPE_UNKNOWN = 0,
+	TOUCHKEY_EVENT_TYPE_SUSPEND,
+	TOUCHKEY_EVENT_TYPE_RESUME,
+	TOUCHKEY_EVENT_TYPE_POWER_OFF,
+	TOUCHKEY_EVENT_TYPE_POWER_ON,
+	TOUCHKEY_EVENT_TYPE_PRESSED,
+	TOUCHKEY_EVENT_TYPE_RELEASED,
+};
+#endif
+
 struct touchkey_platform_data {
 	int (*power_on) (bool);
 	int (*led_power_on) (bool);

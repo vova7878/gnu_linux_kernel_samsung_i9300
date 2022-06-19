@@ -15,7 +15,7 @@ struct touchkey_led_conf {
 static struct touchkey_led_conf led_conf =
 {
 	.name = "touchkey_led",
-	.default_trigger = NULL, //"battery-charging-critical-low",
+	.default_trigger = "touchkey",
 	.brightness = LED_OFF,
 	.max_brightness = LED_FULL,
 	.flags = 0,
