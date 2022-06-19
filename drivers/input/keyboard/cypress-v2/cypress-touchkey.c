@@ -832,6 +832,9 @@ static int i2c_touchkey_remove(struct i2c_client *client)
 #ifdef CONFIG_LEDS_TRIGGERS
 	led_trigger_unregister_simple(tkey_i2c->touchkey_trig);
 #endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&tkey_i2c->early_suspend);
+#endif
 	touchkey_led_remove();
 	tkey_i2c->pdata->power_on(0);
 	free_irq(tkey_i2c->irq, touchkey_interrupt);
