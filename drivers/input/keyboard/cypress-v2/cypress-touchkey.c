@@ -68,7 +68,6 @@ static int touchkey_i2c_check(void);
 static u16 menu_sensitivity;
 static u16 back_sensitivity;
 
-//static int touchkey_enable;
 struct touchkey_i2c *tkey_i2c;
 
 static const struct i2c_device_id sec_touchkey_id[] = {
@@ -96,9 +95,7 @@ static int i2c_touchkey_read(struct i2c_client *client,
 	int err = 0;
 	int retry = 3;
 
-	if ((client == NULL)
-		//|| !(touchkey_enable == 1)
-	    ) {
+	if (client == NULL) {
 		printk(KERN_ERR "[TouchKey] touchkey is not enabled. %d\n",
 		       __LINE__);
 		return -ENODEV;
@@ -124,9 +121,7 @@ int i2c_touchkey_write(struct i2c_client *client,
 	int err = 0;
 	int retry = 3;
 
-	if ((client == NULL) 
-		//|| !(touchkey_enable == 1)
-	    ) {
+	if (client == NULL) {
 		printk(KERN_ERR "[TouchKey] touchkey is not enabled. %d\n",
 		       __LINE__);
 		return -ENODEV;
@@ -387,7 +382,6 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int sec_touchkey_early_suspend(struct early_suspend *h)
 {
-	int ret;
 	int i;
 
 	disable_irq(tkey_i2c->irq);
@@ -399,14 +393,8 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 	}
 	input_sync(tkey_i2c->input_dev);
 
-	/*touchkey_enable = 0;
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] sec_touchkey_early_suspend\n");
-	if (touchkey_enable < 0) {
-		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
-		       __func__, touchkey_enable);
-		return 0;
-	}*/
 
 	/* disable ldo18 */
 	//tkey_i2c->pdata->led_power_on(0);
@@ -425,15 +413,8 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 	/* enable ldo11 */
 	//tkey_i2c->pdata->power_on(1);
 
-	/*if (touchkey_enable < 0) {
-		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
-		       __func__, touchkey_enable);
-		return 0;
-	}
 	//msleep(50);
 	//tkey_i2c->pdata->led_power_on(1);
-
-	touchkey_enable = 1;*/
 
 	touchkey_autocalibration();
 
@@ -765,7 +746,6 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	tkey_i2c->pdata->power_on(1);
 	msleep(50);
 
-	//touchkey_enable = 1;
 	data = 1;
 
 	/*sysfs*/

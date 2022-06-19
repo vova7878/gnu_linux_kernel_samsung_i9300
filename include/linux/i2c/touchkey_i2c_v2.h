@@ -56,14 +56,13 @@ struct touchkey_i2c {
 	struct input_dev *input_dev;
 	struct early_suspend early_suspend;
 	struct led_classdev cdev;
-	struct mutex lock;
+	//struct mutex lock;
 	struct device	*dev;
 	int irq;
 	int module_ver;
 	int firmware_ver;
 	struct touchkey_platform_data *pdata;
 	char *name;
-	int (*power)(int on);
 	int update_status;
 	atomic_t keypad_enable;
 };
