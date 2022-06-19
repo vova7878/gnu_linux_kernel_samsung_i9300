@@ -109,6 +109,8 @@ void led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trigger)
 		list_del(&led_cdev->trig_list);
 		write_unlock_irqrestore(&led_cdev->trigger->leddev_list_lock,
 			flags);
+		cancel_work_sync(&led_cdev->set_brightness_work);
+		led_stop_software_blink(led_cdev);
 		if (led_cdev->trigger->deactivate)
 			led_cdev->trigger->deactivate(led_cdev);
 		led_cdev->trigger = NULL;
@@ -224,13 +226,13 @@ void led_trigger_event(struct led_trigger *trigger,
 		struct led_classdev *led_cdev;
 
 		led_cdev = list_entry(entry, struct led_classdev, trig_list);
-		__led_set_brightness(led_cdev, brightness);
+		led_set_brightness(led_cdev, brightness);
 	}
 	read_unlock(&trigger->leddev_list_lock);
 }
 EXPORT_SYMBOL_GPL(led_trigger_event);
 
-void led_trigger_blink_setup(struct led_trigger *trig,
+void led_trigger_blink_setup(struct led_trigger *trigger,
 			     unsigned long *delay_on,
 			     unsigned long *delay_off,
 			     int oneshot,
