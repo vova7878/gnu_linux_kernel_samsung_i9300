@@ -21,28 +21,18 @@ static struct touchkey_led_conf led_conf =
 	.flags = 0,
 };
 
-static struct touchkey_i2c *b_tkey_i2c;
-static int touchkey_led_status;
-static int touchled_cmd_reversed;
-
 static void touchkey_led_brightness_set(struct led_classdev *cdev, enum led_brightness brightness)
 {
-	int data;
-	int ret;
 	static const int ledCmd[] = {TK_CMD_LED_OFF, TK_CMD_LED_ON};
+	int data;
 
 	data = brightness ? 1 : 0;
 	data = ledCmd[data];
 
-	ret = i2c_touchkey_write(b_tkey_i2c->client, (u8 *) &data, 1);
-
-	if (ret == -ENODEV)
-		touchled_cmd_reversed = 1;
-
-	touchkey_led_status = data;
+	i2c_touchkey_write(tkey_i2c->client, (u8 *) &data, 1);
 }
 
-int touchkey_led_start(struct touchkey_i2c *tkey_i2c)
+int touchkey_led_probe(void)
 {
 	struct device *dev = &tkey_i2c->client->dev;
 	int ret;
@@ -63,11 +53,11 @@ int touchkey_led_start(struct touchkey_i2c *tkey_i2c)
 
 	tkey_i2c->pdata->led_power_on(1);
 	
-	b_tkey_i2c = tkey_i2c;
-	
 	return 0;
 }
 
-void touchkey_led_exit(void)
+void touchkey_led_remove(void)
 {
+	tkey_i2c->pdata->led_power_on(0);
+	led_classdev_unregister(&tkey_i2c->cdev);
 }

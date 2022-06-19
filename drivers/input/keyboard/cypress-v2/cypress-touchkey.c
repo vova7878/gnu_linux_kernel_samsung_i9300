@@ -61,15 +61,15 @@ static u8 idac2;
 static u8 idac3;
 static u8 touchkey_threshold;
 
-static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c);
+static int touchkey_autocalibration(void);
 
-static int touchkey_i2c_check(struct touchkey_i2c *tkey_i2c);
+static int touchkey_i2c_check(void);
 
 static u16 menu_sensitivity;
 static u16 back_sensitivity;
 
 //static int touchkey_enable;
-static bool touchkey_probe = true;
+struct touchkey_i2c *tkey_i2c;
 
 static const struct i2c_device_id sec_touchkey_id[] = {
 	{"sec_touchkey", 0},
@@ -98,7 +98,7 @@ static int i2c_touchkey_read(struct i2c_client *client,
 
 	if ((client == NULL)
 		//|| !(touchkey_enable == 1)
-	    || !touchkey_probe) {
+	    ) {
 		printk(KERN_ERR "[TouchKey] touchkey is not enabled. %d\n",
 		       __LINE__);
 		return -ENODEV;
@@ -126,7 +126,7 @@ int i2c_touchkey_write(struct i2c_client *client,
 
 	if ((client == NULL) 
 		//|| !(touchkey_enable == 1)
-	    || !touchkey_probe) {
+	    ) {
 		printk(KERN_ERR "[TouchKey] touchkey is not enabled. %d\n",
 		       __LINE__);
 		return -ENODEV;
@@ -146,7 +146,7 @@ int i2c_touchkey_write(struct i2c_client *client,
 	return err;
 }
 
-static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c)
+static int touchkey_autocalibration()
 {
 	u8 data[6] = { 0, };
 	int count = 0;
@@ -194,7 +194,6 @@ static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c)
 static ssize_t touchkey_raw_data0_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[26] = { 0, };
 	int ret;
 
@@ -209,7 +208,6 @@ static ssize_t touchkey_raw_data0_show(struct device *dev,
 static ssize_t touchkey_raw_data1_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[26] = { 0, };
 	int ret;
 
@@ -224,7 +222,6 @@ static ssize_t touchkey_raw_data1_show(struct device *dev,
 static ssize_t touchkey_raw_data2_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[26] = { 0, };
 	int ret;
 
@@ -239,7 +236,6 @@ static ssize_t touchkey_raw_data2_show(struct device *dev,
 static ssize_t touchkey_raw_data3_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[26] = { 0, };
 	int ret;
 
@@ -254,7 +250,6 @@ static ssize_t touchkey_raw_data3_show(struct device *dev,
 static ssize_t touchkey_idac0_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
 
@@ -268,7 +263,6 @@ static ssize_t touchkey_idac0_show(struct device *dev,
 static ssize_t touchkey_idac1_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
 
@@ -282,7 +276,6 @@ static ssize_t touchkey_idac1_show(struct device *dev,
 static ssize_t touchkey_idac2_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
 
@@ -296,7 +289,6 @@ static ssize_t touchkey_idac2_show(struct device *dev,
 static ssize_t touchkey_idac3_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
 
@@ -310,7 +302,6 @@ static ssize_t touchkey_idac3_show(struct device *dev,
 static ssize_t touchkey_threshold_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[10];
 	int ret;
 
@@ -328,7 +319,6 @@ extern void report_virtual_right_button(int state);
 
 static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 {
-	struct touchkey_i2c *tkey_i2c = dev_id;
 	u8 data[3];
 	int ret;
 	int retry = 10;
@@ -397,8 +387,6 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int sec_touchkey_early_suspend(struct early_suspend *h)
 {
-	struct touchkey_i2c *tkey_i2c =
-		container_of(h, struct touchkey_i2c, early_suspend);
 	int ret;
 	int i;
 
@@ -431,9 +419,6 @@ static int sec_touchkey_early_suspend(struct early_suspend *h)
 
 static int sec_touchkey_late_resume(struct early_suspend *h)
 {
-	struct touchkey_i2c *tkey_i2c =
-		container_of(h, struct touchkey_i2c, early_suspend);
-
 	set_touchkey_debug('R');
 	printk(KERN_DEBUG "[TouchKey] sec_touchkey_late_resume\n");
 
@@ -450,7 +435,7 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 
 	touchkey_enable = 1;*/
 
-	touchkey_autocalibration(tkey_i2c);
+	touchkey_autocalibration();
 
 	enable_irq(tkey_i2c->irq);
 
@@ -458,7 +443,7 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 }
 #endif
 
-static int touchkey_i2c_check(struct touchkey_i2c *tkey_i2c)
+static int touchkey_i2c_check()
 {
 	char data[3] = { 0, };
 	int ret = 0;
@@ -478,7 +463,6 @@ static int touchkey_i2c_check(struct touchkey_i2c *tkey_i2c)
 static ssize_t touch_version_read(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	char data[3] = { 0, };
 	int count;
 
@@ -504,7 +488,6 @@ static ssize_t touch_version_write(struct device *dev,
 static ssize_t touch_update_read(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	int count = 0;
 
 	printk(KERN_DEBUG
@@ -524,7 +507,6 @@ static ssize_t touch_update_read(struct device *dev,
 static ssize_t touchkey_menu_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[14] = { 0, };
 	int ret;
 
@@ -541,7 +523,6 @@ static ssize_t touchkey_menu_show(struct device *dev,
 static ssize_t touchkey_back_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	u8 data[14] = { 0, };
 	int ret;
 
@@ -559,13 +540,12 @@ static ssize_t autocalibration_enable(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t size)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	int data;
 
 	sscanf(buf, "%d\n", &data);
 
 	if (data == 1)
-		touchkey_autocalibration(tkey_i2c);
+		touchkey_autocalibration();
 
 	return size;
 }
@@ -575,7 +555,6 @@ static ssize_t autocalibration_status(struct device *dev,
 {
 	u8 data[6];
 	int ret;
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 
 	printk(KERN_DEBUG "[Touchkey] %s\n", __func__);
 
@@ -591,7 +570,6 @@ static ssize_t touch_sensitivity_control(struct device *dev,
 					 struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	unsigned char data = 0x40;
 	i2c_touchkey_write(tkey_i2c->client, &data, 1);
 	return size;
@@ -601,7 +579,6 @@ static ssize_t set_touchkey_firm_version_read_show(struct device *dev,
 						   struct device_attribute
 						   *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	char data[3] = { 0, };
 	int count;
 
@@ -617,7 +594,6 @@ static ssize_t set_touchkey_firm_status_show(struct device *dev,
 					     struct device_attribute *attr,
 					     char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 	int count = 0;
 
 	printk(KERN_DEBUG
@@ -637,16 +613,12 @@ static ssize_t set_touchkey_firm_status_show(struct device *dev,
 static ssize_t sec_keypad_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-
 	return sprintf(buf, "%d\n", atomic_read(&tkey_i2c->keypad_enable));
 }
 
 static ssize_t sec_keypad_enable_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
-
 	unsigned int val = 0;
 	sscanf(buf, "%d", &val);
 	val = (val == 0 ? 0 : 1);
@@ -724,7 +696,6 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	struct touchkey_platform_data *pdata = client->dev.platform_data;
-	struct touchkey_i2c *tkey_i2c;
 
 	struct input_dev *input_dev;
 	int err = 0;
@@ -758,8 +729,8 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 
 	if (!input_dev) {
 		printk(KERN_ERR"[Touchkey] failed to allocate input device\n");
-		kfree(tkey_i2c);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit_tkey_i2c;
 	}
 
 	input_dev->name = "sec_touchkey";
@@ -784,14 +755,11 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	for (i = 1; i < touchkey_count; i++)
 		set_bit(touchkey_keycode[i], input_dev->keybit);
 
-	input_set_drvdata(input_dev, tkey_i2c);
-
 	ret = input_register_device(input_dev);
 	if (ret) {
 		printk(KERN_ERR"[Touchkey] failed to register input device\n");
 		input_free_device(input_dev);
-		kfree(tkey_i2c);
-		return err;
+		goto exit_tkey_i2c;
 	}
 
 	tkey_i2c->pdata->power_on(1);
@@ -805,15 +773,15 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 
 	if (IS_ERR(tkey_i2c->dev)) {
 		printk(KERN_ERR "Failed to create device(tkey_i2c->dev)!\n");
-		input_unregister_device(input_dev);
-	} else {
-		dev_set_drvdata(tkey_i2c->dev, tkey_i2c);
-		ret = sysfs_create_group(&tkey_i2c->dev->kobj,
-					&touchkey_attr_group);
-		if (ret) {
-			printk(KERN_ERR
-				"[TouchKey]: failed to create sysfs group\n");
-		}
+		ret = -ENODEV;
+		goto exit;
+	}
+	ret = sysfs_create_group(&tkey_i2c->dev->kobj,
+				&touchkey_attr_group);
+	if (ret) {
+		printk(KERN_ERR
+			"[TouchKey]: failed to create sysfs group\n");
+		goto exit;
 	}
 
 	gpio_request(GPIO_OLED_DET, "OLED_DET");
@@ -825,31 +793,28 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 		printk(KERN_DEBUG
 		"[TouchKey] device wasn't connected to board\n");
 
-		input_unregister_device(input_dev);
-		touchkey_probe = false;
-		return -EBUSY;
+		ret = -EBUSY;
+		goto exit_group;
 	}
 
 	ret =
 		request_threaded_irq(tkey_i2c->irq, NULL, touchkey_interrupt,
 				IRQF_DISABLED | IRQF_TRIGGER_FALLING |
-				IRQF_ONESHOT, tkey_i2c->name, tkey_i2c);
-	if (ret < 0) {
+				IRQF_ONESHOT, tkey_i2c->name, NULL);
+	if (ret) {
 		printk(KERN_ERR
 			"[Touchkey]: failed to request irq(%d) - %d\n",
 			tkey_i2c->irq, ret);
-		input_unregister_device(input_dev);
-		touchkey_probe = false;
-		return -EBUSY;
+
+		ret = -EBUSY;
+		goto exit_group;
 	}
 
-	ret = touchkey_led_start(tkey_i2c);
-	if (ret < 0) {
+	ret = touchkey_led_probe();
+	if (ret) {
 		printk(KERN_ERR
 			"[Touchkey]: failed to create led device");
-		input_unregister_device(input_dev);
-		touchkey_probe = false;
-		return ret;
+		goto exit_irq;
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -860,8 +825,30 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 	register_early_suspend(&tkey_i2c->early_suspend);
 #endif
 
-	touchkey_autocalibration(tkey_i2c);
+	touchkey_autocalibration();
 	set_touchkey_debug('K');
+	return 0;
+
+exit_irq:
+	free_irq(tkey_i2c->irq, touchkey_interrupt);
+exit_group:
+	sysfs_remove_group(&tkey_i2c->dev->kobj, &touchkey_attr_group);
+exit:
+	tkey_i2c->pdata->power_on(0);
+	input_unregister_device(input_dev);
+exit_tkey_i2c:
+	kfree(tkey_i2c);
+	return ret;
+}
+
+static int i2c_touchkey_remove(struct i2c_client *client)
+{
+	touchkey_led_remove();
+	tkey_i2c->pdata->power_on(0);
+	free_irq(tkey_i2c->irq, touchkey_interrupt);
+	sysfs_remove_group(&tkey_i2c->dev->kobj, &touchkey_attr_group);
+	input_unregister_device(tkey_i2c->input_dev);
+	kfree(tkey_i2c);
 	return 0;
 }
 
@@ -871,6 +858,7 @@ struct i2c_driver touchkey_i2c_driver = {
 	},
 	.id_table = sec_touchkey_id,
 	.probe = i2c_touchkey_probe,
+	.remove = i2c_touchkey_remove,
 };
 
 static int __init touchkey_init(void)
@@ -896,7 +884,6 @@ static int __init touchkey_init(void)
 static void __exit touchkey_exit(void)
 {
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
-	touchkey_led_exit();
 	i2c_del_driver(&touchkey_i2c_driver);
 }
 
