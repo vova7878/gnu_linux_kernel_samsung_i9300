@@ -310,8 +310,8 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 #ifdef CONFIG_LEDS_TRIGGERS
 static void update_touchkey_leds(enum touchkey_led_event event)
 {
-	unsigned long delay_on = 30000; // 30s
-	unsigned long delay_off = 0;
+	unsigned long delay_on = 60000; // 60s
+	unsigned long delay_off = 1;
 
 	switch(event){
 		case TOUCHKEY_EVENT_TYPE_POWER_OFF:
@@ -320,6 +320,7 @@ static void update_touchkey_leds(enum touchkey_led_event event)
 			break;
 		case TOUCHKEY_EVENT_TYPE_POWER_ON:
 		case TOUCHKEY_EVENT_TYPE_RESUME:
+			msleep(100);
 		case TOUCHKEY_EVENT_TYPE_PRESSED:
 			led_trigger_blink_oneshot(tkey_i2c->touchkey_trig, &delay_on, &delay_off, 0);
 			break;
