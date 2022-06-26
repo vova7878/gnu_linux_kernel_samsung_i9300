@@ -33,6 +33,10 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
+ 
+#include <linux/kref.h>
+
+#include <drm/drm_vma_manager.h>
 
 /**
  * This structure defines the drm_mm memory object, which will be used by the

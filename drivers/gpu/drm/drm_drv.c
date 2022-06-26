@@ -32,7 +32,10 @@
 #include <linux/moduleparam.h>
 #include <linux/mount.h>
 #include <linux/slab.h>
+
+//#include <drm/drm_drv.h>
 #include <drm/drmP.h>
+
 #include <drm/drm_core.h>
 #include "drm_legacy.h"
 #include "drm_internal.h"
