@@ -34,6 +34,7 @@
 #include <uapi/drm/drm_mode.h>
 #include <uapi/drm/drm_fourcc.h>
 #include <drm/drm_modeset_lock.h>
+#include <drm/drm_mode_config.h>
 
 struct drm_device;
 struct drm_mode_set;
@@ -287,6 +288,32 @@ struct drm_crtc_funcs {
 
 	int (*set_property)(struct drm_crtc *crtc,
 			    struct drm_property *property, uint64_t val);
+
+	/**
+	 * @late_register:
+	 *
+	 * This optional hook can be used to register additional userspace
+	 * interfaces attached to the crtc like debugfs interfaces.
+	 * It is called late in the driver load sequence from drm_dev_register().
+	 * Everything added from this callback should be unregistered in
+	 * the early_unregister callback.
+	 *
+	 * Returns:
+	 *
+	 * 0 on success, or a negative error code on failure.
+	 */
+	int (*late_register)(struct drm_crtc *crtc);
+
+	/**
+	 * @early_unregister:
+	 *
+	 * This optional hook should be used to unregister the additional
+	 * userspace interfaces attached to the crtc from
+	 * late_unregister(). It is called from drm_dev_unregister(),
+	 * early in the driver unload sequence to disable userspace access
+	 * before data structures are torndown.
+	 */
+	void (*early_unregister)(struct drm_crtc *crtc);
 };
 
 /**
@@ -423,6 +450,32 @@ struct drm_connector_funcs {
 struct drm_encoder_funcs {
 	void (*reset)(struct drm_encoder *encoder);
 	void (*destroy)(struct drm_encoder *encoder);
+
+	/**
+	 * @late_register:
+	 *
+	 * This optional hook can be used to register additional userspace
+	 * interfaces attached to the encoder like debugfs interfaces.
+	 * It is called late in the driver load sequence from drm_dev_register().
+	 * Everything added from this callback should be unregistered in
+	 * the early_unregister callback.
+	 *
+	 * Returns:
+	 *
+	 * 0 on success, or a negative error code on failure.
+	 */
+	int (*late_register)(struct drm_encoder *encoder);
+
+	/**
+	 * @early_unregister:
+	 *
+	 * This optional hook should be used to unregister the additional
+	 * userspace interfaces attached to the encoder from
+	 * late_unregister(). It is called from drm_dev_unregister(),
+	 * early in the driver unload sequence to disable userspace access
+	 * before data structures are torndown.
+	 */
+	void (*early_unregister)(struct drm_encoder *encoder);
 };
 
 #define DRM_CONNECTOR_MAX_ENCODER 3
@@ -585,6 +638,31 @@ struct drm_plane_funcs {
 
 	int (*set_property)(struct drm_plane *plane,
 			    struct drm_property *property, uint64_t val);
+	/**
+	 * @late_register:
+	 *
+	 * This optional hook can be used to register additional userspace
+	 * interfaces attached to the plane like debugfs interfaces.
+	 * It is called late in the driver load sequence from drm_dev_register().
+	 * Everything added from this callback should be unregistered in
+	 * the early_unregister callback.
+	 *
+	 * Returns:
+	 *
+	 * 0 on success, or a negative error code on failure.
+	 */
+	int (*late_register)(struct drm_plane *plane);
+
+	/**
+	 * @early_unregister:
+	 *
+	 * This optional hook should be used to unregister the additional
+	 * userspace interfaces attached to the plane from
+	 * late_unregister(). It is called from drm_dev_unregister(),
+	 * early in the driver unload sequence to disable userspace access
+	 * before data structures are torndown.
+	 */
+	void (*early_unregister)(struct drm_plane *plane);
 };
 
 enum drm_plane_type {
@@ -702,21 +780,6 @@ struct drm_mode_set {
 };
 
 /**
- * struct drm_mode_config_funcs - basic driver provided mode setting functions
- * @fb_create: create a new framebuffer object
- * @output_poll_changed: function to handle output configuration changes
- *
- * Some global (i.e. not per-CRTC, connector, etc) mode setting functions that
- * involve drivers.
- */
-struct drm_mode_config_funcs {
-	struct drm_framebuffer *(*fb_create)(struct drm_device *dev,
-					     struct drm_file *file_priv,
-					     struct drm_mode_fb_cmd2 *mode_cmd);
-	void (*output_poll_changed)(struct drm_device *dev);
-};
-
-/**
  * drm_mode_group - group of mode setting resources for potential sub-grouping
  * @num_crtcs: CRTC count
  * @num_encoders: encoder count
@@ -737,128 +800,6 @@ struct drm_mode_group {
 
 	/* list of object IDs for this group */
 	uint32_t *id_list;
-};
-
-/**
- * drm_mode_config - Mode configuration control structure
- * @mutex: mutex protecting KMS related lists and structures
- * @idr_mutex: mutex for KMS ID allocation and management
- * @crtc_idr: main KMS ID tracking object
- * @num_fb: number of fbs available
- * @fb_list: list of framebuffers available
- * @num_connector: number of connectors on this device
- * @connector_list: list of connector objects
- * @num_bridge: number of bridges on this device
- * @bridge_list: list of bridge objects
- * @num_encoder: number of encoders on this device
- * @encoder_list: list of encoder objects
- * @num_crtc: number of CRTCs on this device
- * @crtc_list: list of CRTC objects
- * @min_width: minimum pixel width on this device
- * @min_height: minimum pixel height on this device
- * @max_width: maximum pixel width on this device
- * @max_height: maximum pixel height on this device
- * @funcs: core driver provided mode setting functions
- * @fb_base: base address of the framebuffer
- * @poll_enabled: track polling status for this device
- * @output_poll_work: delayed work for polling in process context
- * @*_property: core property tracking
- *
- * Core mode resource tracking structure.  All CRTC, encoders, and connectors
- * enumerated by the driver are added here, as are global properties.  Some
- * global restrictions are also here, e.g. dimension restrictions.
- */
-struct drm_mode_config {
-	struct mutex mutex; /* protects configuration (mode lists etc.) */
-	struct drm_modeset_lock connection_mutex; /* protects connector->encoder and encoder->crtc links */
-	struct drm_modeset_acquire_ctx *acquire_ctx; /* for legacy _lock_all() / _unlock_all() */
-	struct mutex idr_mutex; /* for IDR management */
-	struct idr crtc_idr; /* use this idr for all IDs, fb, crtc, connector, modes - just makes life easier */
-	/* this is limited to one for now */
-
-
-	/**
-	 * fb_lock - mutex to protect fb state
-	 *
-	 * Besides the global fb list his also protects the fbs list in the
-	 * file_priv
-	 */
-	struct mutex fb_lock;
-	int num_fb;
-	struct list_head fb_list;
-
-	int num_connector;
-	struct list_head connector_list;
-	int num_bridge;
-	struct list_head bridge_list;
-	int num_encoder;
-	struct list_head encoder_list;
-
-	/*
-	 * Track # of overlay planes separately from # of total planes.  By
-	 * default we only advertise overlay planes to userspace; if userspace
-	 * sets the "universal plane" capability bit, we'll go ahead and
-	 * expose all planes.
-	 */
-	int num_overlay_plane;
-	int num_total_plane;
-	struct list_head plane_list;
-
-	int num_crtc;
-	struct list_head crtc_list;
-
-	struct list_head property_list;
-
-	int min_width, min_height;
-	int max_width, max_height;
-	const struct drm_mode_config_funcs *funcs;
-	resource_size_t fb_base;
-
-	/* output poll support */
-	bool poll_enabled;
-	bool poll_running;
-	struct delayed_work output_poll_work;
-
-	/* pointers to standard properties */
-	struct list_head property_blob_list;
-	struct drm_property *edid_property;
-	struct drm_property *dpms_property;
-	struct drm_property *path_property;
-	struct drm_property *plane_type_property;
-	struct drm_property *rotation_property;
-
-	/* DVI-I properties */
-	struct drm_property *dvi_i_subconnector_property;
-	struct drm_property *dvi_i_select_subconnector_property;
-
-	/* TV properties */
-	struct drm_property *tv_subconnector_property;
-	struct drm_property *tv_select_subconnector_property;
-	struct drm_property *tv_mode_property;
-	struct drm_property *tv_left_margin_property;
-	struct drm_property *tv_right_margin_property;
-	struct drm_property *tv_top_margin_property;
-	struct drm_property *tv_bottom_margin_property;
-	struct drm_property *tv_brightness_property;
-	struct drm_property *tv_contrast_property;
-	struct drm_property *tv_flicker_reduction_property;
-	struct drm_property *tv_overscan_property;
-	struct drm_property *tv_saturation_property;
-	struct drm_property *tv_hue_property;
-
-	/* Optional properties */
-	struct drm_property *scaling_mode_property;
-	struct drm_property *aspect_ratio_property;
-	struct drm_property *dirty_info_property;
-
-	/* dumb ioctl parameters */
-	uint32_t preferred_depth, prefer_shadow;
-
-	/* whether async page flip is supported or not */
-	bool async_page_flip;
-
-	/* cursor size */
-	uint32_t cursor_width, cursor_height;
 };
 
 #define obj_to_crtc(x) container_of(x, struct drm_crtc, base)
@@ -909,6 +850,9 @@ void drm_connector_unregister(struct drm_connector *connector);
 
 extern void drm_connector_cleanup(struct drm_connector *connector);
 extern unsigned int drm_connector_index(struct drm_connector *connector);
+/* helpers to {un}register all connectors from sysfs for device */
+extern int drm_connector_register_all(struct drm_device *dev);
+extern void drm_connector_unregister_all(struct drm_device *dev);
 /* helper to unplug all connectors from sysfs for device */
 extern void drm_connector_unplug_all(struct drm_device *dev);
 
@@ -973,9 +917,6 @@ extern struct edid *drm_get_edid(struct drm_connector *connector,
 				 struct i2c_adapter *adapter);
 extern struct edid *drm_edid_duplicate(const struct edid *edid);
 extern int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid);
-extern void drm_mode_config_init(struct drm_device *dev);
-extern void drm_mode_config_reset(struct drm_device *dev);
-extern void drm_mode_config_cleanup(struct drm_device *dev);
 
 extern int drm_mode_connector_set_path_property(struct drm_connector *connector,
 						char *path);
@@ -1197,5 +1138,35 @@ drm_property_blob_find(struct drm_device *dev, uint32_t id)
 #define drm_for_each_legacy_plane(plane, planelist) \
 	list_for_each_entry(plane, planelist, head) \
 		if (plane->type == DRM_PLANE_TYPE_OVERLAY)
+			
+static inline void
+assert_drm_connector_list_read_locked(struct drm_mode_config *mode_config)
+{
+	/*
+	 * The connector hotadd/remove code currently grabs both locks when
+	 * updating lists. Hence readers need only hold either of them to be
+	 * safe and the check amounts to
+	 *
+	 * WARN_ON(not_holding(A) && not_holding(B)).
+	 */
+	WARN_ON(!mutex_is_locked(&mode_config->mutex) &&
+		!drm_modeset_is_locked(&mode_config->connection_mutex));
+}
+			
+#define drm_for_each_connector(connector, dev) \
+	for (assert_drm_connector_list_read_locked(&(dev)->mode_config),	\
+	     connector = list_first_entry(&(dev)->mode_config.connector_list,	\
+					  struct drm_connector, head);		\
+	     &connector->head != (&(dev)->mode_config.connector_list);		\
+	     connector = list_next_entry(connector, head))
+			
+#define drm_for_each_plane(plane, dev) \
+	list_for_each_entry(plane, &(dev)->mode_config.plane_list, head)
+
+#define drm_for_each_crtc(crtc, dev) \
+	list_for_each_entry(crtc, &(dev)->mode_config.crtc_list, head)
+	
+#define drm_for_each_encoder(encoder, dev) \
+	list_for_each_entry(encoder, &(dev)->mode_config.encoder_list, head)
 
 #endif /* __DRM_CRTC_H__ */

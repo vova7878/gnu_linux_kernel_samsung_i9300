@@ -8,6 +8,7 @@
 
 #include <drm/drm_hashtab.h>
 #include <drm/drm_mode_config.h>
+#include <asm/signal.h>
 
 struct drm_file;
 struct drm_device;

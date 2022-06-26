@@ -37,6 +37,7 @@
 #include <drm/drmP.h>
 
 #include <drm/drm_core.h>
+#include "drm_crtc_internal.h"
 #include "drm_legacy.h"
 #include "drm_internal.h"
 
@@ -717,10 +718,11 @@ int drm_dev_register(struct drm_device *dev, unsigned long flags)
 
 	/* setup grouping for legacy outputs */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		ret = drm_mode_group_init_legacy_group(dev,
+		/*ret = drm_mode_group_init_legacy_group(dev,
 				&dev->primary->mode_group);
 		if (ret)
-			goto err_unload;
+			goto err_unload;*/
+		drm_modeset_register_all(dev);
 	}
 
 	ret = 0;
@@ -752,6 +754,9 @@ void drm_dev_unregister(struct drm_device *dev)
 	struct drm_map_list *r_list, *list_temp;
 
 	drm_lastclose(dev);
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		drm_modeset_unregister_all(dev);
 
 	if (dev->driver->unload)
 		dev->driver->unload(dev);
