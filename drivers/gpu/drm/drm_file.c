@@ -34,10 +34,11 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <drm/drmP.h>
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <drm/drm_client.h>
+#include <drm/drmP.h>
 #include "drm_legacy.h"
 #include "drm_internal.h"
 
@@ -45,6 +46,111 @@
 DEFINE_MUTEX(drm_global_mutex);
 
 static int drm_open_helper(struct file *filp, struct drm_minor *minor);
+
+/**
+ * drm_file_alloc - allocate file context
+ * @minor: minor to allocate on
+ *
+ * This allocates a new DRM file context. It is not linked into any context and
+ * can be used by the caller freely. Note that the context keeps a pointer to
+ * @minor, so it must be freed before @minor is.
+ *
+ * RETURNS:
+ * Pointer to newly allocated context, ERR_PTR on failure.
+ */
+struct drm_file *drm_file_alloc(struct drm_minor *minor)
+{
+	struct drm_device *dev = minor->dev;
+	struct drm_file *priv;
+	int ret;
+
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return ERR_PTR(-ENOMEM);
+
+	priv->pid = get_pid(task_pid(current));
+	priv->minor = minor;
+
+	/* for compatibility root is always authenticated */
+	priv->authenticated = capable(CAP_SYS_ADMIN);
+	priv->lock_count = 0;
+
+	INIT_LIST_HEAD(&priv->lhead);
+	INIT_LIST_HEAD(&priv->fbs);
+	mutex_init(&priv->fbs_lock);
+	INIT_LIST_HEAD(&priv->event_list);
+	init_waitqueue_head(&priv->event_wait);
+	priv->event_space = 4096; /* set aside 4k for event buffer */
+
+	if (drm_core_check_feature(dev, DRIVER_GEM))
+		drm_gem_open(dev, priv);
+
+	if (drm_core_check_feature(dev, DRIVER_PRIME))
+		drm_prime_init_file_private(&priv->prime);
+
+	if (dev->driver->open) {
+		ret = dev->driver->open(dev, priv);
+		if (ret < 0)
+			goto out_prime_destroy;
+	}
+
+	/* if there is no current master make this fd it, but do not create
+	 * any master object for render clients */
+	mutex_lock(&dev->master_mutex);
+	if (drm_is_primary_client(priv) && !priv->minor->master) {
+		/* create a new master */
+		priv->minor->master = drm_master_create(priv->minor);
+		if (!priv->minor->master) {
+			ret = -ENOMEM;
+			goto out_close;
+		}
+
+		priv->is_master = 1;
+		/* take another reference for the copy in the local file priv */
+		priv->master = drm_master_get(priv->minor->master);
+		priv->authenticated = 1;
+
+		if (dev->driver->master_create) {
+			ret = dev->driver->master_create(dev, priv->master);
+			if (ret) {
+				/* drop both references if this fails */
+				drm_master_put(&priv->minor->master);
+				drm_master_put(&priv->master);
+				goto out_close;
+			}
+		}
+		if (dev->driver->master_set) {
+			ret = dev->driver->master_set(dev, priv, true);
+			if (ret) {
+				/* drop both references if this fails */
+				drm_master_put(&priv->minor->master);
+				drm_master_put(&priv->master);
+				goto out_close;
+			}
+		}
+	} else if (drm_is_primary_client(priv)) {
+		/* get a reference to the master */
+		priv->master = drm_master_get(priv->minor->master);
+	}
+	mutex_unlock(&dev->master_mutex);
+
+	return priv;
+
+out_close:
+	mutex_unlock(&dev->master_mutex);
+	if (dev->driver->postclose)
+		dev->driver->postclose(dev, priv);
+out_prime_destroy:
+	if (drm_core_check_feature(dev, DRIVER_PRIME))
+		drm_prime_destroy_file_private(&priv->prime);
+	if (drm_core_check_feature(dev, DRIVER_GEM))
+		drm_gem_release(dev, priv);
+	put_pid(priv->pid);
+	kfree(priv);
+	return ret;
+
+	return ERR_PTR(ret);
+}
 
 static int drm_setup(struct drm_device * dev)
 {
@@ -139,7 +245,6 @@ static int drm_open_helper(struct file *filp, struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
 	struct drm_file *priv;
-	int ret;
 
 	if (filp->f_flags & O_EXCL)
 		return -EBUSY;	/* No exclusive opens */
@@ -150,78 +255,13 @@ static int drm_open_helper(struct file *filp, struct drm_minor *minor)
 
 	DRM_DEBUG("pid = %d, minor = %d\n", task_pid_nr(current), minor->index);
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
+	priv = drm_file_alloc(minor);
+	if (IS_ERR(priv))
+		return PTR_ERR(priv);
 
 	filp->private_data = priv;
 	priv->filp = filp;
 	priv->uid = current_euid();
-	priv->pid = get_pid(task_pid(current));
-	priv->minor = minor;
-
-	/* for compatibility root is always authenticated */
-	priv->authenticated = capable(CAP_SYS_ADMIN);
-	priv->lock_count = 0;
-
-	INIT_LIST_HEAD(&priv->lhead);
-	INIT_LIST_HEAD(&priv->fbs);
-	mutex_init(&priv->fbs_lock);
-	INIT_LIST_HEAD(&priv->event_list);
-	init_waitqueue_head(&priv->event_wait);
-	priv->event_space = 4096; /* set aside 4k for event buffer */
-
-	if (drm_core_check_feature(dev, DRIVER_GEM))
-		drm_gem_open(dev, priv);
-
-	if (drm_core_check_feature(dev, DRIVER_PRIME))
-		drm_prime_init_file_private(&priv->prime);
-
-	if (dev->driver->open) {
-		ret = dev->driver->open(dev, priv);
-		if (ret < 0)
-			goto out_prime_destroy;
-	}
-
-	/* if there is no current master make this fd it, but do not create
-	 * any master object for render clients */
-	mutex_lock(&dev->master_mutex);
-	if (drm_is_primary_client(priv) && !priv->minor->master) {
-		/* create a new master */
-		priv->minor->master = drm_master_create(priv->minor);
-		if (!priv->minor->master) {
-			ret = -ENOMEM;
-			goto out_close;
-		}
-
-		priv->is_master = 1;
-		/* take another reference for the copy in the local file priv */
-		priv->master = drm_master_get(priv->minor->master);
-		priv->authenticated = 1;
-
-		if (dev->driver->master_create) {
-			ret = dev->driver->master_create(dev, priv->master);
-			if (ret) {
-				/* drop both references if this fails */
-				drm_master_put(&priv->minor->master);
-				drm_master_put(&priv->master);
-				goto out_close;
-			}
-		}
-		if (dev->driver->master_set) {
-			ret = dev->driver->master_set(dev, priv, true);
-			if (ret) {
-				/* drop both references if this fails */
-				drm_master_put(&priv->minor->master);
-				drm_master_put(&priv->master);
-				goto out_close;
-			}
-		}
-	} else if (drm_is_primary_client(priv)) {
-		/* get a reference to the master */
-		priv->master = drm_master_get(priv->minor->master);
-	}
-	mutex_unlock(&dev->master_mutex);
 
 	mutex_lock(&dev->struct_mutex);
 	list_add(&priv->lhead, &dev->filelist);
@@ -248,20 +288,6 @@ static int drm_open_helper(struct file *filp, struct drm_minor *minor)
 #endif
 
 	return 0;
-
-out_close:
-	mutex_unlock(&dev->master_mutex);
-	if (dev->driver->postclose)
-		dev->driver->postclose(dev, priv);
-out_prime_destroy:
-	if (drm_core_check_feature(dev, DRIVER_PRIME))
-		drm_prime_destroy_file_private(&priv->prime);
-	if (drm_core_check_feature(dev, DRIVER_GEM))
-		drm_gem_release(dev, priv);
-	put_pid(priv->pid);
-	kfree(priv);
-	filp->private_data = NULL;
-	return ret;
 }
 
 static void drm_master_release(struct drm_device *dev, struct file *filp)
@@ -303,84 +329,26 @@ static void drm_events_release(struct drm_file *file_priv)
 }
 
 /**
- * drm_legacy_dev_reinit
+ * drm_file_free - free file context
+ * @file: context to free, or NULL
  *
- * Reinitializes a legacy/ums drm device in it's lastclose function.
+ * This destroys and deallocates a DRM file context previously allocated via
+ * drm_file_alloc(). The caller must make sure to unlink it from any contexts
+ * before calling this.
+ *
+ * If NULL is passed, this is a no-op.
+ *
+ * RETURNS:
+ * 0 on success, or error code on failure.
  */
-static void drm_legacy_dev_reinit(struct drm_device *dev)
+void drm_file_free(struct drm_file *file_priv)
 {
-	if (drm_core_check_feature(dev, DRIVER_MODESET))
+	struct drm_device *dev;
+
+	if (!file_priv)
 		return;
 
-	dev->sigdata.lock = NULL;
-
-	dev->context_flag = 0;
-	dev->last_context = 0;
-	dev->if_version = 0;
-}
-
-/**
- * Take down the DRM device.
- *
- * \param dev DRM device structure.
- *
- * Frees every resource in \p dev.
- *
- * \sa drm_device
- */
-int drm_lastclose(struct drm_device * dev)
-{
-	DRM_DEBUG("\n");
-
-	if (dev->driver->lastclose)
-		dev->driver->lastclose(dev);
-	DRM_DEBUG("driver lastclose completed\n");
-
-	if (dev->irq_enabled && !drm_core_check_feature(dev, DRIVER_MODESET))
-		drm_irq_uninstall(dev);
-
-	mutex_lock(&dev->struct_mutex);
-
-	drm_agp_clear(dev);
-
-	drm_legacy_sg_cleanup(dev);
-	drm_legacy_vma_flush(dev);
-	drm_legacy_dma_takedown(dev);
-
-	mutex_unlock(&dev->struct_mutex);
-
-	drm_legacy_dev_reinit(dev);
-
-	DRM_DEBUG("lastclose completed\n");
-	return 0;
-}
-
-/**
- * Release file.
- *
- * \param inode device inode
- * \param file_priv DRM file private.
- * \return zero on success or a negative number on failure.
- *
- * If the hardware lock is held then free it, and take it again for the kernel
- * context since it's necessary to reclaim buffers. Unlink the file private
- * data from its list and free it. Decreases the open count and if it reaches
- * zero calls drm_lastclose().
- */
-int drm_release(struct inode *inode, struct file *filp)
-{
-	struct drm_file *file_priv = filp->private_data;
-	struct drm_minor *minor = file_priv->minor;
-	struct drm_device *dev = minor->dev;
-	int retcode = 0;
-
-	mutex_lock(&drm_global_mutex);
-
-	DRM_DEBUG("open_count = %d\n", dev->open_count);
-
-	mutex_lock(&dev->struct_mutex);
-	list_del(&file_priv->lhead);
-	mutex_unlock(&dev->struct_mutex);
+	dev = file_priv->minor->dev;
 
 	if (dev->driver->preclose)
 		dev->driver->preclose(dev, file_priv);
@@ -401,7 +369,7 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	/* if the master has gone away we can't do anything with the lock */
 	if (file_priv->minor->master)
-		drm_master_release(dev, filp);
+		drm_master_release(dev, file_priv->filp);
 
 	if (drm_core_check_feature(dev, DRIVER_HAVE_DMA))
 		drm_legacy_reclaim_buffers(dev, file_priv);
@@ -460,6 +428,91 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	put_pid(file_priv->pid);
 	kfree(file_priv);
+}
+
+/**
+ * drm_legacy_dev_reinit
+ *
+ * Reinitializes a legacy/ums drm device in it's lastclose function.
+ */
+static void drm_legacy_dev_reinit(struct drm_device *dev)
+{
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return;
+
+	dev->sigdata.lock = NULL;
+
+	dev->context_flag = 0;
+	dev->last_context = 0;
+	dev->if_version = 0;
+}
+
+/**
+ * Take down the DRM device.
+ *
+ * \param dev DRM device structure.
+ *
+ * Frees every resource in \p dev.
+ *
+ * \sa drm_device
+ */
+int drm_lastclose(struct drm_device * dev)
+{
+	DRM_DEBUG("\n");
+
+	if (dev->driver->lastclose)
+		dev->driver->lastclose(dev);
+	DRM_DEBUG("driver lastclose completed\n");
+
+	if (dev->irq_enabled && !drm_core_check_feature(dev, DRIVER_MODESET))
+		drm_irq_uninstall(dev);
+
+	mutex_lock(&dev->struct_mutex);
+
+	drm_agp_clear(dev);
+
+	drm_legacy_sg_cleanup(dev);
+	drm_legacy_vma_flush(dev);
+	drm_legacy_dma_takedown(dev);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	drm_legacy_dev_reinit(dev);
+
+	drm_client_dev_restore(dev);
+
+	DRM_DEBUG("lastclose completed\n");
+	return 0;
+}
+
+/**
+ * Release file.
+ *
+ * \param inode device inode
+ * \param file_priv DRM file private.
+ * \return zero on success or a negative number on failure.
+ *
+ * If the hardware lock is held then free it, and take it again for the kernel
+ * context since it's necessary to reclaim buffers. Unlink the file private
+ * data from its list and free it. Decreases the open count and if it reaches
+ * zero calls drm_lastclose().
+ */
+int drm_release(struct inode *inode, struct file *filp)
+{
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_minor *minor = file_priv->minor;
+	struct drm_device *dev = minor->dev;
+	int retcode = 0;
+
+	mutex_lock(&drm_global_mutex);
+
+	DRM_DEBUG("open_count = %d\n", dev->open_count);
+
+	mutex_lock(&dev->struct_mutex);
+	list_del(&file_priv->lhead);
+	mutex_unlock(&dev->struct_mutex);
+	
+	drm_file_free(file_priv);
 
 	/* ========================================================
 	 * End inline drm_release

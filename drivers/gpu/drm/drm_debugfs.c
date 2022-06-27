@@ -35,6 +35,8 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <drm/drmP.h>
+#include <drm/drm_debugfs.h>
+#include <drm/drm_client.h>
 #include <drm/drm_edid.h>
 #include "drm_internal.h"
 
@@ -164,6 +166,14 @@ int drm_debugfs_init(struct drm_minor *minor, int minor_id,
 		minor->debugfs_root = NULL;
 		DRM_ERROR("Failed to create core drm debugfs files\n");
 		return ret;
+	}
+	
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		ret = drm_client_debugfs_init(minor);
+		if (ret) {
+			DRM_ERROR("Failed to create client debugfs file\n");
+			return ret;
+		}
 	}
 
 	if (dev->driver->debugfs_init) {

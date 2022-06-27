@@ -76,6 +76,8 @@
 #include <drm/drm_drv.h>
 #include <drm/drm_prime.h>
 #include <drm/drm_device.h>
+#include <drm/drm_file.h>
+#include <drm/drm_debugfs.h>
 
 struct module;
 
@@ -112,6 +114,7 @@ struct dma_buf_attachment;
  * run-time by echoing the debug value in its sysfs node:
  *   # echo 0xf > /sys/module/drm/parameters/debug
  */
+#define DRM_UT_NONE		0x00
 #define DRM_UT_CORE 		0x01
 #define DRM_UT_DRIVER		0x02
 #define DRM_UT_KMS		0x04
@@ -173,6 +176,12 @@ struct dma_buf_attachment;
 		if (unlikely(drm_debug & DRM_UT_DRIVER))		\
 			drm_ut_debug_printk(__func__, fmt, ##args);	\
 	} while (0)
+#define DRM_DEV_ERROR(dev, fmt, ...)					\
+	drm_dev_printk(dev, KERN_ERR, DRM_UT_NONE, __func__, " *ERROR*",\
+		       fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_KMS(dev, fmt, args...)				\
+	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_KMS, __func__, "", fmt,	\
+		       ##args)
 #define DRM_DEBUG_KMS(fmt, args...)					\
 	do {								\
 		if (unlikely(drm_debug & DRM_UT_KMS))			\
@@ -191,62 +200,6 @@ struct dma_buf_attachment;
 /*@{*/
 
 #define DRM_IF_VERSION(maj, min) (maj << 16 | min)
-
-/* Event queued up for userspace to read */
-struct drm_pending_event {
-	struct drm_event *event;
-	struct list_head link;
-	struct drm_file *file_priv;
-	pid_t pid; /* pid of requester, no guarantee it's valid by the time
-		      we deliver the event, for tracing only */
-	void (*destroy)(struct drm_pending_event *event);
-};
-
-/** File private data */
-struct drm_file {
-	unsigned authenticated :1;
-	/* Whether we're master for a minor. Protected by master_mutex */
-	unsigned is_master :1;
-	/* true when the client has asked us to expose stereo 3D mode flags */
-	unsigned stereo_allowed :1;
-	/*
-	 * true if client understands CRTC primary planes and cursor planes
-	 * in the plane list
-	 */
-	unsigned universal_planes:1;
-
-	struct pid *pid;
-	kuid_t uid;
-	drm_magic_t magic;
-	struct list_head lhead;
-	struct drm_minor *minor;
-	unsigned long lock_count;
-
-	/** Mapping of mm object handles to object pointers. */
-	struct idr object_idr;
-	/** Lock for synchronization of access to object_idr. */
-	spinlock_t table_lock;
-
-	struct file *filp;
-	void *driver_priv;
-
-	struct drm_master *master; /* master this node is currently associated with
-				      N.B. not always minor->master */
-	/**
-	 * fbs - List of framebuffers associated with this file.
-	 *
-	 * Protected by fbs_lock. Note that the fbs list holds a reference on
-	 * the fb object to prevent it from untimely disappearing.
-	 */
-	struct list_head fbs;
-	struct mutex fbs_lock;
-
-	wait_queue_head_t event_wait;
-	struct list_head event_list;
-	int event_space;
-
-	struct drm_prime_file_private prime;
-};
 
 /**
  * Lock data.
@@ -301,54 +254,6 @@ struct drm_master {
 #define DRM_SCANOUTPOS_IN_VBLANK    (1 << 1)
 #define DRM_SCANOUTPOS_ACCURATE     (1 << 2)
 
-enum drm_minor_type {
-	DRM_MINOR_LEGACY,
-	DRM_MINOR_CONTROL,
-	DRM_MINOR_RENDER,
-	DRM_MINOR_CNT,
-};
-
-/**
- * Info file list entry. This structure represents a debugfs or proc file to
- * be created by the drm core
- */
-struct drm_info_list {
-	const char *name; /** file name */
-	int (*show)(struct seq_file*, void*); /** show callback */
-	u32 driver_features; /**< Required driver features for this entry */
-	void *data;
-};
-
-/**
- * debugfs node structure. This structure represents a debugfs file.
- */
-struct drm_info_node {
-	struct list_head list;
-	struct drm_minor *minor;
-	const struct drm_info_list *info_ent;
-	struct dentry *dent;
-};
-
-/**
- * DRM minor structure. This structure represents a drm minor number.
- */
-struct drm_minor {
-	int index;			/**< Minor device number */
-	int type;                       /**< Control or render */
-	struct device *kdev;		/**< Linux device */
-	struct drm_device *dev;
-
-	struct dentry *debugfs_root;
-
-	struct list_head debugfs_list;
-	struct mutex debugfs_lock; /* Protects debugfs_list. */
-
-	/* currently active master for this node. Protected by master_mutex */
-	struct drm_master *master;
-	struct drm_mode_group mode_group;
-};
-
-
 struct drm_pending_vblank_event {
 	struct drm_pending_event base;
 	int pipe;
@@ -395,33 +300,9 @@ static inline int drm_device_is_unplugged(struct drm_device *dev)
 	return ret;
 }
 
-static inline bool drm_is_render_client(const struct drm_file *file_priv)
-{
-	return file_priv->minor->type == DRM_MINOR_RENDER;
-}
-
-static inline bool drm_is_control_client(const struct drm_file *file_priv)
-{
-	return file_priv->minor->type == DRM_MINOR_CONTROL;
-}
-
-static inline bool drm_is_primary_client(const struct drm_file *file_priv)
-{
-	return file_priv->minor->type == DRM_MINOR_LEGACY;
-}
-
 /******************************************************************/
 /** \name Internal function definitions */
 /*@{*/
-
-				/* Device support (drm_fops.h) */
-extern int drm_open(struct inode *inode, struct file *filp);
-extern ssize_t drm_read(struct file *filp, char __user *buffer,
-			size_t count, loff_t *offset);
-extern int drm_release(struct inode *inode, struct file *filp);
-
-				/* Mapping support (drm_vm.h) */
-extern unsigned int drm_poll(struct file *filp, struct poll_table_struct *wait);
 
 /* Cache management (drm_cache.c) */
 void drm_clflush_pages(struct page *pages[], unsigned long num_pages);
@@ -486,28 +367,6 @@ extern void drm_vblank_post_modeset(struct drm_device *dev, int crtc);
 				/* Stub support (drm_stub.h) */
 extern struct drm_master *drm_master_get(struct drm_master *master);
 extern void drm_master_put(struct drm_master **master);
-
-				/* Debugfs support */
-#if defined(CONFIG_DEBUG_FS)
-extern int drm_debugfs_create_files(const struct drm_info_list *files,
-				    int count, struct dentry *root,
-				    struct drm_minor *minor);
-extern int drm_debugfs_remove_files(const struct drm_info_list *files,
-				    int count, struct drm_minor *minor);
-#else
-static inline int drm_debugfs_create_files(const struct drm_info_list *files,
-					   int count, struct dentry *root,
-					   struct drm_minor *minor)
-{
-	return 0;
-}
-
-static inline int drm_debugfs_remove_files(const struct drm_info_list *files,
-					   int count, struct drm_minor *minor)
-{
-	return 0;
-}
-#endif
 
 extern struct drm_dma_handle *drm_pci_alloc(struct drm_device *dev, size_t size,
 					    size_t align);

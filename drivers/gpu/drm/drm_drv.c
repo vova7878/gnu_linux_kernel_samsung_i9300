@@ -33,7 +33,7 @@
 #include <linux/mount.h>
 #include <linux/slab.h>
 
-//#include <drm/drm_drv.h>
+#include <drm/drm_client.h>
 #include <drm/drmP.h>
 
 #include <drm/drm_core.h>
@@ -75,6 +75,44 @@ void drm_err(const char *func, const char *format, ...)
 	va_end(args);
 }
 EXPORT_SYMBOL(drm_err);
+
+#define DRM_PRINTK_FMT "[" DRM_NAME ":%s]%s %pV"
+void drm_dev_printk(const struct device *dev, const char *level,
+		    unsigned int category, const char *function_name,
+		    const char *prefix, const char *format, ...)
+{
+	struct va_format vaf;
+	va_list args;
+	if (category != DRM_UT_NONE && !(drm_debug & category))
+		return;
+	va_start(args, format);
+	vaf.fmt = format;
+	vaf.va = &args;
+	if (dev)
+		dev_printk(level, dev, DRM_PRINTK_FMT, function_name, prefix,
+			   &vaf);
+	else
+		printk("%s" DRM_PRINTK_FMT, level, function_name, prefix, &vaf);
+	va_end(args);
+}
+EXPORT_SYMBOL(drm_dev_printk);
+
+void drm_printk(const char *level, unsigned int category,
+		const char *format, ...)
+{
+	struct va_format vaf;
+	va_list args;
+	if (category != DRM_UT_NONE && !(drm_debug & category))
+		return;
+	va_start(args, format);
+	vaf.fmt = format;
+	vaf.va = &args;
+	printk("%s" "[" DRM_NAME ":%ps]%s %pV",
+	       level, __builtin_return_address(0),
+	       strcmp(level, KERN_ERR) == 0 ? " *ERROR*" : "", &vaf);
+	va_end(args);
+}
+EXPORT_SYMBOL(drm_printk);
 
 void drm_ut_debug_printk(const char *function_name, const char *format, ...)
 {
@@ -556,6 +594,8 @@ struct drm_device *drm_dev_alloc(struct drm_driver *driver,
 	dev->driver = driver;
 
 	INIT_LIST_HEAD(&dev->filelist);
+	INIT_LIST_HEAD(&dev->filelist_internal);
+	INIT_LIST_HEAD(&dev->clientlist);
 	INIT_LIST_HEAD(&dev->ctxlist);
 	INIT_LIST_HEAD(&dev->vmalist);
 	INIT_LIST_HEAD(&dev->maplist);
@@ -564,6 +604,7 @@ struct drm_device *drm_dev_alloc(struct drm_driver *driver,
 	spin_lock_init(&dev->buf_lock);
 	spin_lock_init(&dev->event_lock);
 	mutex_init(&dev->struct_mutex);
+	mutex_init(&dev->clientlist_mutex);
 	mutex_init(&dev->ctxlist_mutex);
 	mutex_init(&dev->master_mutex);
 
@@ -620,6 +661,9 @@ err_minors:
 	drm_fs_inode_free(dev->anon_inode);
 err_free:
 	mutex_destroy(&dev->master_mutex);
+	mutex_destroy(&dev->ctxlist_mutex);
+	mutex_destroy(&dev->clientlist_mutex);
+	mutex_destroy(&dev->struct_mutex);
 	kfree(dev);
 	return NULL;
 }
@@ -641,6 +685,9 @@ static void drm_dev_release(struct kref *ref)
 	drm_minor_free(dev, DRM_MINOR_CONTROL);
 
 	mutex_destroy(&dev->master_mutex);
+	mutex_destroy(&dev->ctxlist_mutex);
+	mutex_destroy(&dev->clientlist_mutex);
+	mutex_destroy(&dev->struct_mutex);
 	kfree(dev->unique);
 	kfree(dev);
 }
@@ -754,6 +801,8 @@ void drm_dev_unregister(struct drm_device *dev)
 	struct drm_map_list *r_list, *list_temp;
 
 	drm_lastclose(dev);
+
+	drm_client_dev_unregister(dev);
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		drm_modeset_unregister_all(dev);

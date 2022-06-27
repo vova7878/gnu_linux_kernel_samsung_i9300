@@ -29,6 +29,7 @@
 
 #include <linux/list.h>
 #include <linux/irqreturn.h>
+#include <linux/pm.h>
 
 struct drm_device;
 struct drm_file;
@@ -295,6 +296,10 @@ struct drm_driver {
 	struct list_head legacy_dev_list;
 };
 
+extern __printf(6, 7)
+void drm_dev_printk(const struct device *dev, const char *level,
+		    unsigned int category, const char *function_name,
+		    const char *prefix, const char *format, ...);
 extern __printf(2, 3)
 void drm_ut_debug_printk(const char *function_name,
 			 const char *format, ...);

@@ -892,7 +892,7 @@ static void send_vblank_event(struct drm_device *dev,
 	list_add_tail(&e->base.link,
 		      &e->base.file_priv->event_list);
 	wake_up_interruptible(&e->base.file_priv->event_wait);
-	trace_drm_vblank_event_delivered(e->base.pid, e->pipe,
+	trace_drm_vblank_event_delivered(e->base.file_priv, e->pipe,
 					 e->event.sequence);
 }
 
@@ -1388,7 +1388,6 @@ static int drm_queue_vblank_event(struct drm_device *dev, int pipe,
 	}
 
 	e->pipe = pipe;
-	e->base.pid = current->pid;
 	e->event.base.type = DRM_EVENT_VBLANK;
 	e->event.base.length = sizeof e->event;
 	e->event.user_data = vblwait->request.signal;
