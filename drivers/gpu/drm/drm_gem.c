@@ -350,15 +350,21 @@ drm_gem_handle_create_tail(struct drm_file *file_priv,
 		return ret;
 	}
 
-	if (dev->driver->gem_open_object) {
+	if (obj->funcs && obj->funcs->open) {
+		ret = obj->funcs->open(obj, file_priv);
+		if (ret)
+			goto err_revoke;
+	} else if (dev->driver->gem_open_object) {
 		ret = dev->driver->gem_open_object(obj, file_priv);
-		if (ret) {
-			drm_gem_handle_delete(file_priv, *handlep);
-			return ret;
-		}
+		if (ret)
+			goto err_revoke;
 	}
 
 	return 0;
+	
+	err_revoke:
+	drm_gem_handle_delete(file_priv, *handlep);
+	return ret;
 }
 
 /**
@@ -715,7 +721,9 @@ drm_gem_object_release_handle(int id, void *ptr, void *data)
 		drm_gem_remove_prime_handles(obj, file_priv);
 	drm_vma_node_revoke(&obj->vma_node, file_priv->filp);
 
-	if (dev->driver->gem_close_object)
+	if (obj->funcs && obj->funcs->close)
+		obj->funcs->close(obj, file_priv);
+	else if (dev->driver->gem_close_object)
 		dev->driver->gem_close_object(obj, file_priv);
 
 	drm_gem_object_handle_unreference_unlocked(obj);
@@ -769,7 +777,9 @@ drm_gem_object_free(struct kref *kref)
 
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	if (dev->driver->gem_free_object != NULL)
+	if (obj->funcs) {
+		obj->funcs->free(obj);
+	} else if (dev->driver->gem_free_object)
 		dev->driver->gem_free_object(obj);
 }
 EXPORT_SYMBOL(drm_gem_object_free);
@@ -835,11 +845,14 @@ int drm_gem_mmap_obj(struct drm_gem_object *obj, unsigned long obj_size,
 	if (obj_size < vma->vm_end - vma->vm_start)
 		return -EINVAL;
 
-	if (!dev->driver->gem_vm_ops)
+	if (obj->funcs && obj->funcs->vm_ops)
+		vma->vm_ops = obj->funcs->vm_ops;
+	else if (dev->driver->gem_vm_ops)
+		vma->vm_ops = dev->driver->gem_vm_ops;
+	else
 		return -EINVAL;
 
 	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
-	vma->vm_ops = dev->driver->gem_vm_ops;
 	vma->vm_private_data = obj;
 	vma->vm_page_prot = pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
@@ -903,3 +916,81 @@ int drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	return ret;
 }
 EXPORT_SYMBOL(drm_gem_mmap);
+
+/**
+ * drm_gem_pin - Pin backing buffer in memory
+ * @obj: GEM object
+ *
+ * Make sure the backing buffer is pinned in memory.
+ *
+ * Returns:
+ * 0 on success or a negative error code on failure.
+ */
+int drm_gem_pin(struct drm_gem_object *obj)
+{
+	if (obj->funcs && obj->funcs->pin)
+		return obj->funcs->pin(obj);
+	else if (obj->dev->driver->gem_prime_pin)
+		return obj->dev->driver->gem_prime_pin(obj);
+	else
+		return 0;
+}
+EXPORT_SYMBOL(drm_gem_pin);
+
+/**
+ * drm_gem_unpin - Unpin backing buffer from memory
+ * @obj: GEM object
+ *
+ * Relax the requirement that the backing buffer is pinned in memory.
+ */
+void drm_gem_unpin(struct drm_gem_object *obj)
+{
+	if (obj->funcs && obj->funcs->unpin)
+		obj->funcs->unpin(obj);
+	else if (obj->dev->driver->gem_prime_unpin)
+		obj->dev->driver->gem_prime_unpin(obj);
+}
+EXPORT_SYMBOL(drm_gem_unpin);
+
+/**
+ * drm_gem_vmap - Map buffer into kernel virtual address space
+ * @obj: GEM object
+ *
+ * Returns:
+ * A virtual pointer to a newly created GEM object or an ERR_PTR-encoded negative
+ * error code on failure.
+ */
+void *drm_gem_vmap(struct drm_gem_object *obj)
+{
+	void *vaddr;
+
+	if (obj->funcs && obj->funcs->vmap)
+		vaddr = obj->funcs->vmap(obj);
+	else if (obj->dev->driver->gem_prime_vmap)
+		vaddr = obj->dev->driver->gem_prime_vmap(obj);
+	else
+		vaddr = ERR_PTR(-EOPNOTSUPP);
+
+	if (!vaddr)
+		vaddr = ERR_PTR(-ENOMEM);
+
+	return vaddr;
+}
+EXPORT_SYMBOL(drm_gem_vmap);
+
+/**
+ * drm_gem_vunmap - Remove buffer mapping from kernel virtual address space
+ * @obj: GEM object
+ * @vaddr: Virtual address (can be NULL)
+ */
+void drm_gem_vunmap(struct drm_gem_object *obj, void *vaddr)
+{
+	if (!vaddr)
+		return;
+
+	if (obj->funcs && obj->funcs->vunmap)
+		obj->funcs->vunmap(obj, vaddr);
+	else if (obj->dev->driver->gem_prime_vunmap)
+		obj->dev->driver->gem_prime_vunmap(obj, vaddr);
+}
+EXPORT_SYMBOL(drm_gem_vunmap);

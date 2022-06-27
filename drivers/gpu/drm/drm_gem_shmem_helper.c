@@ -15,6 +15,7 @@
 #include <drm/drm_gem_shmem_helper.h>
 #include <drm/drm_prime.h>
 #include <drm/drm_print.h>
+#include <drm/drmP.h>
 
 /**
  * DOC: overview
@@ -53,10 +54,11 @@ struct drm_gem_shmem_object *drm_gem_shmem_create(struct drm_device *dev, size_t
 
 	size = PAGE_ALIGN(size);
 
-	if (dev->driver->gem_create_object)
+	/*if (dev->driver->gem_create_object)
 		obj = dev->driver->gem_create_object(dev, size);
 	else
-		obj = kzalloc(sizeof(*shmem), GFP_KERNEL);
+		obj = kzalloc(sizeof(*shmem), GFP_KERNEL);*/
+	obj = kzalloc(sizeof(*shmem), GFP_KERNEL);
 	if (!obj)
 		return ERR_PTR(-ENOMEM);
 
@@ -83,7 +85,8 @@ struct drm_gem_shmem_object *drm_gem_shmem_create(struct drm_device *dev, size_t
 	 * going to pin these pages.
 	 */
 	mapping_set_gfp_mask(obj->filp->f_mapping, GFP_HIGHUSER |
-			     __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
+			    // __GFP_RETRY_MAYFAIL |
+				 __GFP_NOWARN);
 
 	return shmem;
 
@@ -352,7 +355,7 @@ drm_gem_shmem_create_with_handle(struct drm_file *file_priv,
 	 */
 	ret = drm_gem_handle_create(file_priv, &shmem->base, handle);
 	/* drop reference from allocate - handle holds it now. */
-	drm_gem_object_put_unlocked(&shmem->base);
+	drm_gem_object_unreference_unlocked(&shmem->base);
 	if (ret)
 		return ERR_PTR(ret);
 
@@ -400,9 +403,8 @@ int drm_gem_shmem_dumb_create(struct drm_file *file, struct drm_device *dev,
 }
 EXPORT_SYMBOL_GPL(drm_gem_shmem_dumb_create);
 
-static vm_fault_t drm_gem_shmem_fault(struct vm_fault *vmf)
+static vm_fault_t drm_gem_shmem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	struct vm_area_struct *vma = vmf->vma;
 	struct drm_gem_object *obj = vma->vm_private_data;
 	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
 	loff_t num_pages = obj->size >> PAGE_SHIFT;
@@ -413,7 +415,7 @@ static vm_fault_t drm_gem_shmem_fault(struct vm_fault *vmf)
 
 	page = shmem->pages[vmf->pgoff];
 
-	return vmf_insert_page(vma, vmf->address, page);
+	return vmf_insert_page(vma, vmf->virtual_address, page);
 }
 
 static void drm_gem_shmem_vm_open(struct vm_area_struct *vma)
@@ -499,9 +501,10 @@ void drm_gem_shmem_print_info(struct drm_printer *p, unsigned int indent,
 {
 	const struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
 
-	drm_printf_indent(p, indent, "pages_use_count=%u\n", shmem->pages_use_count);
+	//TODO
+	/*drm_printf_indent(p, indent, "pages_use_count=%u\n", shmem->pages_use_count);
 	drm_printf_indent(p, indent, "vmap_use_count=%u\n", shmem->vmap_use_count);
-	drm_printf_indent(p, indent, "vaddr=%p\n", shmem->vaddr);
+	drm_printf_indent(p, indent, "vaddr=%p\n", shmem->vaddr);*/
 }
 EXPORT_SYMBOL(drm_gem_shmem_print_info);
 
@@ -598,7 +601,7 @@ drm_gem_shmem_prime_import_sg_table(struct drm_device *dev,
 	if (IS_ERR(shmem))
 		return ERR_CAST(shmem);
 
-	shmem->pages = kvmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
+	shmem->pages = kmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
 	if (!shmem->pages) {
 		ret = -ENOMEM;
 		goto err_free_gem;
@@ -611,14 +614,14 @@ drm_gem_shmem_prime_import_sg_table(struct drm_device *dev,
 	shmem->sgt = sgt;
 	shmem->pages_use_count = 1; /* Permanently pinned from our point of view */
 
-	DRM_DEBUG_PRIME("size = %zu\n", size);
+	DRM_DEBUG("size = %zu\n", size);
 
 	return &shmem->base;
 
 err_free_array:
 	kvfree(shmem->pages);
 err_free_gem:
-	drm_gem_object_put_unlocked(&shmem->base);
+	drm_gem_object_unreference_unlocked(&shmem->base);
 
 	return ERR_PTR(ret);
 }
