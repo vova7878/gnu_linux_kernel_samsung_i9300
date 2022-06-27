@@ -66,6 +66,12 @@ config DRM_GEM_CMA_HELPER
 	help
 	  Choose this if you need the GEM CMA helper functions
 
+config DRM_GEM_SHMEM_HELPER
+	bool
+	depends on DRM
+	help
+	  Choose this if you need the GEM shmem helper functions
+
 config DRM_KMS_CMA_HELPER
 	bool
 	select DRM_GEM_CMA_HELPER

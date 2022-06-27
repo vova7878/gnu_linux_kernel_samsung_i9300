@@ -18,6 +18,7 @@ drm-y       :=	drm_auth.o drm_bufs.o drm_cache.o \
 
 drm-$(CONFIG_COMPAT) += drm_ioc32.o
 drm-$(CONFIG_DRM_GEM_CMA_HELPER) += drm_gem_cma_helper.o
+drm-$(CONFIG_DRM_GEM_SHMEM_HELPER) += drm_gem_shmem_helper.o
 drm-$(CONFIG_PCI) += ati_pcigart.o
 drm-$(CONFIG_DRM_PANEL) += drm_panel.o
 drm-$(CONFIG_OF) += drm_of.o
@@ -65,7 +66,7 @@ obj-$(CONFIG_DRM_BOCHS) += bochs/
 obj-$(CONFIG_DRM_MSM) += msm/
 obj-$(CONFIG_DRM_TEGRA) += tegra/
 obj-$(CONFIG_DRM_STI) += sti/
-obj-$(CONFIG_DRM_LIMA)  += lima/
+#obj-$(CONFIG_DRM_LIMA)  += lima/
 obj-y			+= i2c/
 obj-y			+= panel/
 obj-y			+= bridge/
