@@ -121,7 +121,7 @@ static int lima_ioctl_gem_submit(struct drm_device *dev, void *data, struct drm_
 	if (args->frame_size != pipe->frame_size)
 		return -EINVAL;
 
-	bos = kvcalloc(args->nr_bos, sizeof(*submit.bos) + sizeof(*submit.lbos), GFP_KERNEL);
+	bos = kcalloc(args->nr_bos, sizeof(*submit.bos) + sizeof(*submit.lbos), GFP_KERNEL);
 	if (!bos)
 		return -ENOMEM;
 
@@ -433,7 +433,7 @@ err_out3:
 err_out2:
 	lima_device_fini(ldev);
 err_out1:
-	drm_dev_put(ddev);
+	drm_dev_ref(ddev);
 err_out0:
 	lima_sched_slab_fini();
 	return err;
@@ -455,7 +455,7 @@ static int lima_pdev_remove(struct platform_device *pdev)
 	lima_devfreq_fini(ldev);
 	lima_device_fini(ldev);
 
-	drm_dev_put(ddev);
+	drm_dev_ref(ddev);
 	lima_sched_slab_fini();
 	return 0;
 }
